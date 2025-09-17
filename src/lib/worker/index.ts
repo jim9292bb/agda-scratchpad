@@ -108,7 +108,7 @@ async function init({ port: stdinWakerPort, stdinSab, stdoutSab, driveHostInSab,
     return stdinReader.pollRead(waitDuration)
   })
 
-  const wasm = await WebAssembly.instantiateStreaming(fetch('/als.wasm'), importObject)
+  const wasm = await WebAssembly.instantiateStreaming(fetch('/als-demo/als.wasm'), importObject)
   function start() {
     proxyWASIDrive(wasi.drive, driveHostInSab, driveHostOutSab)
     const execResult = wasi.start(wasm)
