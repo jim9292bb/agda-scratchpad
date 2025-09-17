@@ -5,9 +5,6 @@ const dev = process.env.NODE_ENV === 'development'
 const config = {
   kit: {
     adapter: adapter({ precompress: false }),
-    paths: {
-      base: dev ? '' : '/als-demo',
-    },
   }
 }
 
