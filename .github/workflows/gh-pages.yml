@@ -22,7 +22,10 @@ jobs:
       run: npm ci
 
     - name: Build
-      run: npm run build
+      run: NODE_ENV=production npm run build
+
+    - name : Drop a .nojekyll
+      run: touch build/.nojekyll
 
     - name: Upload static files as artifact
       uses: actions/upload-pages-artifact@v3
