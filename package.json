@@ -1,0 +1,48 @@
+{
+  "name": "als-demo",
+  "version": "0.0.1",
+  "description": "ALS demo",
+  "author": "qbane",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "prepare": "svelte-kit sync || true",
+    "svelte-kit-sync": "svelte-kit sync && rm node_modules/.tmp/*.tsbuildinfo",
+    "tsc": "tsc -b",
+    "check": "npm run svelte-kit-sync && svelte-check --tsconfig ./tsconfigs/tsconfig.app.json",
+    "check:watch": "npm run svelte-kit-sync && svelte-check --tsconfig ./tsconfigs/tsconfig.app.json --watch",
+    "test:unit": "vitest",
+    "test": "npm run test:unit -- --run"
+  },
+  "devDependencies": {
+    "@sveltejs/kit": "^2.36.2",
+    "svelte": "^5.38.3",
+    "svelte-check": "^4.3.1",
+    "typescript": "^5.9.2",
+    "vite": "^6.3.5",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=18.0.0 <25.0.0"
+  },
+  "dependencies": {
+    "@codemirror/autocomplete": "^6.18.6",
+    "@codemirror/commands": "^6.8.1",
+    "@codemirror/language": "^6.11.3",
+    "@codemirror/lint": "^6.8.5",
+    "@codemirror/lsp-client": "^6.1.0",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.38.1",
+    "@rich_harris/svelte-split-pane": "^2.0.0",
+    "@runno/wasi": "^0.10.0",
+    "@sveltejs/adapter-static": "^3.0.9",
+    "codemirror": "^6.0.1",
+    "comlink": "^4.4.2",
+    "jszip": "^3.10.1",
+    "spsc": "^0.0.4",
+    "zod": "^4.1.3"
+  }
+}
