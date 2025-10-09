@@ -128,8 +128,8 @@ function wrapFdWrite(
 }
 
 /** @param {Runno.WASI} wasi
- * @param {(timeout: number) => boolean} maybeYieldFunc */
-export function patchImportObject(wasi: Runno.WASI, maybeYieldFunc: (timeout: number) => boolean) {
+ * @param {{ pollStdin: (timeout: number) => boolean }} options */
+export function patchImportObject(wasi: Runno.WASI, options: { pollStdin: (timeout: number) => boolean }) {
   const { wasi_snapshot_preview1, ...impObjRest } = wasi.getImportObject()
 
   const origFdRead = wasi_snapshot_preview1.fd_read
@@ -141,7 +141,7 @@ export function patchImportObject(wasi: Runno.WASI, maybeYieldFunc: (timeout: nu
       ...wasi_snapshot_preview1,
       fd_read: wrapFdRead.bind(wasi)(origFdRead),
       fd_write: wrapFdWrite.bind(wasi)(origFdWrite),
-      poll_oneoff: wrapPollOneoff.bind(wasi)(origPollOneoff, maybeYieldFunc)
+      poll_oneoff: wrapPollOneoff.bind(wasi)(origPollOneoff, options.pollStdin)
     }
   }
 }

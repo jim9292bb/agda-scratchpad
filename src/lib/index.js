@@ -1,6 +1,17 @@
 /** @import { SPSCReader } from 'spsc/reader' */
 /** @import { SPSCWriter } from 'spsc/writer' */
+/** @import { ALSWorkerInitObject, ALSWorkerInitResultProxied } from '$lib/worker/types' */
 import { SPSCError } from 'spsc'
+import * as Comlink from 'comlink'
+import { freadAsync, fwriteAsync, makeBufUint32LE, writeLenPrefixedAsync } from './stdlib'
+
+function browserSupportBYOBReadable() {
+  try {
+    // feature detection
+    new ReadableStream({ type: 'bytes' })
+    return true
+  } catch { return false }
+}
 
 /**
  * @param {SPSCReader} reader
@@ -17,7 +28,34 @@ export function createReadableByteStream(reader, waker) {
     }
   }
 
-  // TODO: polyfill for Safari
+  if (!browserSupportBYOBReadable()) {
+    console.warn('Browser not support byob readable streams; using the fallback impl.')
+
+    // does not support byob
+    return new ReadableStream({
+      async pull(controller) {
+        while (true) {
+          const rr = reader.read(controller.desiredSize ?? 4096, { nonblock: true })
+          if (!rr.ok) {
+            if (rr.error === SPSCError.Again) {
+              await new Promise(resolve => pendingRead = resolve)
+              continue
+            }
+            throw new Error('read failed')
+          }
+
+          if (rr.bytesRead) {
+            controller.enqueue(/** @type {Uint8Array<ArrayBuffer>} */(rr.data))
+          } else {
+            console.log('process ends')
+            controller.close()
+          }
+          break
+        }
+      }
+    })
+  }
+
   return new ReadableStream({
     type: 'bytes',
     async pull(controller) {
@@ -36,11 +74,11 @@ export function createReadableByteStream(reader, waker) {
           const sz = Math.min(view.byteLength, rr.bytesRead)
           view.set(rr.data.subarray(0, sz))
           controller.byobRequest.respond(sz)
-          break
         } else {
           console.log('process ends')
           controller.close()
         }
+        break
       }
     },
     autoAllocateChunkSize: reader.capacity,
@@ -72,63 +110,117 @@ export function createWritableByteStream(writer) {
   })
 }
 
-/** @returns {TransformStream<Uint8Array, string>} */
-export function makeChunkifyStream() {
-  const decoder = new TextDecoder()
-  let buffer = new Uint8Array()
-  let pending = -1
+export function makeDriveHostWorker() {
+  return new Worker(
+    new URL('$lib/worker/drive.js?worker&inline', import.meta.url), {
+      name: 'Runno drive host',
+      type: 'module',
+    })
+}
 
-  function findBoundary() {
-    for (let idx = 0; idx <= buffer.length - 4; idx++) {
-      idx = buffer.indexOf(13, idx)
-      if (idx < 0) break
-      if (buffer[idx + 1] == 10 &&
-          buffer[idx + 2] == 13 &&
-          buffer[idx + 3] == 10) {
-        return idx
-      }
-    }
-    return -1
-  }
+/**
+ * @param {ALSWorkerInitObject} initObject
+ * @param {(worker: Worker) => void} workerPreCallback
+ */
+export function makeLspWorker(initObject, workerPreCallback) {
+  const worker = new Worker(
+    new URL('$lib/worker/als.js?worker&inline', import.meta.url),
+    { name: 'ALS LSP Worker', type: 'module' })
 
   /**
-   * @param {Uint8Array} a
-   * @param {Uint8Array} b
-   */
-  function concatUint8Arrays(a, b) {
-    const result = new Uint8Array(a.byteLength + b.byteLength)
-    result.set(a)
-    result.set(b, a.byteLength)
-    return result
+   * @type {Comlink.Remote<{
+   *          init: (initObj: ALSWorkerInitObject) =>
+   *            ALSWorkerInitResultProxied}>} */
+  const endpoint = Comlink.wrap(worker)
+  workerPreCallback?.(worker)
+
+  const { wasmSource, stdinWaker } = initObject
+
+  const initPromise = endpoint.init(Comlink.transfer(initObject, [
+    ...(wasmSource.type === 'stream' ? [wasmSource.stream] : []),
+    stdinWaker,
+  ]))
+
+  return { endpoint, initPromise }
+}
+
+/**
+ * @param {Response} resp
+ * @param {(loaded: number) => void} callback */
+export function reportFetchProgress(resp, callback) {
+  if (resp.body == null) {
+    throw new Error('Fetched no body')
   }
 
-  return new TransformStream({
-    async transform(chunk, controller) {
-      buffer = concatUint8Arrays(buffer, chunk)
-      while (true) {
-        if (pending == -1) {
-          // header phase; this is accidentally conforming to use "ascii" encoding
-          const brk = findBoundary()
-          if (brk < 0) break
-          const header = String.fromCharCode(...buffer.subarray(0, brk))
-          const matched = header.match(/^content-length:\s*(\d+)/i)
-          if (!matched) throw new Error(`failed to parse header: ${JSON.stringify(header)}`)
-          pending = Number.parseInt(matched[1], 10)
-          buffer = buffer.subarray(brk + 4)
-        } else if (pending <= buffer.byteLength) {
-          // content phase; decode with UTF-8
-          controller.enqueue(decoder.decode(buffer.subarray(0, pending)))
-          buffer = buffer.subarray(pending)
-          pending = -1
-        } else {
-          break
+  let loaded = 0, bytesTotal = -1
+
+  const contentLength = resp.headers.get('content-length')
+  if (contentLength != null) {
+    bytesTotal = Number.parseInt(contentLength, 10)
+  }
+
+  /** @type {(arg: unknown) => void} */
+  let dispatchFinish
+  const finished = new Promise(r => dispatchFinish = r)
+
+  const reader = resp.body.getReader()
+
+  // NOTE: transform stream cannot give precise progress report; seemingly because it is pull-based
+  /** @type {ReadableStream<Uint8Array>} */
+  const stream = new ReadableStream({
+    start(controller) {
+      const drainStream = async () => {
+        while (true) {
+          const iter = await reader.read()
+          if (iter.done) break
+          loaded += iter.value.byteLength
+          callback(loaded)
+          controller.enqueue(iter.value)
         }
+        controller.close()
       }
+
+      drainStream().then(dispatchFinish).catch(err => {
+        controller.error(err)
+      })
     },
-    flush() {
-      if (buffer.byteLength) {
-        throw new Error(`trailing data in the buffer: ${JSON.stringify(decoder.decode(buffer))}`)
-      }
-    }
+  })
+
+  return {
+    source: { type: /** @type {const} */('stream'), stream },
+    bytesTotal,
+    finished,
+  }
+}
+
+/**
+ * @param {Int32Array<SharedArrayBuffer>} lock
+ * @param {() => Promise<unknown>} callback */
+export async function withDriveLock(lock, callback) {
+  while (Atomics.compareExchange(lock, 0, 0, 1) !== 0) {
+    console.warn('drive is busy, retrying later...')
+    await new Promise(r => setTimeout(r, 100))
+  }
+
+  await callback()
+
+  if (Atomics.compareExchange(lock, 0, 1, 0) !== 1) {
+    throw new Error('mutex content corrupted')
+  }
+
+  Atomics.notify(lock, 0, 1)
+}
+
+/**
+ * @param {{ lock: Int32Array<SharedArrayBuffer>, stdinWriter: SPSCWriter, stdoutReader: SPSCReader }} _
+ * @param {string} doc */
+export function writeSourceFileToDrive({lock, stdinWriter, stdoutReader}, doc) {
+  const encoder = new TextEncoder()
+
+  return withDriveLock(lock, async () => {
+    // FIXME: we should invoke Runno internal calls directly
+    await fwriteAsync(stdinWriter, makeBufUint32LE(1))
+    await writeLenPrefixedAsync(stdinWriter, encoder.encode(doc))
+    await freadAsync(stdoutReader, 1)
   })
 }

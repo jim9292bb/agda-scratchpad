@@ -24,8 +24,10 @@ const aspectKinds = Object.freeze({
   // name kinds
   'bound':         { name: 'Bound variable' },
   'generalizable': { name: 'Generalizable' },
-  'inductiveconstructor': { name: 'Inductive constructor' },
-  'coinductiveconstructor': { name: 'Coinductive constructor' },
+  'inductiveconstructor':
+                   { name: 'Inductive constructor' },
+  'coinductiveconstructor':
+                   { name: 'Coinductive constructor' },
   'datatype':      { name: 'Data type' },
   'field':         { name: 'Field' },
   'function':      { name: 'Function' },
@@ -73,7 +75,7 @@ function atomDisplayName(atom) {
   return atom
 }
 
-// TODO: fix the side number
+// TODO: fix the side number; we generate it on the fly for now
 const otherAspectsSideNudgingMap = new Map()
 
 /** @param {string} atom */
@@ -89,6 +91,8 @@ function getOtherAspectsSideNudgingNumber(atom) {
 
 /**
  * @typedef {{
+ *   id?: number,
+ *   defId?: number,
  *   class: string,
  *   atoms: string[],
  *   meta: Omit<AgdaHighlightingInfoItem, 'atoms' | 'range'>,
@@ -120,6 +124,7 @@ export function buildHighlightEffects(state, specs) {
     for (const atom of atoms) {
       if (atom === 'hole') {
         // totally ignore holes -- unless they are drawn via token based
+        // FIXME: review this condition
         if (!spec.tokenBased) {
           continue outer
         }
@@ -171,20 +176,26 @@ export function buildHighlightEffects(state, specs) {
   return effects
 }
 
+const initialHighlightState = Object.freeze({
+  decoCounter: 1,
+  aspects: Decoration.none,
+  otherAspects: Decoration.none,
+})
+
 const highlightState = StateField.define({
   create(_state) {
-    return {
-      aspects: Decoration.none,
-      otherAspects: Decoration.none,
-    }
+    return initialHighlightState
   },
   update(value, tr) {
     if (!tr.changes.empty) {
       value = {
+        ...value,
         aspects: value.aspects.map(tr.changes),
         otherAspects: value.otherAspects.map(tr.changes),
       }
     }
+
+    let cnt = value.decoCounter
 
     for (let e of tr.effects) {
       if (e.is(setHighlight)) {
@@ -193,11 +204,15 @@ const highlightState = StateField.define({
         let slot = e.value.isToken ? value.aspects : value.otherAspects
 
         for (const r of e.value.decos) {
+          if (slotName === 'aspects') {
+            /** @type {HighlightTokenSpec} */(r.value.spec).id = cnt++
+          }
           slot = upsertDeco(slot, r)
         }
 
         value = {
           ...value,
+          decoCounter: cnt,
           [slotName]: slot,
         }
       } else if (e.is(removeHighlight)) {
@@ -206,12 +221,19 @@ const highlightState = StateField.define({
       } else if (e.is(clearHighlight)) {
         const removeOnlyTokenBased = e.value
         if (removeOnlyTokenBased) {
-          // TODO
+          // TODO: not tested
+          throw new Error('does not support removing highlight w/ removeOnlyTokenBased = true')
+          // value = {
+          //   ...value,
+          //   aspects: value.aspects.update({
+          //     filter(_f, _t, value) {
+          //       return /** @type {HighlightTokenSpec} */(value.spec)
+          //         .meta.tokenBased !== 'TokenBased'
+          //     },
+          //   }),
+          // }
         } else {
-          value = {
-            aspects: Decoration.none,
-            otherAspects: Decoration.none,
-          }
+          value = initialHighlightState
         }
       } else if (e.is(setGoals)) {
         // remove holes drawn by token highlighting
@@ -242,7 +264,7 @@ const highlightState = StateField.define({
 function hoverTooltipProvider(view, pos, side) {
   // a potential bug -- the offset property is dropped as long as tooltips being merged
   // are not referentally equal
-  const offset = {x: 0, y: 1}
+  const offset = {x: 0, y: 4}
   const hlstate = view.state.field(highlightState)
   /** @type {Tooltip[]} */
   const tooltips = []
@@ -264,7 +286,7 @@ function hoverTooltipProvider(view, pos, side) {
           div.style = 'font-family: sans-serif; font-size: 14px; max-width: 400px; padding: 8px'
 
           // FIXME: injection
-          div.innerHTML = spec.atoms.map(x => `<strong>${atomDisplayName(x)}</strong>`).join(' + ')
+          div.innerHTML = spec.atoms.map(x => `<strong>${atomDisplayName(x)}</strong>`).join(' + ') + ` id=${spec.id}`
 
           if (spec.meta.note) {
             const pre = document.createElement('pre')

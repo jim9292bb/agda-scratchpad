@@ -1,76 +1,41 @@
 <script>
 import { onDestroy } from 'svelte'
-import * as Comlink from 'comlink'
 
+import { SPSC } from 'spsc'
 import { SplitPane } from '@rich_harris/svelte-split-pane'
 import { basicSetup } from 'codemirror'
 import { EditorView } from '@codemirror/view'
-import { LSPClient, languageServerExtensions } from '@codemirror/lsp-client'
 
-import { allocateArrayBuffer } from 'spsc'
-import { SPSCWriter } from 'spsc/writer'
-import { SPSCReader } from 'spsc/reader'
-
-import { createReadableByteStream, createWritableByteStream, makeChunkifyStream } from '$lib'
-import { myCodeMirrorTheme } from '$lib/codemirror/theme'
-import { commit, offsetTracking } from '$lib/codemirror/offsets'
+import { autoColorScheme, myCodeMirrorTheme, prefersDarkTheme } from '$lib/codemirror/theme'
+import { offsetTracking } from '$lib/codemirror/offsets'
 import { agdaHighlight } from '$lib/agda/highlight'
-import { agdaDarkSchemeFromEmacs } from '$lib/agda/color-scheme'
-import { hoverTooltips } from '$lib/codemirror/lsp-hover'
-import { makeLSPTransport } from '$lib/agda/transport'
+import { agdaDarkSchemeFromEmacs, agdaLightSchemeFromEmacs } from '$lib/agda/color-scheme'
+import { AgdaController, LS_DOC_KEY } from '$lib/controller.svelte'
+import { withDriveLock } from '$lib'
+import { makeBufUint32LE } from '$lib/stdlib'
 
-/** @import { AgdaIOTCMStatus } from '$lib/agda/transport' */
+const driveLockSab = new SharedArrayBuffer(4)
+const driveStdinSab = SPSC.allocateArrayBuffer(4096)
+const driveStdoutSab = SPSC.allocateArrayBuffer(4096)
 
-const _worker = new Worker(
-  new URL('$lib/worker/index.js?worker&inline', import.meta.url),
-  { name: 'LSP Worker', type: 'module' })
-/** @type {Comlink.Remote<{init: (initObj: any) => {
- *   start: () => Promise<void>,
- * }}>} */
-const worker = Comlink.wrap(_worker)
+const agdaStdinSab = SPSC.allocateArrayBuffer(4096)
+const agdaStdoutSab = SPSC.allocateArrayBuffer(4096)
 
-_worker.addEventListener('error', (evt) => {
-  console.error(evt)
-  debugger
-})
-
-const driveHostWorker = new Worker(new URL('$lib/worker/drive.js?worker&inline', import.meta.url), {
-  name: 'Runno drive host',
-  type: 'module',
-})
-
-const driveHostInSab = new SharedArrayBuffer(4096)
-const driveHostOutSab = new SharedArrayBuffer(4096)
-driveHostWorker.postMessage({ stdin: driveHostOutSab, stdout: driveHostInSab })
-
-const stdinSab = allocateArrayBuffer(4096)
-const stdoutSab = allocateArrayBuffer(4096)
-
-const writer = new SPSCWriter(stdinSab)
-const reader = new SPSCReader(stdoutSab)
-
-const msgchan = new MessageChannel()
-
-const initPromise = worker.init(Comlink.transfer({
-  port: msgchan.port1,
-  stdinSab,
-  stdoutSab,
-  driveHostInSab,
-  driveHostOutSab,
-}, [msgchan.port1]))
-
-initPromise.then(async (initRet) => {
-  const {start} = initRet
-
-  const startPromise = start()
-
-  const result = await startPromise
-
-  console.warn('exited', result)
+const agdaController = new AgdaController({
+  agdaBuffers: {
+    stdin: agdaStdinSab,
+    stdout: agdaStdoutSab,
+  },
+  driveBuffers: {
+    lock: driveLockSab,
+    stdin: driveStdinSab,
+    stdout: driveStdoutSab,
+  },
+  agdaVersion: '2.7.0.1',
 })
 
 onDestroy(() => {
-  _worker.terminate()
+  agdaController.terminateALSWASM()
 })
 
 const basicTheme = EditorView.theme({
@@ -80,31 +45,6 @@ const basicTheme = EditorView.theme({
     paddingRight: '4px',
   },
 })
-
-/** @type {AgdaIOTCMStatus} */
-let agdaIOTCMStatus = $state('init')
-
-const lspClientReadable = createReadableByteStream(reader, msgchan.port2)
-const rpcStream = lspClientReadable.pipeThrough(makeChunkifyStream())
-const lspClientWritable = createWritableByteStream(writer)
-
-const lspExtsWithoutHover = languageServerExtensions().filter(x => !('active' in x))
-
-const lspClient = new LSPClient({
-  timeout: 10000,
-  rootUri: '/',
-  extensions: [
-    ...lspExtsWithoutHover,
-    hoverTooltips(),
-  ],
-})
-
-/**
- * @type {EditorView}
- */
-let editorView
-
-const LS_DOC_KEY = 'agda-web-ide-beta:doc'
 
 /** @type {import('svelte/attachments').Attachment} */
 function codeMirror(el) {
@@ -116,52 +56,33 @@ function codeMirror(el) {
       myCodeMirrorTheme(),
       basicTheme,
       offsetTracking(),
-      agdaDarkSchemeFromEmacs,
+      autoColorScheme({
+        dark: agdaDarkSchemeFromEmacs,
+        light: agdaLightSchemeFromEmacs,
+        defaultDark: prefersDarkTheme(window),
+      }),
       agdaHighlight(),
-      lspClient.plugin('file:///source.agda'),
+      agdaController.lspClientCompartment.of([]),
     ],
   })
 
-  lspClient.connect(makeLSPTransport(
-    ev,
-    rpcStream,
-    lspClientWritable,
-    status => {
-      agdaIOTCMStatus = status
-    },
-  ))
-  editorView = ev
+  agdaController.connectEditorView(ev)
 
   return () => { ev.destroy() }
 }
 
-function loadAgdaFile() {
-  console.log('will update fs...')
-  ;/** @type {any} */(window).worker = driveHostWorker
-
-  const doc = editorView.state.doc.toString()
-  localStorage.setItem(LS_DOC_KEY, doc)
-  // FIXME: we should invoke Runno internal calls directly
-  driveHostWorker.postMessage({method: 'write', content: doc})
-
-  ;/** @type {Promise<void>} */(new Promise(resolve => {
-    driveHostWorker.addEventListener('message', () => {
-      resolve()
-    }, { once: true })
-  })).then(() => {
-    console.log('file is synced.')
-
-    editorView.dispatch({effects: commit.of()})
-
-    lspClient.notification('textDocument/didSave', {
-      textDocument: {
-        uri: 'file:///source.agda',
-      },
-    })
-    lspClient.request('agda', {
-      tag: 'CmdReq',
-      contents: 'IOTCM "/source.agda" NonInteractive Direct (Cmd_load "/source.agda" [])',
-    })
+function dumpFS() {
+  if (agdaController._driveHostWorker == null) {
+    console.warn('no drive worker to dump')
+    return
+  }
+  withDriveLock(agdaController.driveHandle.lock, async () => {
+    agdaController.driveHandle.stdinWriter.write(makeBufUint32LE(2), { nonblock: true })
+    while (!agdaController.driveHandle.stdoutReader.read(1, { nonblock: true }).ok) {
+      await new Promise(r => setTimeout(r, 100))
+    }
+  }).then(() => {
+    console.log('dumped')
   })
 }
 
@@ -181,10 +102,9 @@ $effect(() => {
     })
   }
 })
-
 </script>
 
-<SplitPane type="horizontal" min="300px" max="-300px" pos="60%" --color={'#333'} --thickness={'11px'}>
+<SplitPane type="horizontal" min="300px" max="-300px" pos="60%" --color={'var(--layout-divider-color)'} --thickness={'11px'}>
   {#snippet a()}
     <section class="editor-section">
       <header class="header">Agda REPL 2025</header>
@@ -193,11 +113,50 @@ $effect(() => {
   {/snippet}
   {#snippet b()}
     <section>
-      <SplitPane type="vertical" min="100px" max="-40px" pos="75%" --color={'#333'} --thickness={'11px'}>
+      <SplitPane type="vertical" min="100px" max="-40px" pos="75%" --color={'var(--layout-divider-color)'} --thickness={'11px'}>
         {#snippet a()}
           <section class="info-section">
-            <p>Worker status: {agdaIOTCMStatus}</p>
-            <button style="padding: 20px" onclick={loadAgdaFile}>Load</button>
+            {#snippet alsButtons()}
+              {@const alsIsStartable =
+                ['initial', 'terminated', 'exited', 'errored'].includes(agdaController.alsWorkerStatus) ?
+                  'startable' : agdaController.alsWorkerStatus === 'active' ? 'stopable' : ''}
+              <div class="flex" style="padding: 1em 0">
+                <button onclick={{
+                  startable: () => agdaController.startALSWASM(),
+                  stopable: () => agdaController.stopALSWASM(),
+                  '': null}[alsIsStartable]}
+                  disabled={!alsIsStartable}>{
+                  {startable: 'Start', stopable: 'Stop', '': '...'}[alsIsStartable]
+                }</button>
+                <button onclick={() => agdaController.restartALSWASM()} disabled={agdaController.alsWorkerStatus !== 'active'}>Restart</button>
+                <button onclick={() => agdaController.terminateALSWASM()}  disabled={['initial', 'terminated'].includes(agdaController.alsWorkerStatus)}>Terminate</button>
+                <button disabled={!agdaController._driveHostWorker} onclick={() => dumpFS()}>Dump FS</button>
+              </div>
+              <div>
+              {#if agdaController.alsWorkerStatus === 'loading'}
+                ⌛ Downloading WASM: <progress max={agdaController.wasmLoadingProgress?.bytesTotal} value={agdaController.wasmLoadingProgress?.bytesLoaded}></progress>
+              {:else if agdaController.alsWorkerStatus === 'loaded'}
+                ⚙️ WASM is downloaded. Starting up...
+              {:else if agdaController.alsWorkerStatus === 'exited'}
+                🛑 WASM has exited.
+              {:else if agdaController.alsWorkerStatus !== 'active'}
+                Status: <strong>{agdaController.alsWorkerStatus}</strong><br />
+                👉 Press "start" to load WASM
+              {:else}
+                Status: <strong>{agdaController.alsWorkerStatus}</strong>
+                <ul>
+                  <li>Agda version: {agdaController.receivedALSVersion}</li>
+                  <li>Load arg: (empty)</li>
+                  <li>IOTCM status: {agdaController.iotcmStatus}</li>
+                </ul>
+                <div class="flex">
+                  <button style="padding: 20px" onclick={() => agdaController.loadAgdaFile()}>Load</button>
+                </div>
+              {/if}
+              </div>
+
+            {/snippet}
+            {@render alsButtons()}
           </section>
         {/snippet}
         {#snippet b()}
@@ -217,7 +176,7 @@ $effect(() => {
   font-size: 16px;
   font-family: monospace;
   padding: 8px;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--layout-divider-color);
 }
 
 .container {
@@ -242,6 +201,7 @@ $effect(() => {
   padding: 8px;
   display: flex;
   flex-direction: column;
+  overflow: auto;
 }
 
 .textbox {
@@ -253,5 +213,23 @@ $effect(() => {
   width: 100%;
   height: 100%;
   padding: 4px;
+}
+
+button {
+  min-width: 56px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex {
+  display: flex;
+  gap: 8px;
+}
+
+:global(svelte-split-pane-divider:hover:after) {
+  --sp-color: #ace;
+  /*width: 3px !important;*/
 }
 </style>

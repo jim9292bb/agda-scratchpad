@@ -144,4 +144,3 @@ if (typeof window === 'undefined') {
         );
     })();
 }
-

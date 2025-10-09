@@ -5,13 +5,14 @@ import { Message } from 'vscode-jsonrpc'
 import { clearHighlight } from './effects'
 import { alsHighlightingInfosDirectSchema } from './schema'
 import { buildHighlightEffects } from './highlight'
+import { LSPMessageDecoder } from './lsp'
 
 /** @typedef {'init' | 'ready' | 'requested' | 'processing'} AgdaIOTCMStatus */
 
 /** @import { ResponseMessage, NotificationMessage, RequestMessage } from 'vscode-languageserver-protocol' */
 /** @typedef {ResponseMessage | NotificationMessage | RequestMessage} LSPPayload */
 
-class AgdaController {
+export class ALSMessageRouter {
   /**
    * @param {EditorView} editorView
    * @param {(tag: string, contents: any) => void} msgCallback - The hook that gets called with Agda-method messages
@@ -29,6 +30,9 @@ class AgdaController {
     this.editorView = editorView
     this.handleRequest = msgCallback
     this.handleStatusChange = statusCallback
+
+    this.checked = false
+    this.showImplicitArgs = false
 
     const ctrl = this
 
@@ -86,10 +90,10 @@ class AgdaController {
   }
 
   /**
-   * @param {ReadableStream<string>} rpcStream
+   * @param {ReadableStream<Uint8Array>} workerReadable
    * @param {WritableStream<Uint8Array>} workerWritable
    */
-  async listen(rpcStream, workerWritable) {
+  async intercept(workerReadable, workerWritable) {
     /** @type {UnderlyingSink<string>['write']} */
     const write = (msg) => {
       /** @type {LSPPayload} */
@@ -122,7 +126,9 @@ class AgdaController {
 
     this.rpcSink = workerWritable
 
-    return rpcStream.pipeTo(new WritableStream({write}))
+    return workerReadable
+      .pipeThrough(new TransformStream(new LSPMessageDecoder))
+      .pipeTo(new WritableStream({write}))
   }
 
   /** @param {string} msg */
@@ -135,42 +141,56 @@ class AgdaController {
 
 /**
  * @param {EditorView} editorView  The editor the transport will attach to
- * @param {ReadableStream} rpcStream  RPC-messages from language server
  * @param {(status: AgdaIOTCMStatus) => void} statusCallback  The hook that gets called with worker status changes
- * @param {WritableStream<Uint8Array>} writable
- * @returns {Transport}
+ * @returns {ALSMessageRouter}
  */
-export function makeLSPTransport(editorView, rpcStream, writable, statusCallback) {
-  /**
-   * @param {string} tag
-   * @param {any} contents
-   */
-  function msgCallback(tag, contents) {
-    if (tag === 'ResponseClearHighlightingNotOnlyTokenBased') {
+export function makeLSPTransport(editorView, statusCallback) {
+
+  /** @type {Record<string, (this: ALSMessageRouter, contents: any) => void>} */
+  const callbackMap = {
+    ResponseStatus([checked, showImplicitArgs]) {
+      // TODO: bind definition site here
+      this.checked = checked
+      this.showImplicitArgs = showImplicitArgs
+    },
+    // Agda (~2.8)'s codebase does not contain any instance of (Resp_ClearHighlighting TokenBased)
+    ResponseClearHighlightingTokenBased() {
+      throw new Error('ResponseClearHighlightingTokenBased is not implemented')
+      // editorView.dispatch({
+      //   effects: clearHighlight.of(true),
+      // })
+    },
+    ResponseClearHighlightingNotOnlyTokenBased() {
       editorView.dispatch({
         effects: clearHighlight.of(false),
       })
-      // highlightingInfo.length = 0
-    } else if (tag === 'ResponseHighlightingInfoDirect') {
-
+    },
+    ResponseHighlightingInfoDirect(contents) {
       const infos = alsHighlightingInfosDirectSchema.decode(contents)
+      // Agda (~2.8)'s codebase does not contain any instance of (Resp_HighlightingInfo ... RemoveHighlighting)
       if (infos.info.remove) {
         editorView.dispatch({
-          effects: clearHighlight.of(false)
+          effects: clearHighlight.of(true)
         })
       }
       editorView.dispatch({
         effects: buildHighlightEffects(editorView.state, infos.info.payload)
       })
-      // highlightingInfo = highlightingInfo.concat(infos.info.payload)
-    } else {
-      console.warn('Unrecognized resp', {tag, contents})
     }
   }
 
-  const agdaController = new AgdaController(editorView, msgCallback, statusCallback)
+  const router = new ALSMessageRouter(editorView, msgCallback, statusCallback)
 
-  agdaController.listen(rpcStream, writable)
+  /**
+   * @param {string} tag
+   * @param {any} contents
+   */
+  function msgCallback(tag, contents) {
+    if (tag in callbackMap) {
+      return callbackMap[tag].call(router, contents)
+    }
+    console.warn('Unrecognized resp', {tag, contents})
+  }
 
-  return agdaController.transport
+  return router
 }

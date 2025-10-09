@@ -10,7 +10,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "prepare": "svelte-kit sync || true",
-    "svelte-kit-sync": "svelte-kit sync && rm node_modules/.tmp/*.tsbuildinfo",
+    "svelte-kit-sync": "svelte-kit sync && rm -f node_modules/.tmp/*.tsbuildinfo",
     "tsc": "tsc -b",
     "check": "npm run svelte-kit-sync && svelte-check --tsconfig ./tsconfigs/tsconfig.app.json",
     "check:watch": "npm run svelte-kit-sync && svelte-check --tsconfig ./tsconfigs/tsconfig.app.json --watch",
@@ -42,7 +42,7 @@
     "codemirror": "^6.0.1",
     "comlink": "^4.4.2",
     "jszip": "^3.10.1",
-    "spsc": "^0.0.4",
+    "spsc": "^0.0.6",
     "zod": "^4.1.3"
   }
 }

@@ -46,7 +46,7 @@ function hoverRequest(plugin: LSPPluginPriv, pos: number) {
   })
 }
 
-function lspTooltipSource(view: EditorView, pos: number): Promise<Tooltip | null> {
+function lspTooltipSource(view: EditorView, pos: number, side: -1 | 1): Promise<Tooltip | null> {
   const plugin = LSPPlugin.get(view)
   if (!plugin) return Promise.resolve(null)
 
@@ -56,15 +56,17 @@ function lspTooltipSource(view: EditorView, pos: number): Promise<Tooltip | null
     timer = setTimeout(resolve, 300)
   })
 
+  // TODO: allow to skip the request if the cursor is not at an identifier
+
   const hoverPromise = hoverRequest(plugin as LSPPluginPriv, pos)
 
   return Promise.race([
     timeoutPromise.then(() => true),
     hoverPromise.then(() => false),
-  ]).then((timedOut) => {
+  ]).then<Tooltip | null>((timedOut) => {
     if (timedOut) {
-      return {
-        // XXX: these values cannot be updated afterwards
+      const dummyTooltip = {
+        // XXX: these values are updated after the hover promise is resolved
         pos, end: pos,
         create() {
           let elt = document.createElement("div")
@@ -74,6 +76,9 @@ function lspTooltipSource(view: EditorView, pos: number): Promise<Tooltip | null
           hoverPromise.then(result => {
             elt.classList.remove("cm-lsp-hover-tooltip--loading")
             if (result) {
+              dummyTooltip.pos = result.range ? fromPosition(view.state.doc, result.range.start) : pos
+              dummyTooltip.end = result.range ? fromPosition(view.state.doc, result.range.end) : pos
+
               elt.innerHTML = renderTooltipContent(plugin as LSPPluginPriv, result.contents)
             } else {
               // should remove?
@@ -84,6 +89,8 @@ function lspTooltipSource(view: EditorView, pos: number): Promise<Tooltip | null
           return {dom: elt}
         },
       }
+
+      return dummyTooltip
     } else {
       clearTimeout(timer)
       return hoverPromise.then(result => {

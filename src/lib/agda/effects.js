@@ -12,7 +12,10 @@ export const setHighlight = StateEffect.define({
   }})
 /** @type {StateEffectType<Range<any>[]>} */
 export const removeHighlight = StateEffect.define({map: mapRanges})
-/** @type {StateEffectType<boolean>} */
+/**
+ * @type {StateEffectType<boolean>}
+ * true if intended to clean only tokenbased, all otherwise
+ */
 export const clearHighlight = StateEffect.define()
 
 /** @type {StateEffectType<Range<Decoration>[]>} */

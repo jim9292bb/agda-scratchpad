@@ -21,7 +21,7 @@ export const alsHighlightingInfoSchema = z.tuple([
     range: [from, to],
     definitionSite,
     atoms,
-    tokenBased,
+    tokenBased: /** @type {typeof tokenBased} */(tokenBased),
     note,
   }))
 
