@@ -115,6 +115,7 @@ export function buildHighlightEffects(state, specs) {
     const [from, to] = mapUtf8Range(state, range[0] - 1, range[1] - 1)
     if (from >= to) continue
 
+    /** @type {string[]} */
     const tokenKinds = []
     let isOperator = false
     let isHole = false
@@ -134,6 +135,7 @@ export function buildHighlightEffects(state, specs) {
       if (atom === 'operator') {
         isOperator = true
       } else if (aspectKinds[atom] != null) {
+        // merge all aspects into one deco, while creating each for every otherAspect
         tokenKinds.push(atom)
       } else {
         const mark = Decoration.mark({
@@ -167,7 +169,7 @@ export function buildHighlightEffects(state, specs) {
     }
   }
 
-  /** @type {StateEffect<object>[]} */
+  /** @type {StateEffect<unknown>[]} */
   const effects = []
   if (aspects.length)
     effects.push(setHighlight.of({isToken: true, decos: aspects}))
@@ -221,17 +223,15 @@ const highlightState = StateField.define({
       } else if (e.is(clearHighlight)) {
         const removeOnlyTokenBased = e.value
         if (removeOnlyTokenBased) {
-          // TODO: not tested
-          throw new Error('does not support removing highlight w/ removeOnlyTokenBased = true')
-          // value = {
-          //   ...value,
-          //   aspects: value.aspects.update({
-          //     filter(_f, _t, value) {
-          //       return /** @type {HighlightTokenSpec} */(value.spec)
-          //         .meta.tokenBased !== 'TokenBased'
-          //     },
-          //   }),
-          // }
+          value = {
+            ...value,
+            aspects: value.aspects.update({
+              filter(_f, _t, value) {
+                return /** @type {HighlightTokenSpec} */(value.spec)
+                  .meta.tokenBased !== 'TokenBased'
+              },
+            }),
+          }
         } else {
           value = initialHighlightState
         }
@@ -286,7 +286,7 @@ function hoverTooltipProvider(view, pos, side) {
           div.style = 'font-family: sans-serif; font-size: 14px; max-width: 400px; padding: 8px'
 
           // FIXME: injection
-          div.innerHTML = spec.atoms.map(x => `<strong>${atomDisplayName(x)}</strong>`).join(' + ') + ` id=${spec.id}`
+          div.innerHTML = spec.atoms.map(x => `<strong>${atomDisplayName(x)}</strong>`).join(' + ') + (spec.id ? ` id=${spec.id}` : '')
 
           if (spec.meta.note) {
             const pre = document.createElement('pre')

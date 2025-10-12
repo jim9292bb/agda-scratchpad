@@ -13,7 +13,7 @@ import {
   createWritableByteStream,
   makeDriveHostWorker,
   makeLspWorker,
-  reportFetchProgress,
+  traceFetchProgress,
   writeSourceFileToDrive,
 } from '$lib'
 import type { ALSWorkerInitResultProxied, WASMLoadingProgress } from '$lib/worker/types'
@@ -24,12 +24,63 @@ import { commit } from './codemirror/offsets'
 const isSafari = /Apple Computer/.test((navigator as any).vendor)
 
 type ALSWorkerStatus = 'initial' | 'errored' | 'loading' | 'loaded' | 'active' | 'deactivating' | 'terminated' | 'exited'
-type SupportedAgdaVersion = '2.6.4.3' | '2.7.0.1' | '2.8.0'
 
-const agdaSupportData: Record<SupportedAgdaVersion, { path: string, stdlib: string[] }> = {
-  '2.6.4.3': { path: 'als.wasm', stdlib: ['2.0'] },
-  '2.7.0.1': { path: 'als.wasm', stdlib: ['2.3'] },
-  '2.8.0': { path: 'als.wasm', stdlib: ['2.3'] },
+const supportedAgdaVersion = ['2.6.4.3', '2.7.0.1', '2.8.0'] as const
+export type SupportedAgdaVersion = typeof supportedAgdaVersion[number]
+
+export interface DriveHandle {
+  lock: Int32Array<SharedArrayBuffer>,
+  stdinWriter: SPSCWriter,
+  stdoutReader: SPSCReader,
+}
+
+interface AgdaVersionSpec {
+  path: string
+  stdlibCandidates: string[]
+  // zip archive to unpack to the initial drive. since 2.8.0 this is no longer required.
+  // instead, a `--setup` command must be executed once
+  dataPath?: string
+}
+
+export const agdaVersionMap: Record<SupportedAgdaVersion, AgdaVersionSpec> = {
+  ['__proto__' as any]: null,
+  '2.6.4.3': {
+    path: asset('/als-2.6.wasm'),
+    stdlibCandidates: ['2.0', '2.1'],
+    dataPath: asset('/agda-data.zip'),
+  },
+  '2.7.0.1': {
+    path: asset('/als-2.7.wasm'),
+    stdlibCandidates: ['2.1.1', '2.2', '2.3'],
+    dataPath: asset('/agda-data.zip'),
+  },
+  '2.8.0': {
+    path: asset('/als-2.8.wasm'),
+    stdlibCandidates: ['2.3'],
+  },
+}
+
+export async function fetchWASMAndData(agdaVersion: SupportedAgdaVersion) {
+  if (!(agdaVersion in agdaVersionMap)) {
+    throw new Error(
+      `version ${agdaVersion} not in list of supported versions: ${JSON.stringify(supportedAgdaVersion)}`)
+  }
+
+  const { path, dataPath } = agdaVersionMap[agdaVersion]
+  const wasm = await fetch(path)
+  if (!wasm.ok || wasm.status >= 400) {
+    throw new Error(`failed to fetch ALS WASM: ${wasm.statusText}`)
+  }
+
+  let dataFile = null
+  if (dataPath) {
+    dataFile = await fetch(dataPath)
+    if (!dataFile.ok || dataFile.status >= 400) {
+      throw new Error(`failed to fetch data file: ${dataFile.statusText}`)
+    }
+  }
+
+  return { wasm, dataFile }
 }
 
 export const LS_DOC_KEY = 'agda-web-ide-beta:doc'
@@ -50,11 +101,7 @@ function makeLspClient(rootUri: string = '/') {
 export class AgdaController {
   agdaStdinWriter: SPSCWriter
   agdaStdoutReader: SPSCReader
-  driveHandle: {
-    lock: Int32Array<SharedArrayBuffer>,
-    stdinWriter: SPSCWriter,
-    stdoutReader: SPSCReader,
-  }
+  driveHandle: DriveHandle
   editorView?: EditorView
   lspClient?: LSPClient
   alsRouter?: ALSMessageRouter
@@ -103,7 +150,7 @@ export class AgdaController {
 
   async startALSWASM() {
     if (this.runningWASM) {
-      throw new Error('cannot do start if WASM is already running')
+      throw new Error('WASM is already running')
     }
 
     if (this.workerInitData) {
@@ -111,32 +158,51 @@ export class AgdaController {
         throw new Error('runaway worker')
       }
       console.warn('reusing worker')
-      return this._startALSWASM()
+      return this._startALSWASM(this.workerInitData)
+    }
+
+    if (this.wasmLoadingProgress) {
+      throw new Error('wasm is already loading')
     }
 
     this.alsWorkerStatus = 'loading'
-    const wasmResponse = await this.fetchWASMAndData()
+    const wasmAndData = await fetchWASMAndData(this.config.agdaVersion).catch(() => null)
+
+    if (wasmAndData == null) {
+      this.alsWorkerStatus = 'errored'
+      return
+    }
+
+    const id = Math.random()
+    const progressCtx = traceFetchProgress(wasmAndData.wasm, (loaded) => {
+      this.wasmLoadingProgress!.bytesLoaded = loaded
+    })
 
     if (isSafari) {
-      // Safari does not support transfering a ReadableStream, so fake it here
-      const result = await wasmResponse.arrayBuffer()
-      const blob = new Blob([result], { type: 'application/wasm' })
+      // Safari does not support transfering a ReadableStream, so we consume the stream and pass its object URL to worker
+      // TODO: revoke object URL after use
+      this.wasmLoadingProgress = {
+        ...progressCtx,
+        source: { type: 'url', url: 'fakeurl' },
+        bytesLoaded: 0,
+        // we read it till end; by the time "finished" is awaited, the object is replaced with the real one below
+      }
+
+      const resp = new Response(progressCtx.source.stream, { headers: { 'Content-Type':  'application/wasm' } })
+      const blob = await resp.blob()
       this.wasmLoadingProgress = {
         source: { type: 'url', url: URL.createObjectURL(blob) },
-        bytesLoaded: result.byteLength,
-        bytesTotal: result.byteLength,
+        bytesLoaded: blob.size,
+        bytesTotal: blob.size,
         finished: Promise.resolve(),
       }
     } else {
-      const prog = reportFetchProgress(wasmResponse, (loaded) => {
-        this.wasmLoadingProgress!.bytesLoaded = loaded
-      })
-      this.wasmLoadingProgress = { ...prog, bytesLoaded: 0 }
+      this.wasmLoadingProgress = { ...progressCtx, bytesLoaded: 0 }
     }
 
     this.wasmLoadingProgress.finished.then(() => this.alsWorkerStatus = 'loaded')
 
-    return this.runALSWASM()
+    return this.runALSWASM(wasmAndData.dataFile)
   }
 
   async restartALSWASM() {
@@ -146,12 +212,18 @@ export class AgdaController {
     return this.startALSWASM()
   }
 
-  async _startALSWASM() {
+  async _startALSWASM(workerInitData: ALSWorkerInitResultProxied) {
     this.alsWorkerStatus = 'active'
-    this.runningWASM = this.workerInitData!.start()
 
     SPSC.resetArrayBuffer(this.config.agdaBuffers.stdin)
     SPSC.resetArrayBuffer(this.config.agdaBuffers.stdout)
+
+    if (this.config.agdaVersion === '2.8.0') {
+      const xxx = await workerInitData.spawn(['+AGDA', '--version', '-AGDA'], { ignoreExitCode: true })
+      console.log(xxx)
+    }
+
+    this.runningWASM = workerInitData.start()
 
     this.lspClient!.connect(this.alsRouter!.transport)
     this.editorView!.dispatch({
@@ -161,52 +233,29 @@ export class AgdaController {
 
     const ret = await this.runningWASM
     this.runningWASM = undefined
+    this.deactivate()
+
     this.alsWorkerStatus = 'exited'
-    console.log('worker exited', ret)
+    console.log('ALS worker exited with code', ret)
     return ret
   }
 
-  async fetchWASMAndData() {
-    const resp = await fetch(asset('/als.wasm'))
-    if (!resp.ok) {
-      this.alsWorkerStatus = 'errored'
-    }
-
-    // TODO: this depends on the version requested
-    const rdata = await fetch(asset('/agda-data.zip'))
-    if (rdata.ok) {
-      this.agdaDataZip = rdata.arrayBuffer().then(ab => new Uint8Array(ab))
-    } else {
-      this.alsWorkerStatus = 'errored'
-    }
-
-    return resp
-  }
-
-  async setupALSWASM() {
+  async initDriveHostWorker(agdaDataZip: Uint8Array | null) {
     if (this._driveHostWorker) {
       throw new Error('should not be reusing existing drive host worker')
     }
 
-    if (!this.agdaDataZip) {
-      throw new Error('agda data is undefined')
+    const { lock, stdin, stdout } = this.config.driveBuffers
+    new Int32Array(lock).set([0])
+    SPSC.resetArrayBuffer(stdin)
+    SPSC.resetArrayBuffer(stdout)
+
+    const { worker, event } = await makeDriveHostWorker({ stdin, stdout, agdaDataZip })
+    if (event.data !== 'fs-ready') {
+      throw new Error('drive worker did not respond correctly')
     }
 
-    const worker = this._driveHostWorker = makeDriveHostWorker()
-
-    worker.postMessage({
-      stdin: this.config.driveBuffers.stdin,
-      stdout: this.config.driveBuffers.stdout,
-      agdaDataZip: await this.agdaDataZip,
-    })
-    return new Promise<void>((res, rej) => {
-      worker.addEventListener('message', c => {
-        if (c.data !== 'fs-ready') {
-          return rej('drive worker did not respond correctly')
-        }
-        res()
-      }, { once: true })
-    })
+    return this._driveHostWorker = worker
   }
 
   makeALSTransport(stdinWaker: MessagePort) {
@@ -229,7 +278,7 @@ export class AgdaController {
     return router
   }
 
-  async runALSWASM() {
+  async runALSWASM(dataFile: Response | null) {
     if (!this.wasmLoadingProgress) {
       throw new Error('No active loading wasm')
     }
@@ -261,11 +310,11 @@ export class AgdaController {
 
     await Promise.all([
       this.workerInitData.getALSVersion().then(ver => this.receivedALSVersion = ver),
-      this.setupALSWASM()
-        .catch(err => { console.error('Failed to setup ALS WASM', err) }),
+      this.initDriveHostWorker(dataFile ? await dataFile.arrayBuffer().then(x => new Uint8Array(x)) : null)
+        .catch(err => { console.error('Failed to setup ALS drive host worker', err) }),
     ])
 
-    return this._startALSWASM()
+    return this._startALSWASM(this.workerInitData)
   }
 
   async stopALSWASM() {
@@ -283,6 +332,12 @@ export class AgdaController {
   }
 
   terminateALSWASM() {
+    console.log('attempting to terminate the worker')
+    if (this.wasmLoadingProgress) {
+      this.wasmLoadingProgress.cancel?.()
+    }
+    this.wasmLoadingProgress = null
+
     this._lspWorker?.terminate()
     this._lspWorker = undefined
     this.workerInitData = undefined
@@ -317,7 +372,8 @@ export class AgdaController {
     await writeSourceFileToDrive(this.driveHandle, doc)
     this.driveIsLocked = false
 
-    console.timeLog('update-fs', 'file is synced.')
+    console.log('file is synced.')
+    console.timeEnd('update-fs')
 
     this.editorView!.dispatch({effects: commit.of()})
 
@@ -329,7 +385,7 @@ export class AgdaController {
 
     const encodedFilePath = JSON.stringify(this.currentFilePath)
 
-    this.lspClient!.request('agda', {
+    await this.lspClient!.request('agda', {
       tag: 'CmdReq',
       contents: `IOTCM ${encodedFilePath} NonInteractive Direct (Cmd_load ${encodedFilePath} [])`,
     })

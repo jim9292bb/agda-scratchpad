@@ -14,6 +14,7 @@ export const myBaseTheme = EditorView.baseTheme({
   '&.cm-editor': {
     borderRadius: '0',
     height: '100%',
+    width: '100%',
   },
   '.cm-content, .cm-lineNumbers, .cm-gutterElement': {
     fontFamily: 'JuliaMono, monospace',

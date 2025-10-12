@@ -31,7 +31,6 @@ export function createReadableByteStream(reader, waker) {
   if (!browserSupportBYOBReadable()) {
     console.warn('Browser not support byob readable streams; using the fallback impl.')
 
-    // does not support byob
     return new ReadableStream({
       async pull(controller) {
         while (true) {
@@ -56,6 +55,7 @@ export function createReadableByteStream(reader, waker) {
     })
   }
 
+  // "autoAllocateChunkSize" assumes forcing byob
   return new ReadableStream({
     type: 'bytes',
     async pull(controller) {
@@ -110,12 +110,30 @@ export function createWritableByteStream(writer) {
   })
 }
 
-export function makeDriveHostWorker() {
-  return new Worker(
+/**
+ * @param {any} initialMessage
+ * @returns {Promise<{ worker: Worker, event: MessageEvent }>} */
+export function makeDriveHostWorker(initialMessage) {
+  const worker = new Worker(
     new URL('$lib/worker/drive.js?worker&inline', import.meta.url), {
       name: 'Runno drive host',
       type: 'module',
     })
+
+  return new Promise((_res, _rej) => {
+    let done = false
+    const res = (/** @type {MessageEvent} */ evt) => !done && (cleanup(), _res({ worker, event: evt }))
+    const rej = (/** @type {unknown} */ err) => !done && (cleanup(), _rej(err))
+    function cleanup() {
+      done = true
+      worker.removeEventListener('message', res)
+      worker.removeEventListener('error', rej)
+    }
+    worker.addEventListener('message', res)
+    worker.addEventListener('error', rej)
+
+    worker.postMessage(initialMessage)
+  })
 }
 
 /**
@@ -147,9 +165,12 @@ export function makeLspWorker(initObject, workerPreCallback) {
 /**
  * @param {Response} resp
  * @param {(loaded: number) => void} callback */
-export function reportFetchProgress(resp, callback) {
+export function traceFetchProgress(resp, callback) {
   if (resp.body == null) {
     throw new Error('Fetched no body')
+  }
+  if (resp.bodyUsed) {
+    throw new Error('body has been consumed')
   }
 
   let loaded = 0, bytesTotal = -1
@@ -163,6 +184,7 @@ export function reportFetchProgress(resp, callback) {
   let dispatchFinish
   const finished = new Promise(r => dispatchFinish = r)
 
+  let cancelled = false
   const reader = resp.body.getReader()
 
   // NOTE: transform stream cannot give precise progress report; seemingly because it is pull-based
@@ -172,6 +194,9 @@ export function reportFetchProgress(resp, callback) {
       const drainStream = async () => {
         while (true) {
           const iter = await reader.read()
+          if (cancelled) {
+            throw new Error('cancelled')
+          }
           if (iter.done) break
           loaded += iter.value.byteLength
           callback(loaded)
@@ -180,8 +205,10 @@ export function reportFetchProgress(resp, callback) {
         controller.close()
       }
 
-      drainStream().then(dispatchFinish).catch(err => {
+      drainStream().then(dispatchFinish, err => {
         controller.error(err)
+      }).finally(() => {
+        reader.releaseLock()
       })
     },
   })
@@ -190,6 +217,12 @@ export function reportFetchProgress(resp, callback) {
     source: { type: /** @type {const} */('stream'), stream },
     bytesTotal,
     finished,
+    // it is preferable to call the stream's cancel method, but the worker
+    // might have locked and terminating the worker would not help
+    // https://github.com/whatwg/streams/issues/1256
+    cancel: () => {
+      cancelled = true
+    },
   }
 }
 
@@ -211,12 +244,12 @@ export async function withDriveLock(lock, callback) {
   Atomics.notify(lock, 0, 1)
 }
 
+const encoder = new TextEncoder()
+
 /**
- * @param {{ lock: Int32Array<SharedArrayBuffer>, stdinWriter: SPSCWriter, stdoutReader: SPSCReader }} _
+ * @param {import('./controller.svelte').DriveHandle} _
  * @param {string} doc */
 export function writeSourceFileToDrive({lock, stdinWriter, stdoutReader}, doc) {
-  const encoder = new TextEncoder()
-
   return withDriveLock(lock, async () => {
     // FIXME: we should invoke Runno internal calls directly
     await fwriteAsync(stdinWriter, makeBufUint32LE(1))

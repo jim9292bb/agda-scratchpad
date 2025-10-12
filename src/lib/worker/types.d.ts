@@ -7,6 +7,7 @@ export interface WASMLoadingProgress {
   bytesLoaded: number
   bytesTotal: number
   finished: Promise<void>
+  cancel?: () => void
 }
 
 export interface ALSWorkerInitObject {
@@ -23,13 +24,21 @@ export interface ALSWorkerInitObject {
   }
 }
 
+interface _WASISpawnOptions {
+  ignoreExitCode?: boolean
+}
+
+export interface WASISpawnOptions extends Partial<_WASISpawnOptions> {}
+
 export interface ALSWorkerInitResultProxied {
   getALSVersion: () => Promise<string>
   start: () => Promise<number>
+  spawn: (args: string[], options?: WASISpawnOptions) =>
+    Promise<{exitCode: number, stdout: string, stderr: string}>
 }
 
 export interface DriveWorkerInitObject {
   stdin: SharedArrayBuffer
   stdout: SharedArrayBuffer
-  agdaDataZip: Uint8Array
+  agdaDataZip: Uint8Array | null
 }

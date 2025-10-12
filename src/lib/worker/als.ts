@@ -11,7 +11,7 @@ import { SPSCReader } from 'spsc/reader'
 import { SPSCWriter } from 'spsc/writer'
 import { patchImportObject } from './patch-wasi'
 import { proxyWASIDrive } from './proxy-wasi-drive'
-import type { ALSWorkerInitObject } from './types'
+import type { ALSWorkerInitObject, WASISpawnOptions } from './types'
 
 type MyStdioDef = {
   stdin: (len: number) => Uint8Array | null
@@ -61,7 +61,7 @@ const runnoInterceptor: Runno.DebugFn = (name, args_, ret, _data) => {
 async function wasiSpawn(
   module: WebAssembly.Module,
   args: string[] = [],
-  options: { ignoreExitCode?: boolean } = {}) {
+  options: WASISpawnOptions = {}) {
 
   const stdout: string[] = []
   const stderr: string[] = []
@@ -72,6 +72,11 @@ async function wasiSpawn(
     stdout: str => stdout.push(str),
     stderr: str => stderr.push(str),
   })
+
+  // if (driveBuffers) {
+  //   const { lock: driveLock, stdin: driveStdin, stdout: driveStdout } = driveBuffers
+  //   proxyWASIDrive(wasi.drive, driveLock, driveStdin, driveStdout)
+  // }
 
   const instance = await WebAssembly.instantiate(module, wasi.getImportObject())
   const { exitCode } = wasi.start({ module, instance })
@@ -86,8 +91,6 @@ async function wasiSpawn(
     stderr: stderr.join(''),
   }
 }
-
-const getALSVersion = (mod: WebAssembly.Module) => wasiSpawn(mod, ['--version']).then(x => x.stdout)
 
 let stderrBuf = ''
 const stderrDecoder = new TextDecoder()
@@ -113,11 +116,11 @@ async function init({
   const stdoutWriter = new SPSCWriter(stdout, stdinWaker)
 
   const module = await WebAssembly.compileStreaming(toWasmResponse(wasmSource))
-  const alsVersion = await getALSVersion(module)
+  let alsVersion: string | null = null
 
   async function start() {
     const wasi = new WASI(definePatchedRunnoWASIContextOptions({
-      args: ['als', '+RTS', '-V1', '-RTS', ...args],
+      args: ['als', ...args],
       env: {
         'HOME': '/home/root',
         'Agda_datadir': '/',
@@ -169,8 +172,9 @@ async function init({
   }
 
   return Comlink.proxy({
-    getALSVersion: () => alsVersion,
+    getALSVersion: async () => alsVersion ?? (alsVersion = await wasiSpawn(module, ['--version']).then(x => x.stdout)),
     start,
+    spawn: (args: string[], options: WASISpawnOptions) => wasiSpawn(module, args, options),
   })
 }
 

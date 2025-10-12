@@ -29,6 +29,21 @@ const { stdin, stdout, agdaDataZip } = await new Promise<DriveWorkerInitObject>(
   }, { once: true })
 })
 
+async function extractAgdaDataZip(data: Uint8Array) {
+  const zip = await JSZip.loadAsync(data)
+  const filePromises: Promise<void>[] = []
+
+  zip.forEach((path, file) => {
+    if (file.dir) return
+    filePromises.push(file.async('uint8array').then(content => {
+      const [key, obj] = createFileEntry(`/${path}`, content)
+      fs[key] = obj
+    }))
+  })
+
+  return Promise.all(filePromises)
+}
+
 // TODO: make this changable dynamically
 const userSourceFilePath = '/source.agda'
 
@@ -36,19 +51,9 @@ const fs: Record<string, Runno.WASIFile> = Object.fromEntries([
   createFileEntry(userSourceFilePath, ''),
 ])
 
-const zip = await JSZip.loadAsync(agdaDataZip)
-
-const filePromises: Promise<void>[] = []
-
-zip.forEach((path, file) => {
-  if (file.dir) return
-  filePromises.push(file.async('uint8array').then(content => {
-    const [key, obj] = createFileEntry(`/${path}`, content)
-    fs[key] = obj
-  }))
-})
-
-await Promise.all(filePromises)
+if (agdaDataZip) {
+  await extractAgdaDataZip(agdaDataZip)
+}
 
 postMessage('fs-ready')
 
