@@ -1,11 +1,9 @@
 /** @import { Transport } from '@codemirror/lsp-client' */
 /** @import { EditorView } from '@codemirror/view' */
 
-import { Message } from 'vscode-jsonrpc'
-import { clearHighlight } from './effects'
-import { alsHighlightingInfosDirectSchema } from './schema'
-import { buildHighlightEffects } from './highlight'
+import { Message } from '@andy0130tw/vscode-jsonrpc-esm'
 import { LSPMessageDecoder } from './lsp'
+import { makeLSPResponseHandlerMap } from './handlers'
 
 /** @typedef {'init' | 'ready' | 'requested' | 'processing'} AgdaIOTCMStatus */
 
@@ -15,7 +13,7 @@ import { LSPMessageDecoder } from './lsp'
 export class ALSMessageRouter {
   /**
    * @param {EditorView} editorView
-   * @param {(tag: string, contents: any) => void} msgCallback - The hook that gets called with Agda-method messages
+   * @param {(tag: import('./handlers').ALSResponseType, contents: any) => void} msgCallback - The hook that gets called with Agda-method messages
    * @param {(status: AgdaIOTCMStatus) => void} statusCallback  The hook that gets called with worker status changes
    */
   constructor(editorView, msgCallback, statusCallback) {
@@ -33,51 +31,59 @@ export class ALSMessageRouter {
 
     this.checked = false
     this.showImplicitArgs = false
+    this.showIrrelevantArgs = false
 
-    const ctrl = this
-
-    const encoder = new TextEncoder()
+    this.cmEncoder = new TextEncoder()
 
     /** @type {Transport} */
     this.transport = {
-      send(message) {
-        if (ctrl.rpcSink == null) {
-          throw new Error('RPC sink is not set')
-        }
+      send: this.cmSend.bind(this),
+      subscribe: this.cmSubscribe.bind(this),
+      unsubscribe: this.cmUnsubscribe.bind(this),
+    }
+  }
 
-        console.log('<--', JSON.parse(message))
+  /** @type {Transport['send']} */
+  cmSend(message) {
+    if (this.rpcSink == null) {
+      throw new Error('RPC sink is not set')
+    }
 
-        if (ctrl.status === 'init') {
-          const pp = JSON.parse(message)
-          if (Message.isNotification(pp) && pp.method === 'initialized') {
-            ctrl.setStatus('ready')
-          }
-        } else if (ctrl.status === 'ready') {
-          const pp = JSON.parse(message)
-          if (Message.isRequest(pp) && pp.method === 'agda') {
-            ctrl.setStatus('requested')
-          }
-        }
+    console.log('<--', JSON.parse(message))
 
-        const encoded = encoder.encode(message)
-        const header = encoder.encode(`Content-Length: ${encoded.byteLength}\r\n\r\n`)
-        const wr = ctrl.rpcSink.getWriter()
-        // XXX: does not wait the write to complete, but errors are not handled
-        wr.write(header).catch(console.error)
-        wr.write(encoded).catch(console.error)
-        wr.releaseLock()
-      },
-      subscribe(hh) {
-        ctrl.handlers.push(hh)
-      },
-      unsubscribe(hh) {
-        const idx = ctrl.handlers.indexOf(hh)
-        if (idx >= 0) {
-          const hhs = ctrl.handlers
-          ctrl.handlers = hhs.slice(0, idx)
-            .concat(hhs.slice(idx + 1).filter(h => h !== hh))
-        }
-      },
+    if (this.status === 'init') {
+      const pp = JSON.parse(message)
+      if (Message.isNotification(pp) && pp.method === 'initialized') {
+        this.setStatus('ready')
+      }
+    } else if (this.status === 'ready') {
+      const pp = JSON.parse(message)
+      if (Message.isRequest(pp) && pp.method === 'agda') {
+        this.setStatus('requested')
+      }
+    }
+
+    const encoded = this.cmEncoder.encode(message)
+    const header = this.cmEncoder.encode(`Content-Length: ${encoded.byteLength}\r\n\r\n`)
+    const wr = this.rpcSink.getWriter()
+    // XXX: does not wait the write to complete, but errors are not handled
+    wr.write(header).catch(console.error)
+    wr.write(encoded).catch(console.error)
+    wr.releaseLock()
+  }
+
+  /** @type {Transport['subscribe']} */
+  cmSubscribe(hh) {
+    this.handlers.push(hh)
+  }
+
+  /** @type {Transport['unsubscribe']} */
+  cmUnsubscribe(hh) {
+    const idx = this.handlers.indexOf(hh)
+    if (idx >= 0) {
+      const hhs = this.handlers
+      this.handlers = hhs.slice(0, idx)
+        .concat(hhs.slice(idx + 1).filter(h => h !== hh))
     }
   }
 
@@ -112,6 +118,7 @@ export class ALSMessageRouter {
           const tag = /** @type {any} */(pp.params)?.tag
           if (tag === 'ResponseEnd') {
             this.setStatus('ready')
+            // TODO: signal end so that the controller can process last cmds
           } else {
             this.handleRequest(tag, /** @type {any} */(pp.params).contents)
           }
@@ -145,49 +152,18 @@ export class ALSMessageRouter {
  * @returns {ALSMessageRouter}
  */
 export function makeLSPTransport(editorView, statusCallback) {
-
-  /** @type {Record<string, (this: ALSMessageRouter, contents: any) => void>} */
-  const callbackMap = {
-    ResponseStatus([checked, showImplicitArgs]) {
-      // TODO: bind definition site here
-      this.checked = checked
-      this.showImplicitArgs = showImplicitArgs
-    },
-    // Agda (~2.8)'s codebase does not contain any instance of (Resp_ClearHighlighting TokenBased)
-    ResponseClearHighlightingTokenBased() {
-      throw new Error('ResponseClearHighlightingTokenBased is not implemented')
-      // editorView.dispatch({
-      //   effects: clearHighlight.of(true),
-      // })
-    },
-    ResponseClearHighlightingNotOnlyTokenBased() {
-      editorView.dispatch({
-        effects: clearHighlight.of(false),
-      })
-    },
-    ResponseHighlightingInfoDirect(contents) {
-      const infos = alsHighlightingInfosDirectSchema.decode(contents)
-      // Agda (~2.8)'s codebase does not contain any instance of (Resp_HighlightingInfo ... RemoveHighlighting)
-      if (infos.info.remove) {
-        editorView.dispatch({
-          effects: clearHighlight.of(true)
-        })
-      }
-      editorView.dispatch({
-        effects: buildHighlightEffects(editorView.state, infos.info.payload)
-      })
-    }
-  }
-
   const router = new ALSMessageRouter(editorView, msgCallback, statusCallback)
+  const handlerMap = makeLSPResponseHandlerMap(router, editorView)
 
   /**
    * @param {string} tag
    * @param {any} contents
    */
   function msgCallback(tag, contents) {
-    if (tag in callbackMap) {
-      return callbackMap[tag].call(router, contents)
+    if (tag in handlerMap) {
+      // @ts-ignore
+      const handler = handlerMap[tag]
+      return handler.call(router, contents)
     }
     console.warn('Unrecognized resp', {tag, contents})
   }

@@ -1,6 +1,6 @@
 import { invertedEffects } from '@codemirror/commands'
 
-/** @import { Range, StateField, StateEffect, Extension } from '@codemirror/state' */
+/** @import { Range, StateField, StateEffect } from '@codemirror/state' */
 /** @import { Decoration, DecorationSet } from '@codemirror/view' */
 
 /**

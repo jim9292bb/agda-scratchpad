@@ -20,9 +20,10 @@ export const clearHighlight = StateEffect.define()
 
 /** @type {StateEffectType<Range<Decoration>[]>} */
 export const addGoals = StateEffect.define({ map: mapRanges })
-
 /** @type {StateEffectType<Range<Decoration>[]>} */
 export const setGoals = StateEffect.define({ map: mapRanges })
 
-/** @type {StateEffectType<Range<Decoration>[]>} */
-// export const setGoalInformation = StateEffect.define()
+/** @type {StateEffectType<void>} */
+export const clearRunningInfo = StateEffect.define()
+/** @type {StateEffectType<{message: string, debugLevel: number}>} */
+export const emitRunningInfo = StateEffect.define()

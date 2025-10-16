@@ -17,15 +17,19 @@ export interface ALSWorkerInitObject {
   stdin: SharedArrayBuffer
   stdout: SharedArrayBuffer
 
-  driveBuffers: {
-    lock: SharedArrayBuffer
-    stdin: SharedArrayBuffer
-    stdout: SharedArrayBuffer
-  }
+  driveBuffers: DriveBuffers
+}
+
+export interface DriveBuffers {
+  lock: SharedArrayBuffer
+  stdin: SharedArrayBuffer
+  stdout: SharedArrayBuffer
 }
 
 interface _WASISpawnOptions {
   ignoreExitCode?: boolean
+  drive?: DriveBuffers
+  env: Record<string, string>
 }
 
 export interface WASISpawnOptions extends Partial<_WASISpawnOptions> {}

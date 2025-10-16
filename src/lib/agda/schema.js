@@ -38,3 +38,7 @@ export const alsHighlightingInfosDirectSchema = z.tuple([
   },
   direct: true,
 }))
+
+export const alsInteractionPointsSchema = z.array(
+  z.int()
+)

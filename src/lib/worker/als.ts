@@ -68,15 +68,16 @@ async function wasiSpawn(
 
   const wasi = new WASI({
     args: ['als', ...args],
+    env: options.env,
     debug: runnoInterceptor,
     stdout: str => stdout.push(str),
     stderr: str => stderr.push(str),
   })
 
-  // if (driveBuffers) {
-  //   const { lock: driveLock, stdin: driveStdin, stdout: driveStdout } = driveBuffers
-  //   proxyWASIDrive(wasi.drive, driveLock, driveStdin, driveStdout)
-  // }
+  if (options.drive) {
+    const { lock: driveLock, stdin: driveStdin, stdout: driveStdout } = options.drive
+    proxyWASIDrive(wasi.drive, driveLock, driveStdin, driveStdout)
+  }
 
   const instance = await WebAssembly.instantiate(module, wasi.getImportObject())
   const { exitCode } = wasi.start({ module, instance })
@@ -118,13 +119,15 @@ async function init({
   const module = await WebAssembly.compileStreaming(toWasmResponse(wasmSource))
   let alsVersion: string | null = null
 
+  const env = {
+    'HOME': '/home/root',
+    'Agda_datadir': '/',
+  }
+
   async function start() {
     const wasi = new WASI(definePatchedRunnoWASIContextOptions({
       args: ['als', ...args],
-      env: {
-        'HOME': '/home/root',
-        'Agda_datadir': '/',
-      },
+      env,
       debug: runnoInterceptor,
       stdin(len) {
         const result = stdinReader.read(len, { nonblock: true })
@@ -174,7 +177,7 @@ async function init({
   return Comlink.proxy({
     getALSVersion: async () => alsVersion ?? (alsVersion = await wasiSpawn(module, ['--version']).then(x => x.stdout)),
     start,
-    spawn: (args: string[], options: WASISpawnOptions) => wasiSpawn(module, args, options),
+    spawn: (args: string[], options: WASISpawnOptions) => wasiSpawn(module, args, { drive: driveBuffers, env, ...options }),
   })
 }
 

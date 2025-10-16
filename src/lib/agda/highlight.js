@@ -184,7 +184,7 @@ const initialHighlightState = Object.freeze({
   otherAspects: Decoration.none,
 })
 
-const highlightState = StateField.define({
+export const highlightState = StateField.define({
   create(_state) {
     return initialHighlightState
   },

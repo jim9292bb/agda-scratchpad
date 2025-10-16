@@ -1,5 +1,5 @@
 <script>
-import { onDestroy } from 'svelte'
+import { onDestroy, untrack } from 'svelte'
 
 import { SPSC } from 'spsc'
 import { SplitPane } from '@rich_harris/svelte-split-pane'
@@ -13,6 +13,9 @@ import { agdaDarkSchemeFromEmacs, agdaLightSchemeFromEmacs } from '$lib/agda/col
 import { AgdaController, LS_DOC_KEY } from '$lib/controller.svelte'
 import { withDriveLock } from '$lib'
 import { makeBufUint32LE } from '$lib/stdlib'
+  import { agdaGoals } from '$lib/agda/goals';
+  import { EditorState } from '@codemirror/state';
+  import { clearRunningInfo, emitRunningInfo } from '$lib/agda/effects';
 
 const driveLockSab = new SharedArrayBuffer(4)
 const driveStdinSab = SPSC.allocateArrayBuffer(4096)
@@ -65,7 +68,18 @@ function codeMirror(el) {
         defaultDark: prefersDarkTheme(window),
       }),
       agdaHighlight(),
+      agdaGoals(),
       agdaController.lspClientCompartment.of([]),
+      EditorState.changeFilter.of(tr => {
+        for (const e of tr.effects) {
+          if (e.is(emitRunningInfo)) {
+            textboxContent += e.value.message
+          } else if (e.is(clearRunningInfo)) {
+            textboxContent = ''
+          }
+        }
+        return true
+      })
     ],
   })
 
@@ -98,6 +112,8 @@ let textboxContent = $state('WIP')
 let raf
 
 $effect(() => {
+  textboxContent
+  untrack(() => raf)
   if (textbox && raf) {
     raf = requestAnimationFrame(() => {
       textbox.scrollTop = textbox.scrollHeight
