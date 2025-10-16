@@ -50,7 +50,7 @@ export const agdaVersionMap: Record<SupportedAgdaVersion, AgdaVersionSpec> = {
     dataPath: asset('/agda-data.zip'),
   },
   '2.7.0.1': {
-    path: asset('als-2.7ext.wasm'),
+    path: asset('/als-2.7ext.wasm'),
     stdlibCandidates: ['2.1.1', '2.2', '2.3'],
     dataPath: asset('/agda-data.zip'),
   },
