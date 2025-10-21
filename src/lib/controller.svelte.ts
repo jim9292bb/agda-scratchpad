@@ -234,7 +234,7 @@ export class AgdaController {
     return ret
   }
 
-  async initDriveHostWorker(agdaDataZip: Uint8Array | null) {
+  async initDriveHostWorker(options: {builtin?: Uint8Array, stdlib?: Uint8Array}) {
     if (this._driveHostWorker) {
       throw new Error('should not be reusing existing drive host worker')
     }
@@ -244,7 +244,12 @@ export class AgdaController {
     SPSC.resetArrayBuffer(stdin)
     SPSC.resetArrayBuffer(stdout)
 
-    const { worker, event } = await makeDriveHostWorker({ stdin, stdout, agdaDataZip })
+    const { worker, event } = await makeDriveHostWorker({
+      stdin, stdout,
+      agdaDataZip: options.builtin ?? null,
+      agdaStdlibZip: options.stdlib ?? null,
+    })
+
     if (event.data !== 'fs-ready') {
       throw new Error('drive worker did not respond correctly')
     }
@@ -305,7 +310,10 @@ export class AgdaController {
 
     await Promise.all([
       this.workerInitData.getALSVersion().then(ver => this.receivedALSVersion = ver),
-      this.initDriveHostWorker(dataFile ? await dataFile.arrayBuffer().then(x => new Uint8Array(x)) : null)
+      this.initDriveHostWorker({
+        builtin: dataFile ? await dataFile.arrayBuffer().then(x => new Uint8Array(x)) : undefined,
+        stdlib: await fetch(asset('/agda-stdlib-2.3.zip')).then(x => x.arrayBuffer()).then(x => new Uint8Array(x)),
+      })
         .catch(err => { console.error('Failed to setup ALS drive host worker', err) }),
     ])
 

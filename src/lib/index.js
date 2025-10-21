@@ -132,7 +132,11 @@ export function makeDriveHostWorker(initialMessage) {
     worker.addEventListener('message', res)
     worker.addEventListener('error', rej)
 
-    worker.postMessage(initialMessage)
+    // FIXME
+    /** @type {Transferable[]} */
+    const transferables = [] // [initialMessage.agdaDataZip, initialMessage.agdaStdlibZip].filter(Boolean)
+
+    worker.postMessage(initialMessage, transferables)
   })
 }
 

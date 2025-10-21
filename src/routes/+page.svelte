@@ -96,10 +96,10 @@ async function dumpFS() {
   console.log('dump end')
 }
 
-function showVersion() {
+function sendAbort() {
   return /** @type {any} */(agdaController.lspClient).request('agda', {
     tag: 'CmdReq',
-    contents: `IOTCM "/source.agda" NonInteractive Direct (ToggleImplicitArgs)`,
+    contents: `IOTCM "/source.agda" NonInteractive Direct (Cmd_abort)`,
   })
 }
 
@@ -110,15 +110,25 @@ let textboxContent = $state('WIP')
 
 /** @type {number | undefined} */
 let raf
+let needScroll = false
 
 $effect(() => {
   textboxContent
   untrack(() => raf)
-  if (textbox && !raf) {
-    raf = requestAnimationFrame(() => {
-      textbox.scrollTop = textbox.scrollHeight
-      raf = undefined
-    })
+  if (textbox) {
+    // FIXME: so naive, very fragile
+    if (textbox.scrollHeight <= textbox.clientHeight ||
+        textbox.scrollHeight - textbox.clientHeight - textbox.scrollTop < 50) {
+      needScroll = true
+    }
+
+    if (needScroll && !raf) {
+      raf = requestAnimationFrame(() => {
+        textbox.scrollTop = textbox.scrollHeight
+        raf = undefined
+        needScroll = false
+      })
+    }
   }
 })
 </script>
@@ -196,12 +206,12 @@ $effect(() => {
       <li>Load args: <input style="font-family: monospace;" placeholder="(empty)" disabled></li>
       <li>Source file name: <input style="font-family: monospace;" value="source.agda" disabled></li>
       <li>Stdlib version: <select disabled>
-        <option value="none" selected>None</option>
+        <option value="NONE">None</option>
         <option value="2.0">v2.0</option>
         <option value="2.1">v2.1</option>
         <option value="2.1.1">v2.1.1</option>
         <option value="2.2">v2.2</option>
-        <option value="2.3">v2.3</option>
+        <option value="2.3" selected>v2.3</option>
       </select></li>
     </ul>
   {:else}
@@ -213,7 +223,7 @@ $effect(() => {
     </ul>
     <div class="flex">
       <button style="padding: 20px" onclick={() => agdaController.loadAgdaFile()}>Load</button>
-      <button style="padding: 20px" onclick={() => showVersion()}>Show version</button>
+      <button style="padding: 20px" onclick={() => sendAbort()}>Abort</button>
     </div>
   {/if}
   </div>

@@ -23,21 +23,30 @@ function createFileEntry(path: string, content: string | Uint8Array) {
   return [path, obj] as const
 }
 
-const { stdin, stdout, agdaDataZip } = await new Promise<DriveWorkerInitObject>(r => {
+function fsAssign(path: string, content: string | Uint8Array) {
+  const [key, obj] = createFileEntry(path, content)
+  fs[key] = obj
+  return obj
+}
+
+const { stdin, stdout, agdaDataZip, agdaStdlibZip } = await new Promise<DriveWorkerInitObject>(r => {
   addEventListener('message', event => {
     r(event.data)
   }, { once: true })
 })
 
-async function extractAgdaDataZip(data: Uint8Array) {
+async function extractZip(data: Uint8Array, prefix = '', pathResolver?: (path: string) => string | null) {
   const zip = await JSZip.loadAsync(data)
   const filePromises: Promise<void>[] = []
 
-  zip.forEach((path, file) => {
+  if (prefix === '/') prefix = ''
+
+  zip.forEach((_path, file) => {
     if (file.dir) return
+    const path = pathResolver ? pathResolver(_path) : _path
+    if (path == null) return
     filePromises.push(file.async('uint8array').then(content => {
-      const [key, obj] = createFileEntry(`/${path}`, content)
-      fs[key] = obj
+      fsAssign(`${prefix}/${path}`, content)
     }))
   })
 
@@ -52,7 +61,16 @@ const fs: Record<string, Runno.WASIFile> = Object.fromEntries([
 ])
 
 if (agdaDataZip) {
-  await extractAgdaDataZip(agdaDataZip)
+  await extractZip(agdaDataZip, '/')
+}
+
+if (agdaStdlibZip) {
+  await extractZip(agdaStdlibZip, '/stdlib', p => {
+    // if (!p.match(/^agda-stdlib-[\.\d]+\/src/)) return null
+    return p.replace(/^agda-stdlib-[\.\d]+\//, '')
+  })
+  fsAssign('/home/root/.config/agda/libraries', '/stdlib/standard-library.agda-lib\n')
+  fsAssign('/home/root/.config/agda/defaults', 'standard-library\n')
 }
 
 postMessage('fs-ready')
