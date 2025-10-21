@@ -13,7 +13,8 @@ import { buildGoalTransaction } from './goals'
  * @prop {boolean} showIrrelevantArgs
  */
 
-/** @typedef {'ResponseHighlightingInfoDirect' | 'ResponseHighlightingInfoIndirect'
+/** @typedef {(
+ *  | 'ResponseHighlightingInfoDirect' | 'ResponseHighlightingInfoIndirect'
  *  | 'ResponseDisplayInfo' | 'ResponseStatus'
  *  | 'ResponseClearHighlightingTokenBased' | 'ResponseClearHighlightingNotOnlyTokenBased'
  *  | 'ResponseRunningInfo' | 'ResponseClearRunningInfo'
@@ -21,7 +22,7 @@ import { buildGoalTransaction } from './goals'
  *  | 'ResponseGiveAction' | 'ResponseInteractionPoints'
  *  | 'ResponseMakeCaseFunction' | 'ResponseMakeCaseExtendedLambda'
  *  | 'ResponseSolveAll' | 'ResponseMimer'
- *  | 'ResponseJumpToError' | 'ResponseJSONRaw'} ALSResponseType */
+ *  | 'ResponseJumpToError' | 'ResponseJSONRaw')} ALSResponseType */
 
 /**
  * @param {Controller} controller
@@ -72,6 +73,13 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       editorView.dispatch({
         effects: setGoals.of(decos),
       })
+    },
+    ResponseJSONRaw(/** @type {Agda._Resp} */contents) {
+      const handler = rawJsonHandlers[contents.kind]
+      if (handler) {
+        return handler(/** @type {any} */(contents))
+      }
+      console.warn('unrecognized raw response', contents)
     }
   }
 
@@ -119,14 +127,6 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
     InteractionPoints({ interactionPoints }) {
       editorView.dispatch(buildGoalTransaction(editorView.state, interactionPoints))
     }
-  }
-
-  handlers.ResponseJSONRaw = (/** @type {Agda._Resp} */contents) => {
-    const handler = rawJsonHandlers[contents.kind]
-    if (handler) {
-      return handler(/** @type {any} */(contents))
-    }
-    console.warn('unrecognized raw response', contents)
   }
 
   return handlers

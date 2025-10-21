@@ -124,8 +124,17 @@ export class ALSMessageRouter {
           }
         }
       } else {
-        if (Message.isResponse(pp) && /** @type {any} */(pp.result)?.tag === 'CmdRes') {
-          this.setStatus('processing')
+        if (Message.isResponse(pp)) {
+          /** @type {any} */
+          const { result } = pp
+          if (result?.tag === 'CmdRes') {
+            if (result?.contents == null) {
+              this.setStatus('processing')
+            } else {
+              console.warn('failed to send cmd:', result.contents.tag, result.contents.contents)
+              this.setStatus('ready')
+            }
+          }
         }
         return this.forwardIncomingMessage(msg)
       }

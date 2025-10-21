@@ -5,17 +5,15 @@ import { SPSC } from 'spsc'
 import { SplitPane } from '@rich_harris/svelte-split-pane'
 import { basicSetup } from 'codemirror'
 import { EditorView } from '@codemirror/view'
+import { EditorState } from '@codemirror/state'
 
-import { autoColorScheme, myCodeMirrorTheme, prefersDarkTheme } from '$lib/codemirror/theme'
-import { offsetTracking } from '$lib/codemirror/offsets'
-import { agdaHighlight } from '$lib/agda/highlight'
-import { agdaDarkSchemeFromEmacs, agdaLightSchemeFromEmacs } from '$lib/agda/color-scheme'
 import { AgdaController, LS_DOC_KEY } from '$lib/controller.svelte'
 import { withDriveLock } from '$lib'
 import { makeBufUint32LE } from '$lib/stdlib'
-  import { agdaGoals } from '$lib/agda/goals';
-  import { EditorState } from '@codemirror/state';
-  import { clearRunningInfo, emitRunningInfo } from '$lib/agda/effects';
+import { myCodeMirrorTheme } from '$lib/codemirror/theme'
+import { agdaSupport } from '$lib/agda'
+
+import { clearRunningInfo, emitRunningInfo } from '$lib/agda/effects'
 
 const driveLockSab = new SharedArrayBuffer(4)
 const driveStdinSab = SPSC.allocateArrayBuffer(4096)
@@ -34,7 +32,7 @@ const agdaController = new AgdaController({
     stdin: driveStdinSab,
     stdout: driveStdoutSab,
   },
-  agdaVersion: '2.7.0.1',
+  agdaVersion: '2.8.0',
 })
 
 let width = $state(0)
@@ -50,6 +48,9 @@ const basicTheme = EditorView.theme({
     marginRight: '-4px',
     paddingRight: '4px',
   },
+  '.cm-scroller': {
+    overscrollBehavior: 'contain',
+  },
 })
 
 /** @type {import('svelte/attachments').Attachment} */
@@ -61,14 +62,7 @@ function codeMirror(el) {
       basicSetup,
       myCodeMirrorTheme(),
       basicTheme,
-      offsetTracking(),
-      autoColorScheme({
-        dark: agdaDarkSchemeFromEmacs,
-        light: agdaLightSchemeFromEmacs,
-        defaultDark: prefersDarkTheme(window),
-      }),
-      agdaHighlight(),
-      agdaGoals(),
+      agdaSupport(),
       agdaController.lspClientCompartment.of([]),
       EditorState.changeFilter.of(tr => {
         for (const e of tr.effects) {
@@ -88,18 +82,24 @@ function codeMirror(el) {
   return () => { ev.destroy() }
 }
 
-function dumpFS() {
+async function dumpFS() {
   if (agdaController._driveHostWorker == null) {
     console.warn('no drive worker to dump')
     return
   }
-  withDriveLock(agdaController.driveHandle.lock, async () => {
+  await withDriveLock(agdaController.driveHandle.lock, async () => {
     agdaController.driveHandle.stdinWriter.write(makeBufUint32LE(2), { nonblock: true })
     while (!agdaController.driveHandle.stdoutReader.read(1, { nonblock: true }).ok) {
       await new Promise(r => setTimeout(r, 100))
     }
-  }).then(() => {
-    console.log('dumped')
+  })
+  console.log('dump end')
+}
+
+function showVersion() {
+  return /** @type {any} */(agdaController.lspClient).request('agda', {
+    tag: 'CmdReq',
+    contents: `IOTCM "/source.agda" NonInteractive Direct (ToggleImplicitArgs)`,
   })
 }
 
@@ -114,7 +114,7 @@ let raf
 $effect(() => {
   textboxContent
   untrack(() => raf)
-  if (textbox && raf) {
+  if (textbox && !raf) {
     raf = requestAnimationFrame(() => {
       textbox.scrollTop = textbox.scrollHeight
       raf = undefined
@@ -188,13 +188,17 @@ $effect(() => {
     <div><strong>Startup config</strong></div>
     <ul>
       <li>Agda version: <select disabled>
-        <option value="2.7.0.1" selected>v2.7.0.1</option>
+        <option value="2.8.0" selected>v2.8.0</option>
+        <option value="2.7.0.1">v2.7.0.1</option>
+        <option value="2.6.4.3">v2.6.4.3</option>
       </select></li>
       <li>Agda CLI args: <input style="font-family: monospace;" placeholder="(empty)" disabled></li>
       <li>Load args: <input style="font-family: monospace;" placeholder="(empty)" disabled></li>
       <li>Source file name: <input style="font-family: monospace;" value="source.agda" disabled></li>
       <li>Stdlib version: <select disabled>
         <option value="none" selected>None</option>
+        <option value="2.0">v2.0</option>
+        <option value="2.1">v2.1</option>
         <option value="2.1.1">v2.1.1</option>
         <option value="2.2">v2.2</option>
         <option value="2.3">v2.3</option>
@@ -209,6 +213,7 @@ $effect(() => {
     </ul>
     <div class="flex">
       <button style="padding: 20px" onclick={() => agdaController.loadAgdaFile()}>Load</button>
+      <button style="padding: 20px" onclick={() => showVersion()}>Show version</button>
     </div>
   {/if}
   </div>

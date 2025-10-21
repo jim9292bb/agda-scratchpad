@@ -209,6 +209,24 @@ namespace Agda {
   | GiveAction
   | MakeCase
   | SolveAll
+
+  type _Interaction =
+    | 'Cmd_load' | 'Cmd_compile' | 'Cmd_constraints' | 'Cmd_metas' | 'Cmd_no_metas'
+    | 'Cmd_show_module_contents_toplevel' | 'Cmd_search_about_toplevel' | 'Cmd_solveAll'
+    | 'Cmd_solveOne' | 'Cmd_autoOne' | 'Cmd_autoAll' | 'Cmd_infer_toplevel'
+    | 'Cmd_compute_toplevel'
+    // highlighting
+    | 'Cmd_load_highlighting_info' | 'Cmd_tokenHighlighting' | 'Cmd_highlight'
+    // implicit/irrelevant args
+    | 'ShowImplicitArgs' | 'ToggleImplicitArgs' | 'ShowIrrelevantArgs' | 'ToggleIrrelevantArgs'
+    // goal commands
+    | 'Cmd_give' | 'Cmd_refine' | 'Cmd_intro' | 'Cmd_refine_or_intro' | 'Cmd_context'
+    | 'Cmd_helper_function' | 'Cmd_infer' | 'Cmd_goal_type' | 'Cmd_elaborate_give'
+    | 'Cmd_goal_type_context' | 'Cmd_goal_type_context_infer' | 'Cmd_goal_type_context_check'
+    | 'Cmd_show_module_contents' | 'Cmd_make_case' | 'Cmd_compute' | 'Cmd_why_in_scope'
+    // others
+    | 'Cmd_why_in_scope_toplevel' | 'Cmd_show_version' | 'Cmd_abort' | 'Cmd_exit'
+
 }
 }
 

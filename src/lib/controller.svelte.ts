@@ -55,7 +55,7 @@ export const agdaVersionMap: Record<SupportedAgdaVersion, AgdaVersionSpec> = {
     dataPath: asset('/agda-data.zip'),
   },
   '2.8.0': {
-    path: asset('/als-2.8.wasm'),
+    path: asset('/als-2.8ext.wasm'),
     stdlibCandidates: ['2.3'],
   },
 }
@@ -173,7 +173,6 @@ export class AgdaController {
       return
     }
 
-    const id = Math.random()
     const progressCtx = traceFetchProgress(wasmAndData.wasm, (loaded) => {
       this.wasmLoadingProgress!.bytesLoaded = loaded
     })
@@ -293,7 +292,7 @@ export class AgdaController {
         stdin: this.config.driveBuffers.stdout,
         stdout: this.config.driveBuffers.stdin,
       },
-      args: ['--raw'],
+      // args: ['--raw'],
     }, worker => {
       this._lspWorker = worker
       worker.addEventListener('error', (evt) => {
@@ -309,6 +308,16 @@ export class AgdaController {
       this.initDriveHostWorker(dataFile ? await dataFile.arrayBuffer().then(x => new Uint8Array(x)) : null)
         .catch(err => { console.error('Failed to setup ALS drive host worker', err) }),
     ])
+
+    if (this.config.agdaVersion === '2.8.0') {
+      try {
+        await this.workerInitData.spawn(['--setup'])
+      } catch (err) {
+        console.warn('failed to complete the setup stage of agda', err)
+        this.alsWorkerStatus = 'errored'
+        return -1
+      }
+    }
 
     return this._startALSWASM(this.workerInitData)
   }
