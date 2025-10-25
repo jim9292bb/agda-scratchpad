@@ -1,5 +1,12 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
+
+import type {
+  QuietButtonProps,
+  QuietSelectProps,
+  QuietSplitterProps,
+} from '@quietui/quiet/jsx'
+
 declare global {
   namespace App {
     // interface Error {}
@@ -7,6 +14,17 @@ declare global {
     // interface PageData {}
     // interface PageState {}
     // interface Platform {}
+  }
+
+  type Override<X, Y> = Omit<X, keyof Y> & Y
+  type IncludeSvelteAttrs<X> = Override<X, import('svelte/elements').HTMLAttributes<HTMLElement>>
+
+  namespace svelteHTML {
+    interface IntrinsicElements {
+      'quiet-button': IncludeSvelteAttrs<QuietButtonProps>,
+      'quiet-select': IncludeSvelteAttrs<QuietSelectProps>,
+      'quiet-splitter': IncludeSvelteAttrs<QuietSplitterProps>,
+    }
   }
 }
 

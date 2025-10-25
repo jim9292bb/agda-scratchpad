@@ -115,7 +115,8 @@ export class AgdaController {
   alsWorkerStatus = $state<ALSWorkerStatus>('initial')
   wasmLoadingProgress = $state<WASMLoadingProgress | null>(null)
   receivedALSVersion = $state<string | undefined>()
-  currentFilePath = $state<string>('/source.agda')
+  driveIsCreated = $state(false)
+  currentFilePath = $state('/source.agda')
   iotcmStatus = $state<AgdaIOTCMStatus>('init')
 
   _lspWorker: Worker | undefined
@@ -179,7 +180,6 @@ export class AgdaController {
 
     if (isSafari) {
       // Safari does not support transfering a ReadableStream, so we consume the stream and pass its object URL to worker
-      // TODO: revoke object URL after use
       this.wasmLoadingProgress = {
         ...progressCtx,
         source: { type: 'url', url: 'fakeurl' },
@@ -254,6 +254,7 @@ export class AgdaController {
       throw new Error('drive worker did not respond correctly')
     }
 
+    this.driveIsCreated = true
     return this._driveHostWorker = worker
   }
 
@@ -308,14 +309,20 @@ export class AgdaController {
 
     this.workerInitData = await initPromise
 
-    await Promise.all([
+    const [, dataFileData, stdlibData] = await Promise.all([
       this.workerInitData.getALSVersion().then(ver => this.receivedALSVersion = ver),
-      this.initDriveHostWorker({
-        builtin: dataFile ? await dataFile.arrayBuffer().then(x => new Uint8Array(x)) : undefined,
-        stdlib: await fetch(asset('/agda-stdlib-2.3.zip')).then(x => x.arrayBuffer()).then(x => new Uint8Array(x)),
-      })
-        .catch(err => { console.error('Failed to setup ALS drive host worker', err) }),
+      dataFile ? dataFile.arrayBuffer().then(x => new Uint8Array(x)) : Promise.resolve(undefined),
+      fetch(asset('/agda-stdlib-2.3.zip')).then(x => x.arrayBuffer()).then(x => new Uint8Array(x)),
     ])
+
+    try {
+      await this.initDriveHostWorker({
+        builtin: dataFileData,
+        stdlib: stdlibData,
+      })
+    } catch (err) {
+      return Promise.reject(new Error('Failed to setup ALS drive host worker', { cause: err }))
+    }
 
     if (this.config.agdaVersion === '2.8.0') {
       try {
@@ -325,6 +332,12 @@ export class AgdaController {
         this.alsWorkerStatus = 'errored'
         return -1
       }
+    }
+
+    // revoke object url after it is consumed
+    if (this.wasmLoadingProgress.source.type === 'url' &&
+        this.wasmLoadingProgress.source.url.startsWith('blob:')) {
+      URL.revokeObjectURL(this.wasmLoadingProgress.source.url)
     }
 
     return this._startALSWASM(this.workerInitData)
@@ -358,6 +371,7 @@ export class AgdaController {
 
     this._driveHostWorker?.terminate()
     this._driveHostWorker = undefined
+    this.driveIsCreated = false
 
     this.alsWorkerStatus = 'terminated'
     this.deactivate()

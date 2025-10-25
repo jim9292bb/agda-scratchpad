@@ -2,7 +2,7 @@
 import { onDestroy, untrack } from 'svelte'
 
 import { SPSC } from 'spsc'
-import { SplitPane } from '@rich_harris/svelte-split-pane'
+// import { SplitPane } from '@rich_harris/svelte-split-pane'
 import { basicSetup } from 'codemirror'
 import { EditorView } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
@@ -93,7 +93,7 @@ async function dumpFS() {
       await new Promise(r => setTimeout(r, 100))
     }
   })
-  console.log('dump end')
+  alert('Dump end. See the browser console')
 }
 
 function sendAbort() {
@@ -112,74 +112,65 @@ let textboxContent = $state('WIP')
 let raf
 let needScroll = false
 
+$effect.pre(() => {
+  textboxContent
+  if (textbox && textbox.scrollHeight - textbox.clientHeight - textbox.scrollTop < 50) {
+    needScroll = true
+  }
+})
+
 $effect(() => {
   textboxContent
   untrack(() => raf)
-  if (textbox) {
-    // FIXME: so naive, very fragile
-    if (textbox.scrollHeight <= textbox.clientHeight ||
-        textbox.scrollHeight - textbox.clientHeight - textbox.scrollTop < 50) {
-      needScroll = true
-    }
-
-    if (needScroll && !raf) {
-      raf = requestAnimationFrame(() => {
-        textbox.scrollTop = textbox.scrollHeight
-        raf = undefined
-        needScroll = false
-      })
-    }
+  if (needScroll && !raf) {
+    raf = requestAnimationFrame(() => {
+      textbox.scrollTop = textbox.scrollHeight
+      raf = undefined
+      needScroll = false
+    })
   }
 })
 </script>
 
 {#snippet editor(/** @type {'horizontal' | 'vertical'} */ orientation)}
+<quiet-splitter {orientation} position={.6} style="--divider-min-position: 25%; --divider-max-position: 90%;">
+  <section slot="start" class="editor-section">
+    <header class="header">Agda REPL 2025</header>
+    <div class="container" {@attach codeMirror}></div>
+  </section>
+  <section slot="end">
+    <quiet-splitter orientation="vertical" position={.75}>
 
-<SplitPane type={orientation} min="300px" max="-300px" pos="60%" --color={'var(--layout-divider-color)'} --thickness={'11px'}>
-  {#snippet a()}
-    <section class="editor-section">
-      <header class="header">Agda REPL 2025</header>
-      <div class="container" {@attach codeMirror}></div>
-    </section>
-  {/snippet}
-  {#snippet b()}
-    <section>
-      <SplitPane type="vertical" min="100px" max="-40px" pos="75%" --color={'var(--layout-divider-color)'} --thickness={'11px'}>
-        {#snippet a()}
-          <section class="info-section">
-            {@render alsButtons()}
-          </section>
-        {/snippet}
-        {#snippet b()}
-          <section>
-            <textarea bind:this={textbox} class="textbox" value={textboxContent}></textarea>
-          </section>
-        {/snippet}
-      </SplitPane>
-    </section>
-  {/snippet}
-</SplitPane>
+      <section slot="start" class="info-section">
+        {@render alsButtons()}
+      </section>
 
+      <section slot="end" style="margin-top: -1px">
+        <textarea bind:this={textbox} class="textbox" value={textboxContent} placeholder="(log area is empty)"></textarea>
+      </section>
+    </quiet-splitter>
+  </section>
+</quiet-splitter>
 {/snippet}
 
 {#snippet alsButtons()}
   {@const alsIsStartable =
     ['initial', 'terminated', 'exited', 'errored'].includes(agdaController.alsWorkerStatus) ?
-      'startable' : agdaController.alsWorkerStatus === 'active' ? 'stopable' : ''}
+      'startable' : agdaController.alsWorkerStatus === 'active' ? 'stoppable' : ''}
   <div class="flex" style="padding: 1em 0">
-    <button onclick={{
+    <quiet-button variant={agdaController.alsWorkerStatus !== 'active' ? 'primary' : 'destructive'} onclick={{
       startable: () => agdaController.startALSWASM(),
-      stopable: () => agdaController.stopALSWASM(),
+      stoppable: () => agdaController.stopALSWASM(),
       '': null}[alsIsStartable]}
       disabled={!alsIsStartable}>{
-      {startable: 'Start', stopable: 'Stop', '': '...'}[alsIsStartable]
-    }</button>
-    <button onclick={() => agdaController.restartALSWASM()} disabled={agdaController.alsWorkerStatus !== 'active'}>Restart</button>
-    <button onclick={() => agdaController.terminateALSWASM()}  disabled={['initial', 'terminated'].includes(agdaController.alsWorkerStatus)}>Terminate</button>
-    <button disabled={!agdaController._driveHostWorker} onclick={() => dumpFS()}>Dump FS</button>
+      {startable: 'Start', stoppable: 'Stop', '': '...'}[alsIsStartable]
+    }</quiet-button>
+    <quiet-button onclick={() => agdaController.restartALSWASM()} disabled={agdaController.alsWorkerStatus !== 'active'}>Restart</quiet-button>
+    <quiet-button onclick={() => agdaController.terminateALSWASM()}  disabled={['initial', 'terminated'].includes(agdaController.alsWorkerStatus)}>Terminate</quiet-button>
+    <quiet-button disabled={!agdaController.driveIsCreated} onclick={() => dumpFS()}>Dump FS</quiet-button>
   </div>
 
-  {@const bytesLoaded = agdaController.wasmLoadingProgress?.bytesLoaded}
+  {@const bytesLoaded = agdaController.wasmLoadingProgress?.bytesLoaded ?? 0}
   {@const bytesTotal = agdaController.wasmLoadingProgress?.bytesTotal ?? 0}
   <div>
   {#if agdaController.alsWorkerStatus === 'loading'}
@@ -193,27 +184,29 @@ $effect(() => {
   {:else if agdaController.alsWorkerStatus === 'deactivating'}
     ⚠️ Deactivating the worker...
   {:else if agdaController.alsWorkerStatus === 'terminated'}
-    🛑 WASM has been terminated.
+    <p>🛑 WASM has been terminated.</p>
+    <quiet-button onclick={() => { agdaController.alsWorkerStatus = 'initial' }}>Reset state to initial</quiet-button>
   {:else if agdaController.alsWorkerStatus === 'initial'}
     <div><strong>Startup config</strong></div>
-    <ul>
-      <li>Agda version: <select disabled>
+
+    <div style="display: flex; flex-direction: column; gap: .25em;">
+      <quiet-select label="Agda version" class="quiet-side-label" disabled>
         <option value="2.8.0" selected>v2.8.0</option>
         <option value="2.7.0.1">v2.7.0.1</option>
         <option value="2.6.4.3">v2.6.4.3</option>
-      </select></li>
-      <li>Agda CLI args: <input style="font-family: monospace;" placeholder="(empty)" disabled></li>
-      <li>Load args: <input style="font-family: monospace;" placeholder="(empty)" disabled></li>
-      <li>Source file name: <input style="font-family: monospace;" value="source.agda" disabled></li>
-      <li>Stdlib version: <select disabled>
+      </quiet-select>
+      <quiet-text-field label="Agda CLI args" class="quiet-side-label mono" placeholder="(empty)" disabled></quiet-text-field>
+      <quiet-text-field label="Load args" class="quiet-side-label mono" placeholder="(empty)" disabled></quiet-text-field>
+      <quiet-text-field label="Source file name" class="quiet-side-label mono" value="source.agda" disabled></quiet-text-field>
+      <quiet-select label="Stdlib version" class="quiet-side-label" disabled>
         <option value="NONE">None</option>
         <option value="2.0">v2.0</option>
         <option value="2.1">v2.1</option>
         <option value="2.1.1">v2.1.1</option>
         <option value="2.2">v2.2</option>
         <option value="2.3" selected>v2.3</option>
-      </select></li>
-    </ul>
+      </quiet-select>
+    </div>
   {:else}
     Status: <strong>{agdaController.alsWorkerStatus}</strong>
     <ul>
@@ -222,8 +215,8 @@ $effect(() => {
       <li>IOTCM status: {agdaController.iotcmStatus}</li>
     </ul>
     <div class="flex">
-      <button style="padding: 20px" onclick={() => agdaController.loadAgdaFile()}>Load</button>
-      <button style="padding: 20px" onclick={() => sendAbort()}>Abort</button>
+      <quiet-button variant="primary" onclick={() => agdaController.loadAgdaFile()}>Load</quiet-button>
+      <quiet-button onclick={() => sendAbort()}>Abort</quiet-button>
     </div>
   {/if}
   </div>
@@ -236,17 +229,13 @@ $effect(() => {
 </div>
 
 <style>
-select {
-  min-width: 10em;
-}
-
 .header {
   color: #999;
   letter-spacing: 1px;
   font-size: 16px;
   font-family: monospace;
   padding: 8px;
-  border-bottom: 1px solid var(--layout-divider-color);
+  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
 }
 
 .container {
@@ -255,6 +244,34 @@ select {
   flex-direction: row;
   min-height: 0;
   padding-right: 4px;
+}
+
+quiet-splitter {
+  border-style: none;
+  border-radius: 0;
+  --divider-width: 1px;
+  --divider-draggable-area: 13px;
+
+  > section {
+    height: 100%;
+    width: 100%;
+  }
+
+  &::part(divider):hover {
+    background: var(--quiet-primary-fill-soft);
+  }
+
+  &::part(handle) {
+    display: none;
+  }
+}
+
+quiet-text-field.mono::part(text-box) {
+  font-family: monospace;
+}
+
+.quiet-side-label {
+  --label-width: 12ch;
 }
 
 .container > :global(*) {
@@ -285,21 +302,8 @@ select {
   padding: 4px;
 }
 
-button {
-  min-width: 56px;
-  min-height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .flex {
   display: flex;
   gap: 8px;
-}
-
-:global(svelte-split-pane-divider:hover:after) {
-  --sp-color: #ace;
-  /*width: 3px !important;*/
 }
 </style>

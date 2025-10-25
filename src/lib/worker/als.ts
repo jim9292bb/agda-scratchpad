@@ -178,6 +178,7 @@ async function init({
     getALSVersion: async () => alsVersion ?? (alsVersion = await wasiSpawn(module, ['--version']).then(x => x.stdout)),
     start,
     spawn: (args: string[], options: WASISpawnOptions) => wasiSpawn(module, args, { drive: driveBuffers, env, ...options }),
+    // TODO: make a specialized spawn to run "--setup" but strips unnecessary files
   })
 }
 
