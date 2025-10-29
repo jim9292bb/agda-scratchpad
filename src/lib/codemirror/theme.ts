@@ -56,7 +56,7 @@ export const myBaseTheme = EditorView.baseTheme({
     borderTop: '1px solid #777',
   },
 
-  '&dark .cm-tooltip.cm-tooltip-hover': {
+  '&dark .cm-tooltip.cm-tooltip.cm-tooltip-hover': {
     borderColor: '#111',
   },
 

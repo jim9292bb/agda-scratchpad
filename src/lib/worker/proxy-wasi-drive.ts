@@ -86,13 +86,20 @@ export function proxyWASIDrive(drive: RunnoDrive, lock: SharedArrayBuffer, stdin
         Atomics.wait(driveMutex, 0, oldFlag)
       }
 
-      writer.write(new Uint8Array([0, 0, 0, 0]))
+      writer.write(new Uint8Array(new Uint32Array([0]).buffer))
       writeLenPrefixed(writer, encoder.encode(JSON.stringify({ method, args })))
       Atomics.notify(driveMutex, 0, 1)
 
       const buf = fread(reader, 4)
       const payloadLength = bufGetUint32LE(buf)
       const recved = fread(reader, payloadLength)
+
+      const oldFlag = Atomics.compareExchange(driveMutex, 0, 1, 0)
+      if (oldFlag !== 1) {
+        throw new Error('mutex content is corrupted')
+      }
+      Atomics.notify(driveMutex, 0, 1)
+
       let data = JSON.parse(decoder.decode(recved))
       if (method === 'pathStat' || method === 'stat') {
         data = fixStatCommon(data)
@@ -101,12 +108,6 @@ export function proxyWASIDrive(drive: RunnoDrive, lock: SharedArrayBuffer, stdin
           data[1] = base64ToUint8Array(data[1])
         }
       }
-
-      const oldFlag = Atomics.compareExchange(driveMutex, 0, 1, 0)
-      if (oldFlag !== 1) {
-        throw new Error('mutex content is corrupted')
-      }
-      Atomics.notify(driveMutex, 0, 1)
 
       return data
     }
