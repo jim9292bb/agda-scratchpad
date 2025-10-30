@@ -234,7 +234,7 @@ export class AgdaController {
     return ret
   }
 
-  async initDriveHostWorker(options: {builtin?: Uint8Array, stdlib?: Uint8Array}) {
+  async initDriveHostWorker(options: {builtin?: ArrayBuffer, stdlib?: ArrayBuffer}) {
     if (this._driveHostWorker) {
       throw new Error('should not be reusing existing drive host worker')
     }
@@ -298,7 +298,7 @@ export class AgdaController {
         stdin: this.config.driveBuffers.stdout,
         stdout: this.config.driveBuffers.stdin,
       },
-      // args: ['--raw'],
+      args: ['--raw'],
     }, worker => {
       this._lspWorker = worker
       worker.addEventListener('error', (evt) => {
@@ -311,8 +311,8 @@ export class AgdaController {
 
     const [, dataFileData, stdlibData] = await Promise.all([
       this.workerInitData.getALSVersion().then(ver => this.receivedALSVersion = ver),
-      dataFile ? dataFile.arrayBuffer().then(x => new Uint8Array(x)) : Promise.resolve(undefined),
-      fetch(asset('/agda-stdlib-2.3.zip')).then(x => x.arrayBuffer()).then(x => new Uint8Array(x)),
+      dataFile ? dataFile.arrayBuffer() : Promise.resolve(undefined),
+      fetch(asset('/agda-stdlib-2.3.zip')).then(x => x.arrayBuffer()),
     ])
 
     try {

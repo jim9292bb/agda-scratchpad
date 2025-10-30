@@ -44,6 +44,6 @@ export interface ALSWorkerInitResultProxied {
 export interface DriveWorkerInitObject {
   stdin: SharedArrayBuffer
   stdout: SharedArrayBuffer
-  agdaDataZip?: Uint8Array | null
-  agdaStdlibZip?: Uint8Array | null
+  agdaDataZip: ArrayBuffer | null
+  agdaStdlibZip: ArrayBuffer | null
 }

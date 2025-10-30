@@ -135,7 +135,9 @@ $effect(() => {
 {#snippet editor(/** @type {'horizontal' | 'vertical'} */ orientation)}
 <quiet-splitter {orientation} position={.6} style="--divider-min-position: 25%; --divider-max-position: 90%;">
   <section slot="start" class="editor-section">
-    <header class="header">Agda REPL 2025</header>
+    <header class="header">
+      <span class="header-title">Agda REPL 2025</span> <a target="_blank" href={ALS_DEMO_REPO_URL} class="header-subtitle">{ALS_DEMO_COMMIT_ID}</a>
+    </header>
     <div class="container" {@attach codeMirror}></div>
   </section>
   <section slot="end">
@@ -178,7 +180,8 @@ $effect(() => {
   {:else if agdaController.alsWorkerStatus === 'loaded'}
     ⚙️ WASM is downloaded. Starting up...
   {:else if agdaController.alsWorkerStatus === 'exited'}
-    🚪 WASM has exited. Start again to reuse this worker.
+    🚪 WASM has exited. Start again to reuse this worker.<br>
+    If this is not intended, open the console to inspect its output.
   {:else if agdaController.alsWorkerStatus === 'errored'}
     ⚠️ Error has occurred. Terminate and try again.
   {:else if agdaController.alsWorkerStatus === 'deactivating'}
@@ -230,12 +233,20 @@ $effect(() => {
 
 <style>
 .header {
-  color: #999;
-  letter-spacing: 1px;
-  font-size: 16px;
-  font-family: monospace;
   padding: 8px;
   border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
+}
+
+.header-title {
+  color: #999;
+  letter-spacing: 1px;
+  font-size: 1rem;
+  font-family: monospace;
+}
+
+.header-subtitle {
+  margin-inline-start: 1em;
+  font-size: .75rem;
 }
 
 .container {

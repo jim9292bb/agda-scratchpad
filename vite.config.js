@@ -1,5 +1,6 @@
 import { sveltekit } from '@sveltejs/kit/vite'
 import { defineConfig } from 'vitest/config'
+import { exec } from 'child_process'
 
 const VITE_SERVE_ENABLE_SSL = 'VITE_SERVE_ENABLE_SSL' in process.env
 
@@ -15,10 +16,29 @@ const coiPlugin = () => ({
   },
 })
 
-export default defineConfig({
+/** @type {() => Promise<string>} */
+const getGitCommitHash = () => new Promise((resolve, reject) => {
+  exec('git describe --tags --always --abbrev=8 --dirty', (err, result) => {
+    if (err) return reject(err)
+    resolve(result.trim())
+  })
+})
+
+export default defineConfig(async ({ command }) => {
+  const GIT_COMMIT_HASH = JSON.stringify(
+    command === 'serve' ? 'DEV' : await getGitCommitHash())
+
+  console.log(`GIT_COMMIT_HASH is ${GIT_COMMIT_HASH}`)
+
+  return {
   server: {
     port: 8099,
     https: VITE_SERVE_ENABLE_SSL,
+  },
+  define: {
+    // XXX: is using env better?
+    ALS_DEMO_REPO_URL: JSON.stringify('https://github.com/agda-web/als-demo'),
+    ALS_DEMO_COMMIT_ID: GIT_COMMIT_HASH,
   },
   optimizeDeps: {
     include: ['@runno/wasi', 'jszip'],
@@ -40,4 +60,4 @@ export default defineConfig({
     globals: true,
     include: ['src/**/*.{test,spec}.{js,ts}'],
   },
-})
+}})

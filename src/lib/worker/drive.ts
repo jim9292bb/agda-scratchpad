@@ -35,7 +35,7 @@ const { stdin, stdout, agdaDataZip, agdaStdlibZip } = await new Promise<DriveWor
   }, { once: true })
 })
 
-async function extractZip(data: Uint8Array, prefix = '', pathResolver?: (path: string) => string | null) {
+async function extractZip(data: ArrayBuffer, prefix = '', pathResolver?: (path: string) => string | null) {
   const zip = await JSZip.loadAsync(data)
   const filePromises: Promise<void>[] = []
 

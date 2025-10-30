@@ -31,13 +31,13 @@ if (!crossOriginIsolated) {
 
 const { WASI } = Runno
 
-async function toWasmResponse(wasmSource: ALSWorkerInitObject['wasmSource']) {
+async function compileWasm(wasmSource: ALSWorkerInitObject['wasmSource']) {
   if (wasmSource.type === 'url') {
-    return fetch(wasmSource.url)
+    return WebAssembly.compile(await fetch(wasmSource.url).then(x => x.arrayBuffer()))
   }
-  return new Response(wasmSource.stream, {
+  return WebAssembly.compileStreaming(new Response(wasmSource.stream, {
     headers: { 'Content-Type': 'application/wasm' },
-  })
+  }))
 }
 
 const runnoInterceptor: Runno.DebugFn = (name, args_, ret, _data) => {
@@ -116,7 +116,7 @@ async function init({
   const stdinReader = new SPSCReader(stdin)
   const stdoutWriter = new SPSCWriter(stdout, stdinWaker)
 
-  const module = await WebAssembly.compileStreaming(toWasmResponse(wasmSource))
+  const module = await compileWasm(wasmSource)
   let alsVersion: string | null = null
 
   const env = {

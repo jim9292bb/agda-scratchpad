@@ -134,7 +134,7 @@ export function makeDriveHostWorker(initialMessage) {
 
     // FIXME
     /** @type {Transferable[]} */
-    const transferables = [] // [initialMessage.agdaDataZip, initialMessage.agdaStdlibZip].filter(Boolean)
+    const transferables = [initialMessage.agdaDataZip, initialMessage.agdaStdlibZip].filter(Boolean)
 
     worker.postMessage(initialMessage, transferables)
   })
