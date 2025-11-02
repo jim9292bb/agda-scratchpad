@@ -66,7 +66,10 @@ if (agdaDataZip) {
 
 if (agdaStdlibZip) {
   await extractZip(agdaStdlibZip, '/stdlib', p => {
-    // if (!p.match(/^agda-stdlib-[\.\d]+\/src/)) return null
+    if (!p.match(/^agda-stdlib-[\.\d]+\/src/) &&
+        !p.match(/^agda-stdlib-[\.\d]+\/standard-library\.agda-lib$/)) {
+      return null
+    }
     return p.replace(/^agda-stdlib-[\.\d]+\//, '')
   })
   fsAssign('/home/root/.config/agda/libraries', '/stdlib/standard-library.agda-lib\n')
@@ -77,6 +80,37 @@ postMessage('fs-ready')
 
 const wasi = new Runno.WASI({ fs })
 const drive = wasi.drive
+
+// do the normalization the dirty way
+function removeTrailingDotDots(path: string) {
+  let dotdotCount = 0
+  while (path.endsWith('/..')) {
+    path = path.slice(0, -3)
+    dotdotCount++
+  }
+
+  if (path === '..') {
+    return '.'
+  }
+
+  for (let i = 0; i < dotdotCount; i++) {
+    const lastSlash = path.lastIndexOf('/', path.length - 4)
+    if (lastSlash < 0) {
+      return '.'
+    }
+    path = path.slice(0, lastSlash)
+  }
+
+  return path
+}
+
+const origPathStat = drive.pathStat.bind(drive)
+drive.pathStat = (fdDir: number, path: string) =>
+  origPathStat(fdDir, removeTrailingDotDots(path))
+
+const origDriveOpen = drive.open.bind(drive)
+drive.open = (fdDir: number, path: string, oflags: number, fdflags: number) =>
+  origDriveOpen(fdDir, removeTrailingDotDots(path), oflags, fdflags)
 
 const reader = new SPSCReader(stdin)
 const writer = new SPSCWriter(stdout)

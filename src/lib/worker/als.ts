@@ -40,6 +40,17 @@ async function compileWasm(wasmSource: ALSWorkerInitObject['wasmSource']) {
   }))
 }
 
+function memReadString(mem: WebAssembly.Memory, pos: number, len?: number) {
+  if (len === undefined) {
+    len = new Uint8Array(mem.buffer).indexOf(0, pos)
+    if (len < 0) throw new Error('buffer overflow')
+    len -= pos
+  }
+  return new TextDecoder().decode(new Uint8Array(mem.buffer, pos, len))
+}
+
+type RunnoDebugFnExt = Runno.DebugFn & { wasi: Runno.WASI }
+
 const runnoInterceptor: Runno.DebugFn = (name, args_, ret, _data) => {
   const args = args_ as unknown as number[]
 
@@ -47,10 +58,17 @@ const runnoInterceptor: Runno.DebugFn = (name, args_, ret, _data) => {
   if (name === 'fd_fdstat_set_flags' && args[0] === 0 && args[1] === 4) {
     return 0  // success
   }
-  // workaround a bug where mkdir's error code is wrong
-  if ((name === 'path_open' || name === 'path_filestat_get') && ret === 76) {
-    return 2  // EPERM
+  // fake that readlink always finds something that is not a symlink
+  if (name === 'path_readlink') {
+    // const path = memReadString((runnoInterceptor as RunnoDebugFnExt).wasi.memory, args[1], args[2])
+    return 28  // EINVAL
   }
+
+  // stat-ing a non-existent path
+  if (name === 'path_filestat_get' && ret === 76) {
+    return 44  // ENOENT
+  }
+  // workaround a bug where mkdir's error code is wrong
   if (name === 'path_create_directory' && ret === 76) {
     return 20  // EEXIST
   }
@@ -73,6 +91,7 @@ async function wasiSpawn(
     stdout: str => stdout.push(str),
     stderr: str => stderr.push(str),
   })
+  ;(runnoInterceptor as RunnoDebugFnExt).wasi = wasi
 
   if (options.drive) {
     const { lock: driveLock, stdin: driveStdin, stdout: driveStdout } = options.drive
@@ -160,6 +179,7 @@ async function init({
         stderrBuf += str
       },
     }))
+    ;(runnoInterceptor as RunnoDebugFnExt).wasi = wasi
 
     const importObject = patchImportObject(wasi, {
       pollStdin(timeout) {
