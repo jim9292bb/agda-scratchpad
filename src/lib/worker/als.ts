@@ -40,15 +40,6 @@ async function compileWasm(wasmSource: ALSWorkerInitObject['wasmSource']) {
   }))
 }
 
-function memReadString(mem: WebAssembly.Memory, pos: number, len?: number) {
-  if (len === undefined) {
-    len = new Uint8Array(mem.buffer).indexOf(0, pos)
-    if (len < 0) throw new Error('buffer overflow')
-    len -= pos
-  }
-  return new TextDecoder().decode(new Uint8Array(mem.buffer, pos, len))
-}
-
 type RunnoDebugFnExt = Runno.DebugFn & { wasi: Runno.WASI }
 
 const runnoInterceptor: Runno.DebugFn = (name, args_, ret, _data) => {

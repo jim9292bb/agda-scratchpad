@@ -62,7 +62,7 @@ export function createReadableByteStream(reader, waker) {
       while (true) {
         if (controller.byobRequest == null) throw new Error('there should be a byobRequest')
         const view = /** @type {Uint8Array<ArrayBuffer>} */(controller.byobRequest.view)
-        const rr = reader.read(view.byteLength, { nonblock: true })
+        const rr = reader.read(view.byteLength, { nonblock: true, into: view })
         if (!rr.ok) {
           if (rr.error === SPSCError.Again) {
             await new Promise(resolve => pendingRead = resolve)
@@ -71,9 +71,7 @@ export function createReadableByteStream(reader, waker) {
           throw new Error('read failed')
         }
         if (rr.bytesRead) {
-          const sz = Math.min(view.byteLength, rr.bytesRead)
-          view.set(rr.data.subarray(0, sz))
-          controller.byobRequest.respond(sz)
+          controller.byobRequest.respond(rr.bytesRead)
         } else {
           console.log('process ends')
           controller.close()

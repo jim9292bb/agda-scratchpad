@@ -18,12 +18,12 @@
     "test": "npm run test:unit -- --run"
   },
   "devDependencies": {
-    "@sveltejs/kit": "^2.46.4",
+    "@sveltejs/kit": "^2.48.4",
     "@vitejs/plugin-basic-ssl": "^2.1.0",
-    "svelte": "^5.39.11",
+    "svelte": "^5.43.4",
     "svelte-check": "^4.3.3",
     "typescript": "^5.9.3",
-    "vite": "^6.3.6",
+    "vite": "^6.4.1",
     "vitest": "^3.2.4"
   },
   "engines": {
@@ -31,20 +31,20 @@
   },
   "dependencies": {
     "@andy0130tw/vscode-jsonrpc-esm": "^9.0.0-next-esm.9",
-    "@codemirror/autocomplete": "^6.19.0",
-    "@codemirror/commands": "^6.9.0",
+    "@codemirror/autocomplete": "^6.19.1",
+    "@codemirror/commands": "^6.10.0",
     "@codemirror/language": "^6.11.3",
-    "@codemirror/lint": "^6.9.0",
-    "@codemirror/lsp-client": "^6.1.2",
+    "@codemirror/lint": "^6.9.2",
+    "@codemirror/lsp-client": "^6.2.0",
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.38.6",
-    "@quietui/quiet": "^1.3.0",
+    "@quietui/quiet": "file:quietui.tar.gz",
     "@runno/wasi": "^0.10.0",
     "@sveltejs/adapter-static": "^3.0.10",
-    "codemirror": "^6.0.1",
+    "codemirror": "^6.0.2",
     "comlink": "^4.4.2",
     "jszip": "^3.10.1",
-    "spsc": "^0.0.6",
+    "spsc": "^0.0.7",
     "zod": "^4.1.12"
   }
 }

@@ -66,6 +66,14 @@ export async function freadAsync(reader: SPSCReader, n: number, waitDur = 50) {
   }
 }
 
+export function bufReadString(buffer: ArrayBufferLike, pos: number, len?: number) {
+  if (len === undefined) {
+    len = new Uint8Array(buffer).indexOf(0, pos)
+    if (len < 0) throw new Error('buffer overflow')
+    len -= pos
+  }
+  return new TextDecoder().decode(new Uint8Array(buffer, pos, len))
+}
 
 export function bufGetUint32LE(buf: Uint8Array) {
   const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength)
