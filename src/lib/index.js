@@ -13,13 +13,13 @@ queueMicrotask(() => {
       type: 'bytes',
       // when this is defined, byobRequest should always be available
       // https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream/ReadableStream#autoallocatechunksize
-      autoAllocateChunkSize: 4096,
+      autoAllocateChunkSize: 8,
       async pull(controller) {
         const breq = controller.byobRequest
         if (breq?.view == null) {
           throw new Error('byobRequest support is borked')
         }
-        const view = new Uint8Array(breq.view.buffer)
+        const view = new Uint8Array(breq.view.buffer, breq.view.byteOffset, breq.view.byteLength)
         view[0] = 1
         breq.respond(1)
         controller.close()
