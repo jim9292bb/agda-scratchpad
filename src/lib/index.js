@@ -5,13 +5,31 @@ import { SPSCError } from 'spsc'
 import * as Comlink from 'comlink'
 import { freadAsync, fwriteAsync, makeBufUint32LE, writeLenPrefixedAsync } from './stdlib'
 
-function browserSupportBYOBReadable() {
-  try {
-    // feature detection
-    new ReadableStream({ type: 'bytes' })
+// feature detection, unfortunately async
+let browserSupportBYOBReadable = false
+queueMicrotask(() => {
+  ;(async () => {
+    const rs = new ReadableStream({
+      type: 'bytes',
+      // when this is defined, byobRequest should always be available
+      // https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream/ReadableStream#autoallocatechunksize
+      autoAllocateChunkSize: 4096,
+      async pull(controller) {
+        const breq = controller.byobRequest
+        if (breq?.view == null) {
+          throw new Error('byobRequest support is borked')
+        }
+        const view = new Uint8Array(breq.view.buffer)
+        view[0] = 1
+        breq.respond(1)
+        controller.close()
+      },
+    })
+    const ws = new WritableStream()
+    await rs.pipeTo(ws)
     return true
-  } catch { return false }
-}
+  })().catch(() => false).then(ok => browserSupportBYOBReadable = ok)
+})
 
 /**
  * @param {SPSCReader} reader
@@ -28,7 +46,7 @@ export function createReadableByteStream(reader, waker) {
     }
   }
 
-  if (!browserSupportBYOBReadable()) {
+  if (!browserSupportBYOBReadable) {
     console.warn('Browser not support byob readable streams; using the fallback impl.')
 
     return new ReadableStream({
