@@ -46,12 +46,25 @@ function hoverRequest(plugin: LSPPluginPriv, pos: number) {
   })
 }
 
+function hoverContentText(value: lsp.Hover['contents']): string {
+  if (Array.isArray(value)) return value.map(v => typeof v === 'string' ? v : v.value).join('\n')
+  if (typeof value === 'string') return value
+  return value.value
+}
+
+function isAgdaInternalError(result: lsp.Hover | null) {
+  if (!result) return false
+  const text = hoverContentText(result.contents)
+  return text.includes('An internal error has occurred') ||
+    text.includes('__IMPOSSIBLE_VERBOSE__')
+}
+
 function lspTooltipSource(view: EditorView, pos: number, side: -1 | 1): Promise<Tooltip | null> {
   const plugin = LSPPlugin.get(view)
   if (!plugin) return Promise.resolve(null)
 
   // add a soft timeout to show a loading message before the info loads
-  let timer: number
+  let timer: ReturnType<typeof setTimeout>
   const timeoutPromise = new Promise(resolve => {
     timer = setTimeout(resolve, 300)
   })
@@ -59,6 +72,11 @@ function lspTooltipSource(view: EditorView, pos: number, side: -1 | 1): Promise<
   // TODO: allow to skip the request if the cursor is not at an identifier
 
   const hoverPromise = hoverRequest(plugin as LSPPluginPriv, pos)
+    .then(result => isAgdaInternalError(result) ? null : result)
+    .catch(error => {
+      console.warn('Agda hover request failed', error)
+      return null
+    })
 
   return Promise.race([
     timeoutPromise.then(() => true),

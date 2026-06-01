@@ -56,7 +56,7 @@ const basicTheme = EditorView.theme({
 /** @type {import('svelte/attachments').Attachment} */
 function codeMirror(el) {
   const ev = new EditorView({
-    doc: localStorage.getItem(LS_DOC_KEY) ?? 'open import Agda.Primitive\n',
+    doc: localStorage.getItem(LS_DOC_KEY) ?? '{-# OPTIONS --cubical --guardedness #-}\n\nopen import Cubical.Foundations.Prelude\n',
     parent: el,
     extensions: [
       basicSetup,
@@ -69,7 +69,8 @@ function codeMirror(el) {
           if (e.is(emitRunningInfo)) {
             textboxContent += e.value.message
           } else if (e.is(clearRunningInfo)) {
-            textboxContent = ''
+            // Highlighting commands may clear Agda's running-info buffer after
+            // loading succeeds; keep the visible load log until the next Load.
           }
         }
         return true
@@ -101,6 +102,17 @@ function sendAbort() {
     tag: 'CmdReq',
     contents: `IOTCM "/source.agda" NonInteractive Direct (Cmd_abort)`,
   })
+}
+
+async function loadAgdaFile() {
+  textboxContent = `Loading ${agdaController.currentFilePath}...\n`
+  try {
+    await agdaController.loadAgdaFile()
+    textboxContent += 'Load finished.\n'
+  } catch (err) {
+    textboxContent += `Load failed: ${err instanceof Error ? err.message : String(err)}\n`
+    throw err
+  }
 }
 
 /** @type {HTMLTextAreaElement} */
@@ -209,6 +221,7 @@ $effect(() => {
         <option value="2.2">v2.2</option>
         <option value="2.3" selected>v2.3</option>
       </quiet-select>
+      <quiet-text-field label="Cubical version" class="quiet-side-label mono" value="v0.9" disabled></quiet-text-field>
     </div>
   {:else}
     Status: <strong>{agdaController.alsWorkerStatus}</strong>
@@ -218,7 +231,7 @@ $effect(() => {
       <li>IOTCM status: {agdaController.iotcmStatus}</li>
     </ul>
     <div class="flex">
-      <quiet-button variant="primary" onclick={() => agdaController.loadAgdaFile()}>Load</quiet-button>
+      <quiet-button variant="primary" onclick={() => loadAgdaFile()}>Load</quiet-button>
       <quiet-button onclick={() => sendAbort()}>Abort</quiet-button>
     </div>
   {/if}

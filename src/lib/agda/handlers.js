@@ -11,6 +11,9 @@ import { buildGoalTransaction } from './goals'
  * @prop {boolean} checked
  * @prop {boolean} showImplicitArgs
  * @prop {boolean} showIrrelevantArgs
+ * @prop {boolean} suppressAgdaInternalErrors
+ * @prop {string | null} lastAgdaInternalError
+ * @prop {string | null} lastAgdaError
  */
 
 /** @typedef {(
@@ -28,6 +31,52 @@ import { buildGoalTransaction } from './goals'
  * @param {Controller} controller
  * @param {EditorView} editorView */
 export function makeLSPResponseHandlerMap(controller, editorView) {
+  /**
+   * @param {string | undefined | null} message
+   * @param {number} [debugLevel]
+   */
+  function emitMessage(message, debugLevel = 1) {
+    if (message) {
+      if (!message.endsWith('\n')) message += '\n'
+      editorView.dispatch({ effects: emitRunningInfo.of({ message, debugLevel }) })
+    }
+  }
+
+  /** @param {any} constraint */
+  function formatConstraint(constraint) {
+    if (constraint.type) return constraint.type
+    if (constraint.sort) return constraint.sort
+    return JSON.stringify(constraint)
+  }
+
+  /** @param {Agda._Info} info */
+  function formatDisplayInfo(info) {
+    switch (info.kind) {
+      case 'Error':
+        return info.error.message
+      case 'AllGoalsWarnings': {
+        const parts = []
+        for (const err of info.errors ?? []) parts.push(err.message)
+        for (const warning of info.warnings ?? []) parts.push(warning.message)
+        for (const goal of info.visibleGoals ?? []) parts.push(formatConstraint(goal))
+        for (const goal of info.invisibleGoals ?? []) parts.push(formatConstraint(goal))
+        return parts.join('\n\n')
+      }
+      case 'GoalSpecific':
+        if (info.goalInfo?.kind === 'GoalType') return info.goalInfo.type
+        return JSON.stringify(info.goalInfo)
+      case 'Version':
+        return info.version
+      default:
+        return JSON.stringify(info)
+    }
+  }
+
+  /** @param {string} message */
+  function isAgdaInternalErrorMessage(message) {
+    return message.includes('An internal error has occurred') ||
+      message.includes('__IMPOSSIBLE_VERBOSE__')
+  }
 
   /** @type {Partial<Record<ALSResponseType, (this: ALSMessageRouter, contents: any) => void>>} */
   const handlers = {
@@ -95,6 +144,18 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
     },
     RunningInfo({ message, debugLevel }) {
       editorView.dispatch({ effects: emitRunningInfo.of({ message, debugLevel }) })
+    },
+    DisplayInfo({ info }) {
+      const message = formatDisplayInfo(info)
+      if (isAgdaInternalErrorMessage(message)) {
+        controller.lastAgdaInternalError = message
+        console.warn('Suppressed Agda internal error:', message)
+        return
+      }
+      if (info.kind === 'Error' || info.kind === 'AllGoalsWarnings' && (info.errors?.length ?? 0) > 0) {
+        controller.lastAgdaError = message
+      }
+      emitMessage(message)
     },
     ClearHighlighting({ tokenBased }) {
       // Agda (~2.8)'s codebase does not contain any instance of (Resp_ClearHighlighting TokenBased)

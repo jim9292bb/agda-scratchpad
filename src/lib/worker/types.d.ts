@@ -46,4 +46,5 @@ export interface DriveWorkerInitObject {
   stdout: SharedArrayBuffer
   agdaDataZip: ArrayBuffer | null
   agdaStdlibZip: ArrayBuffer | null
+  agdaCubicalZip: ArrayBuffer | null
 }

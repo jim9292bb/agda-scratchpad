@@ -84,6 +84,7 @@ export async function fetchWASMAndData(agdaVersion: SupportedAgdaVersion) {
 }
 
 export const LS_DOC_KEY = 'agda-web-ide-beta:doc'
+const loadArgs: string[] = []
 
 function makeLspClient(rootUri: string = '/') {
   const lspExtsWithoutHover = languageServerExtensions().filter(x => !('active' in x))
@@ -234,7 +235,7 @@ export class AgdaController {
     return ret
   }
 
-  async initDriveHostWorker(options: {builtin?: ArrayBuffer, stdlib?: ArrayBuffer}) {
+  async initDriveHostWorker(options: {builtin?: ArrayBuffer, stdlib?: ArrayBuffer, cubical?: ArrayBuffer}) {
     if (this._driveHostWorker) {
       throw new Error('should not be reusing existing drive host worker')
     }
@@ -248,6 +249,7 @@ export class AgdaController {
       stdin, stdout,
       agdaDataZip: options.builtin ?? null,
       agdaStdlibZip: options.stdlib ?? null,
+      agdaCubicalZip: options.cubical ?? null,
     })
 
     if (event.data !== 'fs-ready') {
@@ -309,16 +311,18 @@ export class AgdaController {
 
     this.workerInitData = await initPromise
 
-    const [, dataFileData, stdlibData] = await Promise.all([
+    const [, dataFileData, stdlibData, cubicalData] = await Promise.all([
       this.workerInitData.getALSVersion().then(ver => this.receivedALSVersion = ver),
       dataFile ? dataFile.arrayBuffer() : Promise.resolve(undefined),
       fetch(asset('/agda-stdlib-2.3.zip')).then(x => x.arrayBuffer()),
+      fetch(asset('/agda-cubical-0.9.zip')).then(x => x.arrayBuffer()),
     ])
 
     try {
       await this.initDriveHostWorker({
         builtin: dataFileData,
         stdlib: stdlibData,
+        cubical: cubicalData,
       })
     } catch (err) {
       return Promise.reject(new Error('Failed to setup ALS drive host worker', { cause: err }))
@@ -412,9 +416,42 @@ export class AgdaController {
 
     const encodedFilePath = JSON.stringify(this.currentFilePath)
 
-    await this.lspClient!.request('agda', {
+    this.alsRouter!.lastAgdaInternalError = null
+    this.alsRouter!.lastAgdaError = null
+    await this.runAgdaCommand({
       tag: 'CmdReq',
-      contents: `IOTCM ${encodedFilePath} NonInteractive Direct (Cmd_load ${encodedFilePath} [])`,
+      contents: `IOTCM ${encodedFilePath} NonInteractive Direct (Cmd_load ${encodedFilePath} ${JSON.stringify(loadArgs)})`,
     })
+    if (this.alsRouter!.lastAgdaInternalError) {
+      throw new Error(`ALS failed to process ${this.currentFilePath}: ${this.alsRouter!.lastAgdaInternalError}`)
+    }
+    if (this.alsRouter!.lastAgdaError) {
+      throw new Error(this.alsRouter!.lastAgdaError)
+    }
+
+    await this.runAgdaCommand({
+      tag: 'CmdReq',
+      contents: `IOTCM ${encodedFilePath} NonInteractive Direct (Cmd_tokenHighlighting ${encodedFilePath} Keep)`,
+    }, { suppressAgdaInternalErrors: true })
+  }
+
+  async runAgdaCommand(
+    params: { tag: 'CmdReq', contents: string },
+    options: { suppressAgdaInternalErrors?: boolean } = {},
+  ) {
+    if (!this.alsRouter) {
+      throw new Error('ALS router not ready')
+    }
+
+    this.alsRouter.suppressAgdaInternalErrors = options.suppressAgdaInternalErrors ?? false
+    try {
+      await this.lspClient!.request('agda', params)
+
+      while (this.iotcmStatus !== 'ready') {
+        await new Promise(r => setTimeout(r, 50))
+      }
+    } finally {
+      this.alsRouter.suppressAgdaInternalErrors = false
+    }
   }
 }

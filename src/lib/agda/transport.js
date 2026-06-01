@@ -32,6 +32,12 @@ export class ALSMessageRouter {
     this.checked = false
     this.showImplicitArgs = false
     this.showIrrelevantArgs = false
+    /** @type {boolean} */
+    this.suppressAgdaInternalErrors = false
+    /** @type {string | null} */
+    this.lastAgdaInternalError = null
+    /** @type {string | null} */
+    this.lastAgdaError = null
 
     this.cmEncoder = new TextEncoder()
 

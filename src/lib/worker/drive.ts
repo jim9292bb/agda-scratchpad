@@ -29,7 +29,7 @@ function fsAssign(path: string, content: string | Uint8Array) {
   return obj
 }
 
-const { stdin, stdout, agdaDataZip, agdaStdlibZip } = await new Promise<DriveWorkerInitObject>(r => {
+const { stdin, stdout, agdaDataZip, agdaStdlibZip, agdaCubicalZip } = await new Promise<DriveWorkerInitObject>(r => {
   addEventListener('message', event => {
     r(event.data)
   }, { once: true })
@@ -64,6 +64,9 @@ if (agdaDataZip) {
   await extractZip(agdaDataZip, '/')
 }
 
+const agdaLibraries: string[] = []
+const agdaDefaults: string[] = []
+
 if (agdaStdlibZip) {
   await extractZip(agdaStdlibZip, '/stdlib', p => {
     if (!p.match(/^agda-stdlib-[\.\d]+\/src/) &&
@@ -72,8 +75,22 @@ if (agdaStdlibZip) {
     }
     return p.replace(/^agda-stdlib-[\.\d]+\//, '')
   })
-  fsAssign('/home/root/.config/agda/libraries', '/stdlib/standard-library.agda-lib\n')
-  fsAssign('/home/root/.config/agda/defaults', 'standard-library\n')
+  agdaLibraries.push('/stdlib/standard-library.agda-lib')
+  agdaDefaults.push('standard-library')
+}
+
+if (agdaCubicalZip) {
+  await extractZip(agdaCubicalZip, '/cubical', p => {
+    if (!p.startsWith('cubical-0.9/')) return null
+    return p.replace(/^cubical-0\.9\//, '')
+  })
+  agdaLibraries.push('/cubical/cubical.agda-lib')
+  agdaDefaults.push('cubical-0.9')
+}
+
+if (agdaLibraries.length) {
+  fsAssign('/home/root/.config/agda/libraries', `${agdaLibraries.join('\n')}\n`)
+  fsAssign('/home/root/.config/agda/defaults', `${agdaDefaults.join('\n')}\n`)
 }
 
 postMessage('fs-ready')
