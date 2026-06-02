@@ -42,6 +42,22 @@ Recommended steps:
 
 Do not implement new shortcuts in the same commit as the extraction unless explicitly requested.
 
+## Reference Research Workflow
+
+Use this before porting behavior from another project.
+
+1. Search this repo first:
+   ```sh
+   rg "Cmd_|InteractionPoints|GiveAction|MakeCase" src
+   ```
+2. Search relevant reference repositories:
+   ```sh
+   rg "Cmd_make_case|Cmd_give|Cmd_autoOne" ../references/agda-mode-vscode ../references/agda-web-agda-language-server ../references/agda
+   ```
+3. Summarize the source behavior before editing.
+4. Prefer small ports that preserve browser constraints.
+5. Do not modify files under `../references/`.
+
 ## Browser Regression Workflow
 
 Use `agent-browser` for any CodeMirror, shortcut, or goal lifecycle change.

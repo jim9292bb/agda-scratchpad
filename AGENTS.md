@@ -34,6 +34,24 @@ Use `CODEX_WORKFLOWS.md` for repeatable development, browser regression, Cubical
 - `src/lib/agda/handlers.js`: ALS response handling.
 - `src/routes/+page.svelte`: UI wiring and editor setup.
 
+## Reference Repositories
+
+Reference repositories live outside this repo at `../references/`.
+
+Use them for research only. Do not edit or commit changes inside reference repositories unless explicitly requested.
+
+Useful references:
+
+- `../references/agda-mode-vscode`: primary source for VSCode Agda mode behavior.
+- `../references/cubical`: Cubical Agda library layout and compatibility.
+- `../references/agda`: upstream Agda implementation and interaction commands.
+- `../references/agda-stdlib`: standard library layout.
+- `../references/agda-web-agda`: Agda WASM patch source.
+- `../references/agda-web-agda-language-server`: ALS reference.
+- `../references/agda-web-agda-wasm-dist`: WASM distribution reference.
+- `../references/agda-web-browser_wasi_shim`: browser WASI reference.
+- `../references/agda-web-agda-input`: Agda Unicode input reference.
+
 ## Verification
 
 After code changes, run:
