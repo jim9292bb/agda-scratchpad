@@ -5,6 +5,7 @@
 This project is a browser-hosted Agda/ALS demo. The current development goal is to support Cubical Agda and port suitable browser-compatible features from `banacorn/agda-mode-vscode`.
 
 Follow `AGDA_MODE_VSCODE_TODO.md` as the source of truth for planned work and progress.
+Use `CODEX_WORKFLOWS.md` for repeatable development, browser regression, Cubical regression, and commit workflows.
 
 ## Development Rules
 
@@ -20,10 +21,12 @@ Follow `AGDA_MODE_VSCODE_TODO.md` as the source of truth for planned work and pr
 - Before implementing a TODO item, search the current codebase first; some shortcuts may already be wired inline.
 - Do not duplicate existing `Cmd_*` shortcut handling in `src/routes/+page.svelte`; extract or refactor it instead.
 - Treat unchecked TODO items as planning state, not proof that no implementation exists.
+- For common development, testing, browser regression, and commit flows, follow `CODEX_WORKFLOWS.md`.
 
 ## Important Files
 
 - `AGDA_MODE_VSCODE_TODO.md`: feature plan and progress.
+- `CODEX_WORKFLOWS.md`: repeatable Codex workflows and regression checklists.
 - `src/lib/agda/goal-state.js`: centralized goal state.
 - `src/lib/agda/goals.js`: goal decorations and interaction point handling.
 - `src/lib/agda/shortcut-context.js`: shortcut goal lookup and fallback logic.
