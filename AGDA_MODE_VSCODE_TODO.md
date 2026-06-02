@@ -26,30 +26,34 @@ References:
 
 ## Phase 2: Core Agda Commands
 
-- [ ] Keep `C-c C-l` wired to `Cmd_load`.
-- [ ] Ensure `Load` updates highlighting, diagnostics, warnings, and goals.
-- [ ] Implement `C-c C-Space` Give using `Cmd_give WithoutForce goalId range content`.
-- [ ] Implement `C-c C-c` Case split using `Cmd_make_case goalId range content`.
-- [ ] After Case split, replace the old goal with returned clauses and immediately reload.
-- [ ] Implement `C-c C-r` Refine using `Cmd_refine_or_intro False goalId range content`.
-- [ ] Implement `C-c C-a` Auto using `Cmd_autoOne normalization goalId range content`.
+- [x] Keep `C-c C-l` wired to `Cmd_load`.
+- [ ] Verify `Load` updates highlighting, diagnostics, warnings, and goals after the Phase 1 goal-state refactor.
+- [x] Wire `C-c C-Space` Give using `Cmd_give WithoutForce goalId range content`.
+- [x] Wire `C-c C-c` Case split using `Cmd_make_case goalId range content`.
+- [x] After Case split, replace the old goal with returned clauses and immediately reload.
+- [x] Wire `C-c C-r` Refine using `Cmd_refine_or_intro False goalId range content`.
+- [ ] Replace the current `C-c C-a` provisional refine behavior with real Auto using `Cmd_autoOne normalization goalId range content`.
 - [ ] Implement `C-c C-m` Elaborate and give using `Cmd_elaborate_give`.
 - [ ] Implement `C-c C-h` Helper function type using `Cmd_helper_function`.
-- [ ] Prompt for input when a command requires content but the current goal is empty.
-- [ ] Show a clear error when the cursor is not inside a goal.
+- [x] Show a clear error when a command requires content but the current goal is empty.
+- [x] Show a clear error when the cursor is not inside a goal.
+- [ ] Extract core command construction from `src/routes/+page.svelte` into a reusable Agda command module.
+- [ ] Browser-test Load, Give, Case split, Refine, and Auto with `agent-browser`.
 
 ## Phase 3: Goal Queries
 
 - [ ] Implement `C-c C-t` Goal type using `Cmd_goal_type`.
 - [ ] Implement `C-c C-e` Context using `Cmd_context`.
-- [ ] Implement `C-c C-,` Goal type and context using `Cmd_goal_type_context`.
-- [ ] Implement `C-c C-.` Goal type, context, and inferred type using `Cmd_goal_type_context_infer`.
+- [x] Wire `C-c C-,` Goal type using `Cmd_goal_type`.
+- [x] Wire `C-c C-.` Goal type and context using `Cmd_goal_type_context`.
+- [ ] Align `C-c C-,` and `C-c C-.` semantics with `agda-mode-vscode` naming and expected output.
 - [ ] Implement `C-c C-;` Goal type, context, and checked type using `Cmd_goal_type_context_check`.
-- [ ] Implement `C-c C-d` Infer type using `Cmd_infer` or `Cmd_infer_toplevel`.
-- [ ] Implement `C-c C-n` Compute normal form using `Cmd_compute` or `Cmd_compute_toplevel`.
+- [x] Wire `C-c C-d` Infer type using `Cmd_infer`.
+- [x] Wire `C-c C-n` Compute normal form using `Cmd_compute`.
 - [ ] Implement `C-c C-z` Search about using `Cmd_search_about_toplevel`.
 - [ ] Implement `C-c C-o` Module contents using `Cmd_show_module_contents`.
 - [ ] Implement `C-c C-w` Why in scope using `Cmd_why_in_scope`.
+- [ ] Extract query command construction from `src/routes/+page.svelte` into a reusable Agda command module.
 
 ## Phase 4: Goal Navigation and Display
 
