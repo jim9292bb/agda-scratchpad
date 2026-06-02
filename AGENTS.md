@@ -51,6 +51,7 @@ Useful references:
 - `../references/agda-web-agda-wasm-dist`: WASM distribution reference.
 - `../references/agda-web-browser_wasi_shim`: browser WASI reference.
 - `../references/agda-web-agda-input`: Agda Unicode input reference.
+- `../references/vscode-als-wasm-loader`: VSCode web ALS/WASM loading reference.
 
 ## Verification
 
