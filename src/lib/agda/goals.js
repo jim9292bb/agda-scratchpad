@@ -3,7 +3,7 @@ import { upsertDeco } from '../codemirror/range-utils'
 import { makeDecoInvertedEffects } from '../codemirror/inverted'
 import { Decoration, EditorView, ViewPlugin, WidgetType } from '@codemirror/view'
 import { mapUtf8Range } from '$lib/codemirror/offsets'
-import { setGoals, addGoals, clearHighlight } from './effects'
+import { setGoals, setGoalsAfterChanges, addGoals, clearHighlight } from './effects'
 
 /** @import { Range, TransactionSpec, RangeValue, Transaction } from '@codemirror/state' */
 
@@ -67,12 +67,45 @@ export function buildGoalTransaction(state, ips) {
 
   if (arr.length == 0) return {}
 
-  const eff = setGoals.of(arr)
-  const expandDesc = expandGoals(state, arr)
+  const { changes, goals } = expandGoalRanges(state, arr)
 
   return {
-    changes: expandDesc,
-    effects: eff.map(expandDesc),
+    changes,
+    effects: setGoalsAfterChanges.of(goals),
+  }
+}
+
+const expandedQuestionMarkGoal = '{!  !}'
+
+/**
+ * @param {EditorState} state
+ * @param {Range<Decoration>[]} goals
+ * @returns {{changes: ChangeSet, goals: Range<Decoration>[]}}
+ */
+function expandGoalRanges(state, goals) {
+  /** @type {{from: number, to: number, insert: string}[]} */
+  const replacements = []
+  /** @type {Range<Decoration>[]} */
+  const expandedGoals = []
+  let offsetDelta = 0
+
+  for (const goal of [...goals].sort((a, b) => a.from - b.from)) {
+    const { from, to, value } = goal
+    const currentText = state.doc.sliceString(from, to)
+    const mappedFrom = from + offsetDelta
+
+    if (currentText == '?') {
+      replacements.push({ from, to, insert: expandedQuestionMarkGoal })
+      expandedGoals.push(value.range(mappedFrom, mappedFrom + expandedQuestionMarkGoal.length))
+      offsetDelta += expandedQuestionMarkGoal.length - (to - from)
+    } else {
+      expandedGoals.push(value.range(mappedFrom, to + offsetDelta))
+    }
+  }
+
+  return {
+    changes: ChangeSet.of(replacements, state.doc.length),
+    goals: expandedGoals,
   }
 }
 
@@ -95,24 +128,24 @@ const goalsState = StateField.define({
   },
   update(value, tr) {
     if (!tr.changes.empty) {
-      value = value.map(tr.changes)
       const toRemove = new Set()
       // remove holes that are completely replaced by insertion
-      tr.changes.iterChangedRanges((_f, _t, chFrom, chTo) => {
-        value.between(chFrom, chTo, (from, to) => {
-          if (chFrom == from && chTo == to) {
+      tr.changes.iterChangedRanges((changeFrom, changeTo) => {
+        value.between(changeFrom, changeTo, (from, to) => {
+          if (changeFrom <= from && to <= changeTo) {
             toRemove.add(from)
             return false
           }
         })
       })
       value = value.update({ filter: f => !toRemove.has(f) })
+      value = value.map(tr.changes)
     }
 
     for (const e of tr.effects) {
       if (e.is(clearHighlight)) {
         value = Decoration.none
-      } else if (e.is(setGoals)) {
+      } else if (e.is(setGoals) || e.is(setGoalsAfterChanges)) {
         value = Decoration.set(e.value)
       } else if (e.is(addGoals)) {
         for (const deco of e.value) {
@@ -130,6 +163,47 @@ const goalsState = StateField.define({
     ]
   }
 })
+
+/**
+ * @param {EditorState} state
+ * @param {number} id
+ * @returns {{from: number, to: number} | null}
+ */
+export function getGoalRangeById(state, id) {
+  /** @type {{from: number, to: number} | null} */
+  let found = null
+  state.field(goalsState).between(0, state.doc.length, (from, to, value) => {
+    if (value.spec.id === id && state.doc.sliceString(from, to).startsWith('{!')) {
+      found = { from, to }
+      return false
+    }
+  })
+  return found
+}
+
+/**
+ * @param {EditorState} state
+ * @param {number} pos
+ * @returns {{id: number, from: number, to: number, text: string} | null}
+ */
+export function getGoalAtPosition(state, pos) {
+  /** @type {{id: number, from: number, to: number, text: string} | null} */
+  let found = null
+  state.field(goalsState).between(0, state.doc.length, (from, to, value) => {
+    if (from <= pos && pos <= to &&
+        typeof value.spec.id === 'number' &&
+        state.doc.sliceString(from, to).startsWith('{!')) {
+      found = {
+        id: value.spec.id,
+        from,
+        to,
+        text: state.doc.sliceString(from, to),
+      }
+      return false
+    }
+  })
+  return found
+}
 
 /** @import { PluginValue, ViewUpdate } from '@codemirror/view' */
 
@@ -156,7 +230,7 @@ const goalMarkers = ViewPlugin.fromClass(
     requiresUpdate(trs) {
       return trs.some(tr =>
         tr.effects.some(e =>
-          e.is(setGoals) || e.is(clearHighlight)))
+          e.is(setGoals) || e.is(setGoalsAfterChanges) || e.is(clearHighlight)))
     }
 
     /**

@@ -38,6 +38,10 @@ export class ALSMessageRouter {
     this.lastAgdaInternalError = null
     /** @type {string | null} */
     this.lastAgdaError = null
+    /** @type {{id: number, from: number, to: number, text: string} | undefined} */
+    this.pendingCaseSplitGoal = undefined
+    /** @type {{id: number, from: number, to: number, text: string} | undefined} */
+    this.pendingGiveGoal = undefined
 
     this.cmEncoder = new TextEncoder()
 

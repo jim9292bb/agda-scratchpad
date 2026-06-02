@@ -22,6 +22,19 @@ export const clearHighlight = StateEffect.define()
 export const addGoals = StateEffect.define({ map: mapRanges })
 /** @type {StateEffectType<Range<Decoration>[]>} */
 export const setGoals = StateEffect.define({ map: mapRanges })
+/** @type {StateEffectType<Range<Decoration>[]>} */
+export const setGoalsAfterChanges = StateEffect.define()
+
+/**
+ * @typedef GoalInfo
+ * @prop {number | string} id
+ * @prop {string} [range]
+ * @prop {string} [type]
+ */
+/** @type {StateEffectType<GoalInfo[]>} */
+export const setGoalInfo = StateEffect.define()
+/** @type {StateEffectType<number | string>} */
+export const removeGoalInfo = StateEffect.define()
 
 /** @type {StateEffectType<void>} */
 export const clearRunningInfo = StateEffect.define()

@@ -4,7 +4,7 @@ import { onDestroy, untrack } from 'svelte'
 import { SPSC } from 'spsc'
 // import { SplitPane } from '@rich_harris/svelte-split-pane'
 import { basicSetup } from 'codemirror'
-import { EditorView } from '@codemirror/view'
+import { EditorView, keymap } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
 
 import { AgdaController, LS_DOC_KEY } from '$lib/controller.svelte'
@@ -12,8 +12,10 @@ import { withDriveLock } from '$lib'
 import { makeBufUint32LE } from '$lib/stdlib'
 import { myCodeMirrorTheme } from '$lib/codemirror/theme'
 import { agdaSupport } from '$lib/agda'
+import { getGoalAtPosition } from '$lib/agda/goals'
+import { offsetTable, utf16PosToUtf8 } from '$lib/codemirror/offsets'
 
-import { clearRunningInfo, emitRunningInfo } from '$lib/agda/effects'
+import { clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo } from '$lib/agda/effects'
 
 const driveLockSab = new SharedArrayBuffer(4)
 const driveStdinSab = SPSC.allocateArrayBuffer(4096)
@@ -53,6 +55,317 @@ const basicTheme = EditorView.theme({
   },
 })
 
+/**
+ * @param {{id: number | string, range?: string, type?: string}[]} current
+ * @param {{id: number | string, range?: string, type?: string}[]} incoming
+ */
+function mergeGoalInfos(current, incoming) {
+  if (incoming.length === 0) return []
+
+  const goalsById = new Map(current.map(goal => [goal.id, goal]))
+  for (const goal of incoming) {
+    goalsById.set(goal.id, {
+      ...goalsById.get(goal.id),
+      ...goal,
+      type: goal.type ?? goalsById.get(goal.id)?.type,
+      range: goal.range ?? goalsById.get(goal.id)?.range,
+    })
+  }
+  return [...goalsById.values()]
+}
+
+/** @param {string} text */
+function extractHoleText(text) {
+  const match = text.match(/^\{!\s*([\s\S]*?)\s*!\}$/)
+  return match ? match[1] : text
+}
+
+/**
+ * Mirrors banacorn/agda-mode-vscode's Goal.makeHaskellRange for Agda 2.8.
+ * The range covers only the content inside `{!` and `!}`.
+ *
+ * @param {EditorState} state
+ * @param {{from: number, to: number}} goal
+ */
+function makeAgdaGoalRange(state, goal) {
+  const filepath = agdaController.currentFilePath
+  const committedDocLength = state.field(offsetTable).doc.length
+  const from = Math.min(goal.from, state.doc.length, committedDocLength)
+  const to = Math.min(goal.to, state.doc.length, committedDocLength)
+  const start = state.doc.lineAt(from)
+  const end = state.doc.lineAt(to)
+  const startIndex = utf16PosToUtf8(state, from) + 3
+  const endIndex = utf16PosToUtf8(state, to) - 3
+  const startRow = start.number
+  const startColumn = from - start.from + 3
+  const endRow = end.number
+  const endColumn = to - end.from - 1
+
+  return `(intervalsToRange (Just (mkAbsolute ${JSON.stringify(filepath)})) ` +
+    `[Interval () (Pn () ${startIndex} ${startRow} ${startColumn}) ` +
+    `(Pn () ${endIndex} ${endRow} ${endColumn})])`
+}
+
+/**
+ * @param {EditorState} state
+ */
+function getTextualHoles(state) {
+  const doc = state.doc.toString()
+  /** @type {{from: number, to: number, text: string}[]} */
+  const holes = []
+  let searchFrom = 0
+  while (searchFrom < doc.length) {
+    const from = doc.indexOf('{!', searchFrom)
+    if (from < 0) break
+
+    const close = doc.indexOf('!}', from + 2)
+    if (close < 0) break
+
+    const to = close + 2
+    holes.push({ from, to, text: doc.slice(from, to) })
+    searchFrom = to
+  }
+  return holes
+}
+
+/**
+ * @param {EditorState} state
+ * @param {number} pos
+ */
+function getTextualHoleAtPosition(state, pos) {
+  return getTextualHoles(state).find(hole => hole.from <= pos && pos <= hole.to) ?? null
+}
+
+/** @param {EditorState} state */
+function getOnlyTextualHole(state) {
+  const holes = getTextualHoles(state)
+  return holes.length === 1 ? holes[0] : null
+}
+
+/**
+ * Agda-mode-vscode stores hole positions first, then assigns interaction point
+ * ids in document order. This mirrors that as a fallback when CodeMirror
+ * decorations are not available.
+ *
+ * @param {EditorState} state
+ * @param {number} pos
+ */
+function getOrderedTextualGoalAtPosition(state, pos) {
+  const holes = getTextualHoles(state)
+  const index = holes.findIndex(hole => hole.from <= pos && pos <= hole.to)
+  if (index < 0) return null
+
+  const numericGoalInfos = goalInfos.filter(goal => typeof goal.id === 'number')
+  if (numericGoalInfos.length !== holes.length) return null
+
+  const goalInfo = numericGoalInfos[index]
+  if (!goalInfo || typeof goalInfo.id !== 'number') return null
+
+  return {
+    id: goalInfo.id,
+    from: holes[index].from,
+    to: holes[index].to,
+    text: holes[index].text,
+  }
+}
+
+/**
+ * @param {EditorState} state
+ * @param {number} pos
+ */
+function getGoalInfoFallback(state, pos, allowOnlyGoalFallback = false) {
+  const singleGoal = goalInfos.length === 1 ? goalInfos[0] : null
+  if (typeof singleGoal?.id !== 'number') return null
+
+  const textualGoal =
+    getTextualHoleAtPosition(state, pos) ??
+    (allowOnlyGoalFallback ? getOnlyTextualHole(state) : null)
+  if (!textualGoal) return null
+
+  return {
+    id: singleGoal.id,
+    from: textualGoal.from,
+    to: textualGoal.to,
+    text: textualGoal.text,
+  }
+}
+
+/** @param {EditorView} view */
+function getAgdaShortcutContext(view) {
+  const selection = view.state.selection.main
+  const selectedText = selection.empty ? '' : view.state.sliceDoc(selection.from, selection.to)
+  const goal =
+    getGoalAtPosition(view.state, selection.head) ??
+    getGoalAtPosition(view.state, Math.max(0, selection.head - 1)) ??
+    getGoalAtPosition(view.state, Math.min(view.state.doc.length, selection.head + 1)) ??
+    getOrderedTextualGoalAtPosition(view.state, selection.head) ??
+    getOrderedTextualGoalAtPosition(view.state, Math.max(0, selection.head - 1)) ??
+    getOrderedTextualGoalAtPosition(view.state, Math.min(view.state.doc.length, selection.head + 1)) ??
+    getGoalInfoFallback(view.state, selection.head, true)
+
+  return {
+    goal,
+    input: selectedText || (goal ? extractHoleText(goal.text) : ''),
+    range: goal ? makeAgdaGoalRange(view.state, goal) : 'noRange',
+  }
+}
+
+/**
+ * @param {string} label
+ * @param {EditorView} view
+ * @param {(context: ReturnType<typeof getAgdaShortcutContext>) => string | Promise<void>} command
+ */
+function runAgdaShortcut(label, view, command) {
+  void (async () => {
+    if (agdaController.alsWorkerStatus !== 'active') {
+      textboxContent += `${label} failed: ALS is not active.\n`
+      return
+    }
+
+    try {
+      textboxContent += `${label}...\n`
+      await agdaController.syncSourceFileToDrive()
+      const context = getAgdaShortcutContext(view)
+      const interaction = await command(context)
+      if (interaction) await agdaController.runAgdaInteraction(interaction)
+      textboxContent += `${label} finished.\n`
+    } catch (err) {
+      if (label === 'Case split' && agdaController.alsRouter) {
+        agdaController.alsRouter.pendingCaseSplitGoal = undefined
+      } else if (label === 'Give' && agdaController.alsRouter) {
+        agdaController.alsRouter.pendingGiveGoal = undefined
+      }
+      textboxContent += `${label} failed: ${err instanceof Error ? err.message : String(err)}\n`
+    }
+  })()
+}
+
+function runLoadShortcut() {
+  void (async () => {
+    if (agdaController.alsWorkerStatus !== 'active') {
+      textboxContent += 'Load failed: ALS is not active.\n'
+      return
+    }
+
+    try {
+      await loadAgdaFile()
+    } catch {
+      // loadAgdaFile already writes the failure to the log.
+    }
+  })()
+}
+
+/** @param {ReturnType<typeof getAgdaShortcutContext>} context */
+function requireGoal(context) {
+  if (!context.goal) throw new Error('Place the cursor inside a goal first.')
+  return context.goal
+}
+
+/** @param {ReturnType<typeof getAgdaShortcutContext>} context */
+function requireInput(context) {
+  if (!context.input.trim()) throw new Error('Enter an expression in the goal or select one first.')
+  return context.input
+}
+
+const agdaKeymap = keymap.of([
+  { key: 'Mod-Enter', run: () => { runLoadShortcut(); return true } },
+])
+
+let agdaChordTimer = /** @type {ReturnType<typeof setTimeout> | undefined} */(undefined)
+let waitingForAgdaChord = false
+
+function clearAgdaChord() {
+  waitingForAgdaChord = false
+  if (agdaChordTimer) {
+    clearTimeout(agdaChordTimer)
+    agdaChordTimer = undefined
+  }
+}
+
+/**
+ * @param {KeyboardEvent} event
+ * @param {string} key
+ */
+function isCtrlKey(event, key) {
+  return event.ctrlKey && !event.altKey && !event.metaKey && event.key.toLowerCase() === key
+}
+
+/** @param {KeyboardEvent} event */
+function isSpace(event) {
+  return !event.altKey && !event.metaKey &&
+    (event.key === ' ' || event.key === 'Spacebar' || event.code === 'Space')
+}
+
+/** @param {KeyboardEvent} event */
+function isCtrlSpace(event) {
+  return event.ctrlKey && isSpace(event)
+}
+
+/**
+ * Handles Agda/Emacs-style two-key chords before the browser can consume
+ * shortcuts such as Ctrl-L.
+ *
+ * @param {KeyboardEvent} event
+ * @param {EditorView} view
+ */
+function handleAgdaChordKeydown(event, view) {
+  if (event.isComposing || !view.hasFocus) return false
+
+  if (isCtrlKey(event, 'c') && !waitingForAgdaChord) {
+    event.preventDefault()
+    event.stopPropagation()
+    waitingForAgdaChord = true
+    agdaChordTimer = setTimeout(clearAgdaChord, 1500)
+    return true
+  }
+
+  if (!waitingForAgdaChord) return false
+
+  event.preventDefault()
+  event.stopPropagation()
+  clearAgdaChord()
+
+  if (isCtrlKey(event, 'l')) {
+    runLoadShortcut()
+  } else if (isCtrlKey(event, ',')) {
+    runAgdaShortcut('Goal type', view, context => `(Cmd_goal_type Normalised ${requireGoal(context).id} noRange "")`)
+  } else if (isCtrlKey(event, '.')) {
+    runAgdaShortcut('Goal type and context', view, context => `(Cmd_goal_type_context Normalised ${requireGoal(context).id} noRange "")`)
+  } else if (isCtrlSpace(event) || isSpace(event)) {
+    runAgdaShortcut('Give', view, context => {
+      const goal = requireGoal(context)
+      if (agdaController.alsRouter) {
+        agdaController.alsRouter.pendingGiveGoal = goal
+      }
+      return `(Cmd_give WithoutForce ${goal.id} ${context.range} ${JSON.stringify(requireInput(context))})`
+    })
+  } else if (isCtrlKey(event, 'r')) {
+    runAgdaShortcut('Refine', view, context => `(Cmd_refine_or_intro False ${requireGoal(context).id} ${context.range} ${JSON.stringify(requireInput(context))})`)
+  } else if (isCtrlKey(event, 'a')) {
+    runAgdaShortcut('Auto/refine', view, context => `(Cmd_refine_or_intro False ${requireGoal(context).id} ${context.range} ${JSON.stringify(context.input)})`)
+  } else if (isCtrlKey(event, 'c')) {
+    runAgdaShortcut('Case split', view, context => {
+      const goal = requireGoal(context)
+      if (agdaController.alsRouter) {
+        agdaController.alsRouter.pendingCaseSplitGoal = goal
+      }
+      return `(Cmd_make_case ${goal.id} ${context.range} ${JSON.stringify(requireInput(context))})`
+    })
+  } else if (isCtrlKey(event, 'n')) {
+    runAgdaShortcut('Compute', view, context => `(Cmd_compute DefaultCompute ${requireGoal(context).id} noRange ${JSON.stringify(requireInput(context))})`)
+  } else if (isCtrlKey(event, 'd')) {
+    runAgdaShortcut('Infer type', view, context => `(Cmd_infer Normalised ${requireGoal(context).id} noRange ${JSON.stringify(requireInput(context))})`)
+  }
+
+  return true
+}
+
+const agdaChordKeymap = EditorView.domEventHandlers({
+  keydown(event, view) {
+    return handleAgdaChordKeydown(event, view)
+  },
+})
+
 /** @type {import('svelte/attachments').Attachment} */
 function codeMirror(el) {
   const ev = new EditorView({
@@ -63,6 +376,8 @@ function codeMirror(el) {
       myCodeMirrorTheme(),
       basicTheme,
       agdaSupport(),
+      agdaKeymap,
+      agdaChordKeymap,
       agdaController.lspClientCompartment.of([]),
       EditorState.changeFilter.of(tr => {
         for (const e of tr.effects) {
@@ -71,6 +386,10 @@ function codeMirror(el) {
           } else if (e.is(clearRunningInfo)) {
             // Highlighting commands may clear Agda's running-info buffer after
             // loading succeeds; keep the visible load log until the next Load.
+          } else if (e.is(setGoalInfo)) {
+            goalInfos = mergeGoalInfos(goalInfos, e.value)
+          } else if (e.is(removeGoalInfo)) {
+            goalInfos = goalInfos.filter(goal => goal.id !== e.value)
           }
         }
         return true
@@ -79,8 +398,30 @@ function codeMirror(el) {
   })
 
   agdaController.connectEditorView(ev)
+  const captureAgdaChord = (/** @type {KeyboardEvent} */ event) => {
+    if (handleAgdaChordKeydown(event, ev)) {
+      event.stopImmediatePropagation()
+    }
+  }
+  const reloadAfterAgdaEdit = () => {
+    void (async () => {
+      while (agdaController.alsWorkerStatus === 'active' && agdaController.iotcmStatus !== 'ready') {
+        await new Promise(resolve => setTimeout(resolve, 50))
+      }
+      if (agdaController.alsWorkerStatus === 'active') {
+        await loadAgdaFile()
+      }
+    })()
+  }
+  window.addEventListener('keydown', captureAgdaChord, { capture: true })
+  ev.dom.addEventListener('agda-reload-needed', reloadAfterAgdaEdit)
 
-  return () => { ev.destroy() }
+  return () => {
+    window.removeEventListener('keydown', captureAgdaChord, { capture: true })
+    ev.dom.removeEventListener('agda-reload-needed', reloadAfterAgdaEdit)
+    clearAgdaChord()
+    ev.destroy()
+  }
 }
 
 async function dumpFS() {
@@ -106,6 +447,7 @@ function sendAbort() {
 
 async function loadAgdaFile() {
   textboxContent = `Loading ${agdaController.currentFilePath}...\n`
+  goalInfos = []
   try {
     await agdaController.loadAgdaFile()
     textboxContent += 'Load finished.\n'
@@ -119,6 +461,7 @@ async function loadAgdaFile() {
 let textbox
 
 let textboxContent = $state('WIP')
+let goalInfos = $state(/** @type {{id: number | string, range?: string, type?: string}[]} */([]))
 
 /** @type {number | undefined} */
 let raf
@@ -150,7 +493,35 @@ $effect(() => {
     <header class="header">
       <span class="header-title">Agda REPL 2025</span> <a target="_blank" href={ALS_DEMO_REPO_URL} class="header-subtitle">{ALS_DEMO_COMMIT_ID}</a>
     </header>
-    <div class="container" {@attach codeMirror}></div>
+    <quiet-splitter class="editor-goals-splitter" orientation="vertical" position={.78} style="--divider-min-position: 35%; --divider-max-position: 92%;">
+      <section slot="start" class="editor-pane">
+        <div class="container" {@attach codeMirror}></div>
+      </section>
+      <section slot="end" class="goals-section">
+        <header class="panel-header">Goals</header>
+        <div class="goals-list">
+          {#if goalInfos.length === 0}
+            <div class="goals-empty">No goals.</div>
+          {:else}
+            {#each goalInfos as goal (`${goal.id}-${goal.range ?? ''}`)}
+              <article class="goal-card">
+                <div class="goal-meta">
+                  <strong>Goal {goal.id}</strong>
+                  {#if goal.range}
+                    <span>{goal.range}</span>
+                  {/if}
+                </div>
+                {#if goal.type}
+                  <pre>{goal.type}</pre>
+                {:else}
+                  <div class="goal-type-empty">Type information is not available yet.</div>
+                {/if}
+              </article>
+            {/each}
+          {/if}
+        </div>
+      </section>
+    </quiet-splitter>
   </section>
   <section slot="end">
     <quiet-splitter orientation="vertical" position={.75}>
@@ -234,6 +605,20 @@ $effect(() => {
       <quiet-button variant="primary" onclick={() => loadAgdaFile()}>Load</quiet-button>
       <quiet-button onclick={() => sendAbort()}>Abort</quiet-button>
     </div>
+    <details class="shortcut-help">
+      <summary>Agda shortcuts</summary>
+      <dl>
+        <div><dt>Ctrl-c Ctrl-l / Cmd-Enter</dt><dd>Load</dd></div>
+        <div><dt>Ctrl-c Ctrl-,</dt><dd>Goal type</dd></div>
+        <div><dt>Ctrl-c Ctrl-.</dt><dd>Goal type and context</dd></div>
+        <div><dt>Ctrl-c Ctrl-Space</dt><dd>Give</dd></div>
+        <div><dt>Ctrl-c Ctrl-r</dt><dd>Refine</dd></div>
+        <div><dt>Ctrl-c Ctrl-a</dt><dd>Auto/refine or intro</dd></div>
+        <div><dt>Ctrl-c Ctrl-c</dt><dd>Case split</dd></div>
+        <div><dt>Ctrl-c Ctrl-n</dt><dd>Compute</dd></div>
+        <div><dt>Ctrl-c Ctrl-d</dt><dd>Infer type</dd></div>
+      </dl>
+    </details>
   {/if}
   </div>
 
@@ -308,6 +693,74 @@ quiet-text-field.mono::part(text-box) {
   height: calc(100% - 1px);
 }
 
+.editor-goals-splitter {
+  flex: 1 1;
+  min-height: 0;
+}
+
+.editor-pane {
+  display: flex;
+  min-height: 0;
+}
+
+.goals-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 45%, transparent);
+}
+
+.panel-header {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
+  color: #777;
+  font-family: monospace;
+  font-size: .75rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.goals-list {
+  flex: 1 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px;
+}
+
+.goals-empty,
+.goal-type-empty {
+  color: #777;
+  font-size: .8rem;
+}
+
+.goal-card {
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 4px;
+  background: var(--quiet-neutral-fill-softer);
+  padding: 8px;
+}
+
+.goal-card + .goal-card {
+  margin-top: 8px;
+}
+
+.goal-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  color: #666;
+  font-size: .75rem;
+}
+
+.goal-card pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: JuliaMono, monospace;
+  font-size: 12px;
+}
+
 .info-section {
   padding: 8px;
   display: flex;
@@ -329,5 +782,31 @@ quiet-text-field.mono::part(text-box) {
 .flex {
   display: flex;
   gap: 8px;
+}
+
+.shortcut-help {
+  margin-top: 12px;
+  font-size: .8rem;
+}
+
+.shortcut-help dl {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+}
+
+.shortcut-help dl > div {
+  display: grid;
+  grid-template-columns: minmax(12ch, max-content) 1fr;
+  gap: 8px;
+}
+
+.shortcut-help dt {
+  font-family: JuliaMono, monospace;
+  color: #666;
+}
+
+.shortcut-help dd {
+  margin: 0;
 }
 </style>

@@ -3,7 +3,7 @@ import { EditorView, Decoration, hoverTooltip } from '@codemirror/view'
 import { mapUtf8Range } from '$lib/codemirror/offsets'
 import { makeDecoInvertedEffects } from '$lib/codemirror/inverted'
 import { upsertDeco } from '$lib/codemirror/range-utils'
-import { setHighlight, removeHighlight, clearHighlight, setGoals } from './effects'
+import { setHighlight, removeHighlight, clearHighlight, setGoals, setGoalsAfterChanges } from './effects'
 
 /** @import { Range } from '@codemirror/state' */
 /** @import { Tooltip } from '@codemirror/view' */
@@ -235,7 +235,7 @@ export const highlightState = StateField.define({
         } else {
           value = initialHighlightState
         }
-      } else if (e.is(setGoals)) {
+      } else if (e.is(setGoals) || e.is(setGoalsAfterChanges)) {
         // remove holes drawn by token highlighting
         value = {
           ...value,

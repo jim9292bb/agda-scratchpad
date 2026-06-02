@@ -388,7 +388,7 @@ export class AgdaController {
     })
   }
 
-  async loadAgdaFile() {
+  async syncSourceFileToDrive() {
     if (this.driveIsLocked) {
       throw new Error('drive lock is already acquired')
     }
@@ -400,8 +400,11 @@ export class AgdaController {
     localStorage.setItem(LS_DOC_KEY, doc)
 
     this.driveIsLocked = true
-    await writeSourceFileToDrive(this.driveHandle, doc)
-    this.driveIsLocked = false
+    try {
+      await writeSourceFileToDrive(this.driveHandle, doc)
+    } finally {
+      this.driveIsLocked = false
+    }
 
     console.log('file is synced.')
     console.timeEnd('update-fs')
@@ -413,6 +416,27 @@ export class AgdaController {
         uri: 'file://' + this.currentFilePath,
       },
     })
+  }
+
+  async runAgdaInteraction(interaction: string, options: { suppressAgdaInternalErrors?: boolean } = {}) {
+    const encodedFilePath = JSON.stringify(this.currentFilePath)
+
+    this.alsRouter!.lastAgdaInternalError = null
+    this.alsRouter!.lastAgdaError = null
+    await this.runAgdaCommand({
+      tag: 'CmdReq',
+      contents: `IOTCM ${encodedFilePath} NonInteractive Direct ${interaction}`,
+    }, options)
+    if (this.alsRouter!.lastAgdaInternalError) {
+      throw new Error(`ALS failed to process ${this.currentFilePath}: ${this.alsRouter!.lastAgdaInternalError}`)
+    }
+    if (this.alsRouter!.lastAgdaError) {
+      throw new Error(this.alsRouter!.lastAgdaError)
+    }
+  }
+
+  async loadAgdaFile() {
+    await this.syncSourceFileToDrive()
 
     const encodedFilePath = JSON.stringify(this.currentFilePath)
 
