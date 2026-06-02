@@ -42,6 +42,8 @@ export class ALSMessageRouter {
     this.pendingCaseSplitGoal = undefined
     /** @type {{id: number, from: number, to: number, text: string} | undefined} */
     this.pendingGiveGoal = undefined
+    /** @type {number | null} */
+    this.activeDocumentVersion = null
 
     this.cmEncoder = new TextEncoder()
 
@@ -51,6 +53,26 @@ export class ALSMessageRouter {
       subscribe: this.cmSubscribe.bind(this),
       unsubscribe: this.cmUnsubscribe.bind(this),
     }
+  }
+
+  /** @param {number} documentVersion */
+  beginCommandDocumentVersion(documentVersion) {
+    this.activeDocumentVersion = documentVersion
+  }
+
+  clearCommandDocumentVersion() {
+    this.activeDocumentVersion = null
+  }
+
+  /** @param {number} documentVersion */
+  acceptsDocumentVersion(documentVersion) {
+    return this.activeDocumentVersion == null ||
+      this.activeDocumentVersion === documentVersion
+  }
+
+  /** @param {number} documentVersion */
+  acceptDocumentVersion(documentVersion) {
+    this.activeDocumentVersion = documentVersion
   }
 
   /** @type {Transport['send']} */

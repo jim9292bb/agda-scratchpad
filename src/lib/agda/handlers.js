@@ -1,8 +1,8 @@
-import { Decoration } from '@codemirror/view'
-import { clearHighlight, clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo, setGoals } from './effects'
+import { clearHighlight, clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo } from './effects'
 import { alsHighlightingInfosDirectSchema, alsInteractionPointsSchema } from './schema'
 import { buildHighlightEffects, highlightState } from './highlight'
-import { buildGoalTransaction, getGoalRangeById } from './goals'
+import { buildGoalTransaction, buildLegacyGoalTransaction, getGoalRangeById } from './goals'
+import { getAgdaDocumentVersion } from './goal-state'
 
 /** @import { EditorView } from '@codemirror/view' */
 /** @import { ALSMessageRouter } from './transport' */
@@ -16,6 +16,9 @@ import { buildGoalTransaction, getGoalRangeById } from './goals'
  * @prop {string | null} lastAgdaError
  * @prop {{id: number, from: number, to: number, text: string} | undefined} [pendingCaseSplitGoal]
  * @prop {{id: number, from: number, to: number, text: string} | undefined} [pendingGiveGoal]
+ * @prop {number | null} activeDocumentVersion
+ * @prop {(documentVersion: number) => boolean} acceptsDocumentVersion
+ * @prop {(documentVersion: number) => void} acceptDocumentVersion
  */
 
 /** @typedef {(
@@ -42,6 +45,22 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       if (!message.endsWith('\n')) message += '\n'
       editorView.dispatch({ effects: emitRunningInfo.of({ message, debugLevel }) })
     }
+  }
+
+  /** @param {string} responseKind */
+  function shouldAcceptEditorResponse(responseKind) {
+    const documentVersion = getAgdaDocumentVersion(editorView.state)
+    if (controller.acceptsDocumentVersion(documentVersion)) return true
+
+    console.warn(`Ignored stale Agda ${responseKind} response`, {
+      activeDocumentVersion: controller.activeDocumentVersion,
+      currentDocumentVersion: documentVersion,
+    })
+    return false
+  }
+
+  function acceptCurrentDocumentVersion() {
+    controller.acceptDocumentVersion(getAgdaDocumentVersion(editorView.state))
   }
 
   /** @param {any} constraint */
@@ -73,28 +92,6 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       range: formatRange(goal.constraintObj.range?.[0]),
       type: 'type' in goal ? goal.type : undefined,
     }
-  }
-
-  /** @param {Agda._InteractionPoint} interactionPoint */
-  function summarizeInteractionPoint(interactionPoint) {
-    return {
-      id: interactionPoint.id,
-      range: formatRange(interactionPoint.range?.[0]),
-    }
-  }
-
-  /**
-   * @param {import('@codemirror/state').Range<Decoration>[]} decos
-   * @param {(number | string)[]} ids
-   */
-  function summarizeLegacyInteractionPoints(decos, ids) {
-    return decos.map((deco, idx) => {
-      const line = editorView.state.doc.lineAt(deco.from)
-      return {
-        id: ids[idx] ?? deco.value.spec.id ?? '?',
-        range: `${line.number}:${deco.from - line.from + 1}`,
-      }
-    })
   }
 
   /** @param {Agda._Info} info */
@@ -220,32 +217,18 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       return rawJsonHandlers.HighlightingInfo(infos)
     },
     ResponseInteractionPoints(contents) {
+      if (!shouldAcceptEditorResponse('InteractionPoints')) return
       const ids = alsInteractionPointsSchema.decode(contents)
-      /** @type {import("@codemirror/state").Range<Decoration>[]} */
-      const decos = []
 
       // we can map CM's data back to Agda's ranges but it is too much work
       const holes = editorView.state.field(highlightState).otherAspects.update({
         filter: (_ff, _tt, value) => value.spec.isHole
       })
 
-      // we do not rely on the property that filter is queried in order
-      if (holes.size !== ids.length) {
-        throw new Error(`mismatched numbers of interaction points ${ids.length} and holes ${holes.size}`)
-      }
-
-      for (let it = holes.iter(), idx = 0; it.value !== null; it.next()) {
-        const { value, from, to } = it
-        value.spec.id = ids[idx++]
-        decos.push(value.range(from, to))
-      }
-
       editorView.dispatch({
-        effects: [
-          setGoals.of(decos),
-          setGoalInfo.of(summarizeLegacyInteractionPoints(decos, ids)),
-        ],
+        ...buildLegacyGoalTransaction(editorView.state, holes, ids),
       })
+      acceptCurrentDocumentVersion()
     },
     ResponseJSONRaw(/** @type {Agda._Resp} */contents) {
       const handler = rawJsonHandlers[contents.kind]
@@ -270,23 +253,31 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       editorView.dispatch({ effects: emitRunningInfo.of({ message, debugLevel }) })
     },
     DisplayInfo({ info }) {
+      const stale = !shouldAcceptEditorResponse('DisplayInfo')
       if (info.kind === 'AllGoalsWarnings') {
-        editorView.dispatch({
-          effects: setGoalInfo.of([
-            ...(info.visibleGoals ?? []),
-            ...(info.invisibleGoals ?? []),
-          ].map(summarizeGoal)),
-        })
+        if (!stale) {
+          editorView.dispatch({
+            effects: setGoalInfo.of([
+              ...(info.visibleGoals ?? []),
+              ...(info.invisibleGoals ?? []),
+            ].map(summarizeGoal)),
+          })
+          acceptCurrentDocumentVersion()
+        }
       } else if (info.kind === 'GoalSpecific') {
-        editorView.dispatch({
-          effects: setGoalInfo.of([{
-            id: info.interactionPoint.id,
-            range: formatRange(info.interactionPoint.range?.[0]),
-            type: info.goalInfo?.kind === 'GoalType' ? info.goalInfo.type : undefined,
-          }]),
-        })
+        if (!stale) {
+          editorView.dispatch({
+            effects: setGoalInfo.of([{
+              id: info.interactionPoint.id,
+              range: formatRange(info.interactionPoint.range?.[0]),
+              type: info.goalInfo?.kind === 'GoalType' ? info.goalInfo.type : undefined,
+            }]),
+          })
+          acceptCurrentDocumentVersion()
+        }
       }
       const message = formatDisplayInfo(info)
+      if (stale) return
       if (isAgdaInternalErrorMessage(message)) {
         controller.lastAgdaInternalError = message
         console.warn('Suppressed Agda internal error:', message)
@@ -298,6 +289,7 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       emitMessage(message)
     },
     ClearHighlighting({ tokenBased }) {
+      if (!shouldAcceptEditorResponse('ClearHighlighting')) return
       // Agda (~2.8)'s codebase does not contain any instance of (Resp_ClearHighlighting TokenBased)
       if (tokenBased === 'TokenBased') {
         throw new Error('(ClearHighlighting TokenBased) is not implemented')
@@ -309,9 +301,11 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
         editorView.dispatch({
           effects: clearHighlight.of(false),
         })
+        acceptCurrentDocumentVersion()
       }
     },
     HighlightingInfo({ direct, info }) {
+      if (!shouldAcceptEditorResponse('HighlightingInfo')) return
       if (!direct) {
         throw new Error('indrect highlighting is not implemented')
       }
@@ -324,21 +318,21 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       editorView.dispatch({
         effects: buildHighlightEffects(editorView.state, info.payload)
       })
+      acceptCurrentDocumentVersion()
     },
     InteractionPoints({ interactionPoints }) {
+      if (!shouldAcceptEditorResponse('InteractionPoints')) return
       const transaction = buildGoalTransaction(editorView.state, interactionPoints)
-      const effects = Array.isArray(transaction.effects) ?
-        transaction.effects :
-        transaction.effects ? [transaction.effects] : []
       editorView.dispatch({
         ...transaction,
-        effects: [
-          ...effects,
-          setGoalInfo.of(interactionPoints.map(summarizeInteractionPoint)),
-        ],
       })
+      acceptCurrentDocumentVersion()
     },
     GiveAction({ interactionPoint, giveResult }) {
+      if (!shouldAcceptEditorResponse('GiveAction')) {
+        controller.pendingGiveGoal = undefined
+        return
+      }
       const interactionPointId = getInteractionPointId(interactionPoint)
       if ('str' in giveResult) {
         replaceGoal(interactionPointId, giveResult.str)
@@ -348,8 +342,13 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
         console.warn('unhandled give action', giveResult)
       }
       controller.pendingGiveGoal = undefined
+      acceptCurrentDocumentVersion()
     },
     MakeCase({ clauses }) {
+      if (!shouldAcceptEditorResponse('MakeCase')) {
+        controller.pendingCaseSplitGoal = undefined
+        return
+      }
       const renderedClauses = clauses.map(String)
       if (!renderedClauses.length) return
 
@@ -360,6 +359,7 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       } else {
         emitMessage(renderedClauses.join('\n'))
       }
+      acceptCurrentDocumentVersion()
     }
   }
 

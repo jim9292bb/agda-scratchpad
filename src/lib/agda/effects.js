@@ -24,6 +24,8 @@ export const addGoals = StateEffect.define({ map: mapRanges })
 export const setGoals = StateEffect.define({ map: mapRanges })
 /** @type {StateEffectType<Range<Decoration>[]>} */
 export const setGoalsAfterChanges = StateEffect.define()
+/** @type {StateEffectType<void>} */
+export const clearGoals = StateEffect.define()
 
 /**
  * @typedef GoalInfo

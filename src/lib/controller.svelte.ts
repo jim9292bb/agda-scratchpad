@@ -20,6 +20,7 @@ import type { ALSWorkerInitResultProxied, WASMLoadingProgress } from '$lib/worke
 import { asset } from '$app/paths'
 import { ALSMessageRouter, makeLSPTransport, type AgdaIOTCMStatus } from './agda/transport'
 import { commit } from './codemirror/offsets'
+import { getAgdaDocumentVersion } from './agda/goal-state'
 
 const isSafari = /Apple Computer/.test((navigator as any).vendor)
 
@@ -468,6 +469,7 @@ export class AgdaController {
     }
 
     this.alsRouter.suppressAgdaInternalErrors = options.suppressAgdaInternalErrors ?? false
+    this.alsRouter.beginCommandDocumentVersion(getAgdaDocumentVersion(this.editorView!.state))
     try {
       await this.lspClient!.request('agda', params)
 
@@ -476,6 +478,7 @@ export class AgdaController {
       }
     } finally {
       this.alsRouter.suppressAgdaInternalErrors = false
+      this.alsRouter.clearCommandDocumentVersion()
     }
   }
 }

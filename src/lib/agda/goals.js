@@ -1,49 +1,69 @@
-import { EditorState, StateField, ChangeSet } from '@codemirror/state'
-import { upsertDeco } from '../codemirror/range-utils'
-import { makeDecoInvertedEffects } from '../codemirror/inverted'
-import { Decoration, EditorView, ViewPlugin, WidgetType } from '@codemirror/view'
+import { EditorState, ChangeSet } from '@codemirror/state'
+import { Decoration, EditorView } from '@codemirror/view'
 import { mapUtf8Range } from '$lib/codemirror/offsets'
-import { setGoals, setGoalsAfterChanges, addGoals, clearHighlight } from './effects'
+import { setGoals, setGoalsAfterChanges, setGoalInfo } from './effects'
+import {
+  agdaGoalState,
+  getAgdaGoalAtPosition,
+  getAgdaGoalById,
+  getAgdaGoals,
+  goalToLegacyRange,
+} from './goal-state'
 
 /** @import { Range, TransactionSpec, RangeValue, Transaction } from '@codemirror/state' */
 
-class GoalMarker extends WidgetType {
-  /** @param {number | null} id */
-  constructor(id) {
-    super()
-    this.id = id
-  }
+/** @param {Agda._Range | undefined} range */
+function formatInteractionRange(range) {
+  if (!range) return undefined
+  const { start, end } = range
+  if (start.line === end.line) return `${start.line}:${start.col}-${end.col}`
+  return `${start.line}:${start.col}-${end.line}:${end.col}`
+}
 
-  /** @param {EditorView} view */
-  toDOM(view) {
-    const span = document.createElement('span')
-    span.className = 'agda-goal-marker'
-    this.updateDOM(span, view, true)
-    return span
+/** @param {Agda._InteractionPoint} interactionPoint */
+function summarizeInteractionPoint(interactionPoint) {
+  return {
+    id: interactionPoint.id,
+    range: formatInteractionRange(interactionPoint.range?.[0]),
   }
+}
 
-  /** @param {WidgetType} widget */
-  eq(widget) {
-    return widget instanceof GoalMarker &&
-      this.id === widget.id
-  }
-  /**
-   * @param {HTMLElement} dom
-   * @param {EditorView} _view
-   * @param {boolean} _first */
-  updateDOM(dom, _view, _first = false) {
-    dom.textContent = this.id != null ? '' + this.id : '?'
-    return true
-  }
-
-  /** @param {Event} evt */
-  ignoreEvent(evt) {
-    if (evt instanceof MouseEvent &&
-        evt.button === 0) {
-      return false
+/**
+ * @param {Range<Decoration>[]} decos
+ * @param {(number | string)[]} ids
+ * @param {EditorState} state
+ */
+function summarizeLegacyInteractionPoints(decos, ids, state) {
+  return decos.map((deco, idx) => {
+    const line = state.doc.lineAt(deco.from)
+    return {
+      id: ids[idx] ?? deco.value.spec.id ?? '?',
+      range: `${line.number}:${deco.from - line.from + 1}`,
     }
-    return true
-  }
+  })
+}
+
+/**
+ * @param {number} id
+ * @param {Record<string, any>} [baseSpec]
+ */
+function makeGoalMark(id, baseSpec = {}) {
+  return Decoration.mark({
+    ...baseSpec,
+    class: baseSpec.class ?? 'agda-hole',
+    id,
+    attributes: {
+      ...(baseSpec.attributes ?? {}),
+      'data-goal-id': String(id),
+      'aria-label': `Goal ${id}`,
+    },
+  })
+}
+
+/** @param {EditorState} state */
+function buildDecorationsFromGoalState(state) {
+  return getAgdaGoals(state).map(goal =>
+    makeGoalMark(goal.id).range(goal.outerFrom, goal.outerTo))
 }
 
 /**
@@ -59,10 +79,7 @@ export function buildGoalTransaction(state, ips) {
     const [from, to] = mapUtf8Range(state, start.pos - 1, end.pos - 1)
     if (from >= to) continue
 
-    arr.push(Decoration.mark({
-      class: 'agda-hole',
-      id: ip.id,
-    }).range(from, to))
+    arr.push(makeGoalMark(ip.id).range(from, to))
   }
 
   if (arr.length == 0) return {}
@@ -71,7 +88,40 @@ export function buildGoalTransaction(state, ips) {
 
   return {
     changes,
-    effects: setGoalsAfterChanges.of(goals),
+    effects: [
+      setGoalsAfterChanges.of(goals),
+      setGoalInfo.of(ips.map(summarizeInteractionPoint)),
+    ],
+  }
+}
+
+/**
+ * Rebuild goal ids from legacy ALS `ResponseInteractionPoints`, where only ids
+ * are provided. The corresponding hole ranges come from token highlighting.
+ *
+ * @param {EditorState} state
+ * @param {import('@codemirror/state').RangeSet<Decoration>} holes
+ * @param {number[]} ids
+ * @returns {TransactionSpec}
+ */
+export function buildLegacyGoalTransaction(state, holes, ids) {
+  /** @type {Range<Decoration>[]} */
+  const decos = []
+
+  for (let it = holes.iter(); it.value !== null; it.next()) {
+    const { value, from, to } = it
+    decos.push(makeGoalMark(ids[decos.length], value.spec).range(from, to))
+  }
+
+  if (decos.length !== ids.length) {
+    throw new Error(`mismatched numbers of interaction points ${ids.length} and holes ${decos.length}`)
+  }
+
+  return {
+    effects: [
+      setGoals.of(decos),
+      setGoalInfo.of(summarizeLegacyInteractionPoints(decos, ids, state)),
+    ],
   }
 }
 
@@ -122,47 +172,8 @@ export function expandGoals(state, goals) {
   return ChangeSet.of(ret, state.doc.length)
 }
 
-const goalsState = StateField.define({
-  create(_state) {
-    return Decoration.none
-  },
-  update(value, tr) {
-    if (!tr.changes.empty) {
-      const toRemove = new Set()
-      // remove holes that are completely replaced by insertion
-      tr.changes.iterChangedRanges((changeFrom, changeTo) => {
-        value.between(changeFrom, changeTo, (from, to) => {
-          if (changeFrom <= from && to <= changeTo) {
-            toRemove.add(from)
-            return false
-          }
-        })
-      })
-      value = value.update({ filter: f => !toRemove.has(f) })
-      value = value.map(tr.changes)
-    }
-
-    for (const e of tr.effects) {
-      if (e.is(clearHighlight)) {
-        value = Decoration.none
-      } else if (e.is(setGoals) || e.is(setGoalsAfterChanges)) {
-        value = Decoration.set(e.value)
-      } else if (e.is(addGoals)) {
-        for (const deco of e.value) {
-          value = upsertDeco(value, deco)
-        }
-      }
-    }
-
-    return value
-  },
-  provide(field) {
-    return [
-      EditorView.decorations.from(field),
-      makeDecoInvertedEffects(field, value => value, decos => [addGoals.of(decos)]),
-    ]
-  }
-})
+const goalsDecorations = EditorView.decorations.compute([agdaGoalState], state =>
+  Decoration.set(buildDecorationsFromGoalState(state), true))
 
 /**
  * @param {EditorState} state
@@ -170,15 +181,8 @@ const goalsState = StateField.define({
  * @returns {{from: number, to: number} | null}
  */
 export function getGoalRangeById(state, id) {
-  /** @type {{from: number, to: number} | null} */
-  let found = null
-  state.field(goalsState).between(0, state.doc.length, (from, to, value) => {
-    if (value.spec.id === id && state.doc.sliceString(from, to).startsWith('{!')) {
-      found = { from, to }
-      return false
-    }
-  })
-  return found
+  const goal = getAgdaGoalById(state, id)
+  return goal ? { from: goal.outerFrom, to: goal.outerTo } : null
 }
 
 /**
@@ -187,89 +191,14 @@ export function getGoalRangeById(state, id) {
  * @returns {{id: number, from: number, to: number, text: string} | null}
  */
 export function getGoalAtPosition(state, pos) {
-  /** @type {{id: number, from: number, to: number, text: string} | null} */
-  let found = null
-  state.field(goalsState).between(0, state.doc.length, (from, to, value) => {
-    if (from <= pos && pos <= to &&
-        typeof value.spec.id === 'number' &&
-        state.doc.sliceString(from, to).startsWith('{!')) {
-      found = {
-        id: value.spec.id,
-        from,
-        to,
-        text: state.doc.sliceString(from, to),
-      }
-      return false
-    }
-  })
-  return found
+  const goal = getAgdaGoalAtPosition(state, pos)
+  return goal ? goalToLegacyRange(goal) : null
 }
-
-/** @import { PluginValue, ViewUpdate } from '@codemirror/view' */
-
-/** @param {Decoration} value */
-function makeGoalWidget(value) {
-  const w = Decoration.widget({
-    widget: new GoalMarker(value.spec.id),
-  })
-  const sideHack = -6e8-9999
-  w.startSide = sideHack
-  w.endSide = sideHack
-  return w
-}
-
-const goalMarkers = ViewPlugin.fromClass(
-  /** @implements {PluginValue} */
-  class GoalNumberingsBase {
-    /** @param {EditorView} _view */
-    constructor(_view) {
-      this.decorations = Decoration.none
-    }
-
-    /** @param {readonly Transaction[]} trs */
-    requiresUpdate(trs) {
-      return trs.some(tr =>
-        tr.effects.some(e =>
-          e.is(setGoals) || e.is(setGoalsAfterChanges) || e.is(clearHighlight)))
-    }
-
-    /**
-     * @param {ViewUpdate} update
-     */
-    update(update) {
-      const stale = update.docChanged ||
-        update.viewportChanged ||
-        this.requiresUpdate(update.transactions)
-      if (!stale) return
-
-      const oldDecos = this.decorations.map(update.changes)
-      const goals = update.state.field(goalsState)
-
-      const newMarkers = update.view.visibleRanges.map(({from: vf, to: vt}) => {
-        /** @type {Range<Decoration>[]} */
-        const collected = []
-        goals.between(vf, vt, (_, pos, value) => {
-          /** @type {Range<Decoration> | null} */
-          let recycled = null
-          oldDecos.between(pos, pos, (_f, _t, value) => {
-            recycled = value.range(pos)
-            return false
-          })
-          collected.push(recycled ?? makeGoalWidget(value).range(pos))
-        })
-        return collected
-      })
-
-      this.decorations = Decoration.set(newMarkers.flat())
-    }
-  }, {
-    decorations: value => value.decorations
-  })
 
 export function agdaGoals() {
   return [
     // the order matters!
-    goalMarkers,
-    goalsState,
+    agdaGoalState,
+    goalsDecorations,
   ]
 }

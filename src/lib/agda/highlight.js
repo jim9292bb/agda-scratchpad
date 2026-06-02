@@ -118,18 +118,15 @@ export function buildHighlightEffects(state, specs) {
     /** @type {string[]} */
     const tokenKinds = []
     let isOperator = false
-    let isHole = false
 
     // TODO: note -> diagnostics
 
     for (const atom of atoms) {
       if (atom === 'hole') {
-        // totally ignore holes -- unless they are drawn via token based
-        // FIXME: review this condition
-        if (!spec.tokenBased) {
-          continue outer
-        }
-        isHole = true
+        // Goals are rendered by goals.js so their interaction point ids stay
+        // attached to the decoration. Token highlighting would otherwise add
+        // duplicate `.agda-hole` spans without `data-goal-id`.
+        continue outer
       }
 
       if (atom === 'operator') {
@@ -142,7 +139,6 @@ export function buildHighlightEffects(state, specs) {
           class: `agda-${atom}`,
           atoms: [atom],
           meta,
-          isHole,
           originalText: state.doc.sliceString(from, to),
         })
 

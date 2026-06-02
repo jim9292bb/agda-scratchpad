@@ -13,13 +13,13 @@ References:
 
 ## Phase 1: Goal Lifecycle Foundation
 
-- [ ] Create a centralized goal state module.
-- [ ] Track each goal by Agda interaction point id.
-- [ ] Store each goal's outer range, inner range, and document version.
-- [ ] Map CodeMirror offsets to Agda UTF-8 ranges through one shared utility.
-- [ ] Update goal ranges after every CodeMirror document transaction.
-- [ ] Reject or rebase async Agda responses when the document version is stale.
-- [ ] Rebuild goal ids from Agda `InteractionPoints` after `Load`.
+- [x] Create a centralized goal state module.
+- [x] Track each goal by Agda interaction point id.
+- [x] Store each goal's outer range, inner range, and document version.
+- [x] Map CodeMirror offsets to Agda UTF-8 ranges through one shared utility.
+- [x] Update goal ranges after every CodeMirror document transaction.
+- [x] Reject or rebase async Agda responses when the document version is stale.
+- [x] Rebuild goal ids from Agda `InteractionPoints` after `Load`.
 - [ ] Merge existing and newly generated goals after `Give` and `Refine`.
 - [ ] Remove goal boundaries after successful `Give`.
 - [ ] Add defensive handling for damaged or partially edited goal boundaries.
@@ -118,4 +118,3 @@ References:
 - Keep request construction separate from UI event handling.
 - Keep response handling separate from editor mutation.
 - Include browser tests for Give, Case split, Refine, Auto, and goal navigation.
-

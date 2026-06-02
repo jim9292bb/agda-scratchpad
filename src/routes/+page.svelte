@@ -13,9 +13,13 @@ import { makeBufUint32LE } from '$lib/stdlib'
 import { myCodeMirrorTheme } from '$lib/codemirror/theme'
 import { agdaSupport } from '$lib/agda'
 import { getGoalAtPosition } from '$lib/agda/goals'
-import { offsetTable, utf16PosToUtf8 } from '$lib/codemirror/offsets'
+import {
+  extractGoalInput,
+  mergeGoalInfos,
+} from '$lib/agda/goal-state'
+import { goalContentToAgdaRange, noAgdaRange } from '$lib/agda/ranges'
 
-import { clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo } from '$lib/agda/effects'
+import { clearGoals, clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo } from '$lib/agda/effects'
 
 const driveLockSab = new SharedArrayBuffer(4)
 const driveStdinSab = SPSC.allocateArrayBuffer(4096)
@@ -54,57 +58,6 @@ const basicTheme = EditorView.theme({
     overscrollBehavior: 'contain',
   },
 })
-
-/**
- * @param {{id: number | string, range?: string, type?: string}[]} current
- * @param {{id: number | string, range?: string, type?: string}[]} incoming
- */
-function mergeGoalInfos(current, incoming) {
-  if (incoming.length === 0) return []
-
-  const goalsById = new Map(current.map(goal => [goal.id, goal]))
-  for (const goal of incoming) {
-    goalsById.set(goal.id, {
-      ...goalsById.get(goal.id),
-      ...goal,
-      type: goal.type ?? goalsById.get(goal.id)?.type,
-      range: goal.range ?? goalsById.get(goal.id)?.range,
-    })
-  }
-  return [...goalsById.values()]
-}
-
-/** @param {string} text */
-function extractHoleText(text) {
-  const match = text.match(/^\{!\s*([\s\S]*?)\s*!\}$/)
-  return match ? match[1] : text
-}
-
-/**
- * Mirrors banacorn/agda-mode-vscode's Goal.makeHaskellRange for Agda 2.8.
- * The range covers only the content inside `{!` and `!}`.
- *
- * @param {EditorState} state
- * @param {{from: number, to: number}} goal
- */
-function makeAgdaGoalRange(state, goal) {
-  const filepath = agdaController.currentFilePath
-  const committedDocLength = state.field(offsetTable).doc.length
-  const from = Math.min(goal.from, state.doc.length, committedDocLength)
-  const to = Math.min(goal.to, state.doc.length, committedDocLength)
-  const start = state.doc.lineAt(from)
-  const end = state.doc.lineAt(to)
-  const startIndex = utf16PosToUtf8(state, from) + 3
-  const endIndex = utf16PosToUtf8(state, to) - 3
-  const startRow = start.number
-  const startColumn = from - start.from + 3
-  const endRow = end.number
-  const endColumn = to - end.from - 1
-
-  return `(intervalsToRange (Just (mkAbsolute ${JSON.stringify(filepath)})) ` +
-    `[Interval () (Pn () ${startIndex} ${startRow} ${startColumn}) ` +
-    `(Pn () ${endIndex} ${endRow} ${endColumn})])`
-}
 
 /**
  * @param {EditorState} state
@@ -205,8 +158,8 @@ function getAgdaShortcutContext(view) {
 
   return {
     goal,
-    input: selectedText || (goal ? extractHoleText(goal.text) : ''),
-    range: goal ? makeAgdaGoalRange(view.state, goal) : 'noRange',
+    input: selectedText || (goal ? extractGoalInput(goal.text) : ''),
+    range: goal ? goalContentToAgdaRange(view.state, agdaController.currentFilePath, goal) : noAgdaRange,
   }
 }
 
@@ -448,6 +401,7 @@ function sendAbort() {
 async function loadAgdaFile() {
   textboxContent = `Loading ${agdaController.currentFilePath}...\n`
   goalInfos = []
+  agdaController.editorView?.dispatch({ effects: clearGoals.of() })
   try {
     await agdaController.loadAgdaFile()
     textboxContent += 'Load finished.\n'

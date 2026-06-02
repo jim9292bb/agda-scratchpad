@@ -3,6 +3,19 @@ import { EditorView } from '@codemirror/view'
 export const agdaLightSchemeFromEmacs = EditorView.theme({
   // not a part of Agda's theme, but Emacs' built-in palette
   '.agda-hole': { background: '#b4eeb4C0' },  // darkseagreen2
+  '.agda-hole[data-goal-id]::after': {
+    content: 'attr(data-goal-id)',
+    display: 'inline-block',
+    marginInlineStart: '0.15em',
+    padding: '0 0.25em',
+    borderRadius: '999px',
+    backgroundColor: '#2f5f2f',
+    color: 'white',
+    fontSize: '0.72em',
+    lineHeight: '1.15',
+    pointerEvents: 'none',
+    userSelect: 'none',
+  },
   // make error markers opaque
   '.agda-error *': { color: 'currentColor !important' },
 
@@ -58,6 +71,19 @@ export const agdaLightSchemeFromEmacs = EditorView.theme({
 export const agdaDarkSchemeFromEmacs = EditorView.theme({
   // not a part of Agda's theme, but Emacs' built-in palette
   '.agda-hole': { background: '#556B2FC0' },  // DarkOliveGreen
+  '.agda-hole[data-goal-id]::after': {
+    content: 'attr(data-goal-id)',
+    display: 'inline-block',
+    marginInlineStart: '0.15em',
+    padding: '0 0.25em',
+    borderRadius: '999px',
+    backgroundColor: '#b4eeb4',
+    color: '#102010',
+    fontSize: '0.72em',
+    lineHeight: '1.15',
+    pointerEvents: 'none',
+    userSelect: 'none',
+  },
   // make error markers opaque
   '.agda-error *': { color: 'currentColor !important' },
 
