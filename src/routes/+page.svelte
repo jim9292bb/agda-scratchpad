@@ -14,6 +14,15 @@ import { myCodeMirrorTheme } from '$lib/codemirror/theme'
 import { agdaSupport } from '$lib/agda'
 import { mergeGoalInfos } from '$lib/agda/goal-state'
 import { getAgdaShortcutContext } from '$lib/agda/shortcut-context'
+import {
+  computeCommand,
+  giveCommand,
+  goalTypeCommand,
+  goalTypeContextCommand,
+  inferCommand,
+  makeCaseCommand,
+  refineCommand,
+} from '$lib/agda/commands'
 
 import { clearGoals, clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo } from '$lib/agda/effects'
 
@@ -173,33 +182,33 @@ function handleAgdaChordKeydown(event, view) {
   if (isCtrlKey(event, 'l')) {
     runLoadShortcut()
   } else if (isCtrlKey(event, ',')) {
-    runAgdaShortcut('Goal type', view, context => `(Cmd_goal_type Normalised ${requireGoal(context).id} noRange "")`)
+    runAgdaShortcut('Goal type', view, context => goalTypeCommand('Normalised', requireGoal(context)))
   } else if (isCtrlKey(event, '.')) {
-    runAgdaShortcut('Goal type and context', view, context => `(Cmd_goal_type_context Normalised ${requireGoal(context).id} noRange "")`)
+    runAgdaShortcut('Goal type and context', view, context => goalTypeContextCommand('Normalised', requireGoal(context)))
   } else if (isCtrlSpace(event) || isSpace(event)) {
     runAgdaShortcut('Give', view, context => {
       const goal = requireGoal(context)
       if (agdaController.alsRouter) {
         agdaController.alsRouter.pendingGiveGoal = goal
       }
-      return `(Cmd_give WithoutForce ${goal.id} ${context.range} ${JSON.stringify(requireInput(context))})`
+      return giveCommand(goal, context.range, requireInput(context))
     })
   } else if (isCtrlKey(event, 'r')) {
-    runAgdaShortcut('Refine', view, context => `(Cmd_refine_or_intro False ${requireGoal(context).id} ${context.range} ${JSON.stringify(requireInput(context))})`)
+    runAgdaShortcut('Refine', view, context => refineCommand(requireGoal(context), context.range, requireInput(context)))
   } else if (isCtrlKey(event, 'a')) {
-    runAgdaShortcut('Auto/refine', view, context => `(Cmd_refine_or_intro False ${requireGoal(context).id} ${context.range} ${JSON.stringify(context.input)})`)
+    runAgdaShortcut('Auto/refine', view, context => refineCommand(requireGoal(context), context.range, context.input))
   } else if (isCtrlKey(event, 'c')) {
     runAgdaShortcut('Case split', view, context => {
       const goal = requireGoal(context)
       if (agdaController.alsRouter) {
         agdaController.alsRouter.pendingCaseSplitGoal = goal
       }
-      return `(Cmd_make_case ${goal.id} ${context.range} ${JSON.stringify(requireInput(context))})`
+      return makeCaseCommand(goal, context.range, requireInput(context))
     })
   } else if (isCtrlKey(event, 'n')) {
-    runAgdaShortcut('Compute', view, context => `(Cmd_compute DefaultCompute ${requireGoal(context).id} noRange ${JSON.stringify(requireInput(context))})`)
+    runAgdaShortcut('Compute', view, context => computeCommand('DefaultCompute', requireGoal(context), requireInput(context)))
   } else if (isCtrlKey(event, 'd')) {
-    runAgdaShortcut('Infer type', view, context => `(Cmd_infer Normalised ${requireGoal(context).id} noRange ${JSON.stringify(requireInput(context))})`)
+    runAgdaShortcut('Infer type', view, context => inferCommand('Normalised', requireGoal(context), requireInput(context)))
   }
 
   return true

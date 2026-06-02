@@ -37,7 +37,7 @@ References:
 - [ ] Implement `C-c C-h` Helper function type using `Cmd_helper_function`.
 - [x] Show a clear error when a command requires content but the current goal is empty.
 - [x] Show a clear error when the cursor is not inside a goal.
-- [ ] Extract core command construction from `src/routes/+page.svelte` into a reusable Agda command module.
+- [x] Extract core command construction from `src/routes/+page.svelte` into a reusable Agda command module.
 - [ ] Browser-test Load, Give, Case split, Refine, and Auto with `agent-browser`.
 
 ## Phase 3: Goal Queries
@@ -53,7 +53,7 @@ References:
 - [ ] Implement `C-c C-z` Search about using `Cmd_search_about_toplevel`.
 - [ ] Implement `C-c C-o` Module contents using `Cmd_show_module_contents`.
 - [ ] Implement `C-c C-w` Why in scope using `Cmd_why_in_scope`.
-- [ ] Extract query command construction from `src/routes/+page.svelte` into a reusable Agda command module.
+- [x] Extract query command construction from `src/routes/+page.svelte` into a reusable Agda command module.
 
 ## Phase 4: Goal Navigation and Display
 
