@@ -1,6 +1,7 @@
 import { StateField } from '@codemirror/state'
 import {
   addGoals,
+  addGoalsAfterChanges,
   clearGoals,
   removeGoalInfo,
   setGoalInfo,
@@ -163,6 +164,17 @@ function goalsFromDecorations(state, ranges, previous) {
 }
 
 /**
+ * @param {AgdaGoal[]} current
+ * @param {AgdaGoal[]} incoming
+ * @returns {AgdaGoal[]}
+ */
+function mergeGoals(current, incoming) {
+  const byId = new Map(current.map(goal => [goal.id, goal]))
+  for (const goal of incoming) byId.set(goal.id, goal)
+  return [...byId.values()].sort((a, b) => a.outerFrom - b.outerFrom)
+}
+
+/**
  * @param {EditorState} state
  * @param {AgdaGoal} goal
  * @param {number} documentVersion
@@ -232,13 +244,11 @@ export const agdaGoalState = StateField.define({
           ...value,
           goals: goalsFromDecorations(tr.state, effect.value, value),
         }
-      } else if (effect.is(addGoals)) {
+      } else if (effect.is(addGoals) || effect.is(addGoalsAfterChanges)) {
         const incoming = goalsFromDecorations(tr.state, effect.value, value)
-        const byId = new Map(value.goals.map(goal => [goal.id, goal]))
-        for (const goal of incoming) byId.set(goal.id, goal)
         value = {
           ...value,
-          goals: [...byId.values()].sort((a, b) => a.outerFrom - b.outerFrom),
+          goals: mergeGoals(value.goals, incoming),
         }
       } else if (effect.is(setGoalInfo)) {
         const merged = mergeGoalInfos(value.goals, effect.value)

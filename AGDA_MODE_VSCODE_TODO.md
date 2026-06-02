@@ -20,9 +20,9 @@ References:
 - [x] Update goal ranges after every CodeMirror document transaction.
 - [x] Reject or rebase async Agda responses when the document version is stale.
 - [x] Rebuild goal ids from Agda `InteractionPoints` after `Load`.
-- [ ] Merge existing and newly generated goals after `Give` and `Refine`.
-- [ ] Remove goal boundaries after successful `Give`.
-- [ ] Add defensive handling for damaged or partially edited goal boundaries.
+- [x] Merge existing and newly generated goals after `Give` and `Refine`.
+- [x] Remove goal boundaries after successful `Give`.
+- [x] Add defensive handling for damaged or partially edited goal boundaries.
 
 ## Phase 2: Core Agda Commands
 

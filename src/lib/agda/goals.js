@@ -1,7 +1,7 @@
 import { EditorState, ChangeSet } from '@codemirror/state'
 import { Decoration, EditorView } from '@codemirror/view'
 import { mapUtf8Range } from '$lib/codemirror/offsets'
-import { setGoals, setGoalsAfterChanges, setGoalInfo } from './effects'
+import { addGoals, addGoalsAfterChanges, setGoalInfo } from './effects'
 import {
   agdaGoalState,
   getAgdaGoalAtPosition,
@@ -89,7 +89,7 @@ export function buildGoalTransaction(state, ips) {
   return {
     changes,
     effects: [
-      setGoalsAfterChanges.of(goals),
+      addGoalsAfterChanges.of(goals),
       setGoalInfo.of(ips.map(summarizeInteractionPoint)),
     ],
   }
@@ -119,7 +119,7 @@ export function buildLegacyGoalTransaction(state, holes, ids) {
 
   return {
     effects: [
-      setGoals.of(decos),
+      addGoals.of(decos),
       setGoalInfo.of(summarizeLegacyInteractionPoints(decos, ids, state)),
     ],
   }

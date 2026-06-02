@@ -12,12 +12,8 @@ import { withDriveLock } from '$lib'
 import { makeBufUint32LE } from '$lib/stdlib'
 import { myCodeMirrorTheme } from '$lib/codemirror/theme'
 import { agdaSupport } from '$lib/agda'
-import { getGoalAtPosition } from '$lib/agda/goals'
-import {
-  extractGoalInput,
-  mergeGoalInfos,
-} from '$lib/agda/goal-state'
-import { goalContentToAgdaRange, noAgdaRange } from '$lib/agda/ranges'
+import { mergeGoalInfos } from '$lib/agda/goal-state'
+import { getAgdaShortcutContext } from '$lib/agda/shortcut-context'
 
 import { clearGoals, clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo } from '$lib/agda/effects'
 
@@ -60,113 +56,9 @@ const basicTheme = EditorView.theme({
 })
 
 /**
- * @param {EditorState} state
- */
-function getTextualHoles(state) {
-  const doc = state.doc.toString()
-  /** @type {{from: number, to: number, text: string}[]} */
-  const holes = []
-  let searchFrom = 0
-  while (searchFrom < doc.length) {
-    const from = doc.indexOf('{!', searchFrom)
-    if (from < 0) break
-
-    const close = doc.indexOf('!}', from + 2)
-    if (close < 0) break
-
-    const to = close + 2
-    holes.push({ from, to, text: doc.slice(from, to) })
-    searchFrom = to
-  }
-  return holes
-}
-
-/**
- * @param {EditorState} state
- * @param {number} pos
- */
-function getTextualHoleAtPosition(state, pos) {
-  return getTextualHoles(state).find(hole => hole.from <= pos && pos <= hole.to) ?? null
-}
-
-/** @param {EditorState} state */
-function getOnlyTextualHole(state) {
-  const holes = getTextualHoles(state)
-  return holes.length === 1 ? holes[0] : null
-}
-
-/**
- * Agda-mode-vscode stores hole positions first, then assigns interaction point
- * ids in document order. This mirrors that as a fallback when CodeMirror
- * decorations are not available.
- *
- * @param {EditorState} state
- * @param {number} pos
- */
-function getOrderedTextualGoalAtPosition(state, pos) {
-  const holes = getTextualHoles(state)
-  const index = holes.findIndex(hole => hole.from <= pos && pos <= hole.to)
-  if (index < 0) return null
-
-  const numericGoalInfos = goalInfos.filter(goal => typeof goal.id === 'number')
-  if (numericGoalInfos.length !== holes.length) return null
-
-  const goalInfo = numericGoalInfos[index]
-  if (!goalInfo || typeof goalInfo.id !== 'number') return null
-
-  return {
-    id: goalInfo.id,
-    from: holes[index].from,
-    to: holes[index].to,
-    text: holes[index].text,
-  }
-}
-
-/**
- * @param {EditorState} state
- * @param {number} pos
- */
-function getGoalInfoFallback(state, pos, allowOnlyGoalFallback = false) {
-  const singleGoal = goalInfos.length === 1 ? goalInfos[0] : null
-  if (typeof singleGoal?.id !== 'number') return null
-
-  const textualGoal =
-    getTextualHoleAtPosition(state, pos) ??
-    (allowOnlyGoalFallback ? getOnlyTextualHole(state) : null)
-  if (!textualGoal) return null
-
-  return {
-    id: singleGoal.id,
-    from: textualGoal.from,
-    to: textualGoal.to,
-    text: textualGoal.text,
-  }
-}
-
-/** @param {EditorView} view */
-function getAgdaShortcutContext(view) {
-  const selection = view.state.selection.main
-  const selectedText = selection.empty ? '' : view.state.sliceDoc(selection.from, selection.to)
-  const goal =
-    getGoalAtPosition(view.state, selection.head) ??
-    getGoalAtPosition(view.state, Math.max(0, selection.head - 1)) ??
-    getGoalAtPosition(view.state, Math.min(view.state.doc.length, selection.head + 1)) ??
-    getOrderedTextualGoalAtPosition(view.state, selection.head) ??
-    getOrderedTextualGoalAtPosition(view.state, Math.max(0, selection.head - 1)) ??
-    getOrderedTextualGoalAtPosition(view.state, Math.min(view.state.doc.length, selection.head + 1)) ??
-    getGoalInfoFallback(view.state, selection.head, true)
-
-  return {
-    goal,
-    input: selectedText || (goal ? extractGoalInput(goal.text) : ''),
-    range: goal ? goalContentToAgdaRange(view.state, agdaController.currentFilePath, goal) : noAgdaRange,
-  }
-}
-
-/**
  * @param {string} label
  * @param {EditorView} view
- * @param {(context: ReturnType<typeof getAgdaShortcutContext>) => string | Promise<void>} command
+ * @param {(context: import('$lib/agda/shortcut-context').AgdaShortcutContext) => string | Promise<void>} command
  */
 function runAgdaShortcut(label, view, command) {
   void (async () => {
@@ -178,7 +70,7 @@ function runAgdaShortcut(label, view, command) {
     try {
       textboxContent += `${label}...\n`
       await agdaController.syncSourceFileToDrive()
-      const context = getAgdaShortcutContext(view)
+      const context = getAgdaShortcutContext(view, agdaController.currentFilePath, goalInfos)
       const interaction = await command(context)
       if (interaction) await agdaController.runAgdaInteraction(interaction)
       textboxContent += `${label} finished.\n`

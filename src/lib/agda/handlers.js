@@ -1,8 +1,9 @@
-import { clearHighlight, clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo } from './effects'
+import { clearHighlight, clearRunningInfo, emitRunningInfo, setGoalInfo } from './effects'
 import { alsHighlightingInfosDirectSchema, alsInteractionPointsSchema } from './schema'
 import { buildHighlightEffects, highlightState } from './highlight'
-import { buildGoalTransaction, buildLegacyGoalTransaction, getGoalRangeById } from './goals'
+import { buildGoalTransaction, buildLegacyGoalTransaction } from './goals'
 import { getAgdaDocumentVersion } from './goal-state'
+import { removeGoalBoundary, replaceGoal, replaceGoalClause } from './editor-mutations'
 
 /** @import { EditorView } from '@codemirror/view' */
 /** @import { ALSMessageRouter } from './transport' */
@@ -121,74 +122,6 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
   function isAgdaInternalErrorMessage(message) {
     return message.includes('An internal error has occurred') ||
       message.includes('__IMPOSSIBLE_VERBOSE__')
-  }
-
-  /**
-   * @param {number} interactionPoint
-   * @param {string} replacement
-   */
-  function replaceGoal(interactionPoint, replacement) {
-    const fallbackGoal = controller.pendingGiveGoal?.id === interactionPoint ? controller.pendingGiveGoal : undefined
-    const range = getGoalRangeById(editorView.state, interactionPoint) ?? fallbackGoal
-    if (!range) {
-      emitMessage(`Could not find goal ${interactionPoint} in the editor.`)
-      return
-    }
-    editorView.dispatch({
-      changes: { from: range.from, to: range.to, insert: replacement },
-      selection: { anchor: range.from + replacement.length },
-      effects: removeGoalInfo.of(interactionPoint),
-    })
-  }
-
-  /**
-   * Implements agda-mode-vscode's GiveNoParen/GiveParen behavior: keep the
-   * goal content, optionally parenthesized, then remove `{!` and `!}`.
-   *
-   * @param {number} interactionPoint
-   * @param {boolean} paren
-   */
-  function removeGoalBoundary(interactionPoint, paren) {
-    const fallbackGoal = controller.pendingGiveGoal?.id === interactionPoint ? controller.pendingGiveGoal : undefined
-    const range = getGoalRangeById(editorView.state, interactionPoint) ?? fallbackGoal
-    if (!range) {
-      emitMessage(`Could not find goal ${interactionPoint} in the editor.`)
-      return
-    }
-
-    const goalText = editorView.state.doc.sliceString(range.from, range.to)
-    const match = goalText.match(/^\{!\s*([\s\S]*?)\s*!\}$/)
-    const content = match ? match[1] : goalText
-    const replacement = paren ? `(${content})` : content
-
-    editorView.dispatch({
-      changes: { from: range.from, to: range.to, insert: replacement },
-      selection: { anchor: range.from + replacement.length },
-      effects: removeGoalInfo.of(interactionPoint),
-    })
-  }
-
-  /**
-   * @param {{from: number, to: number}} goal
-   * @param {string[]} clauses
-   */
-  function replaceGoalClause(goal, clauses) {
-    const doc = editorView.state.doc
-    const startLine = doc.lineAt(goal.from)
-    const linePrefix = doc.sliceString(startLine.from, goal.from)
-    const indentation = linePrefix.match(/^\s*/)?.[0] ?? ''
-    const replacement = indentation + clauses
-      .map(clause => clause.replace(/\?/g, '{!   !}'))
-      .join('\n' + indentation)
-
-    editorView.dispatch({
-      changes: { from: startLine.from, to: goal.to, insert: replacement },
-      selection: { anchor: startLine.from },
-    })
-    editorView.dom.dispatchEvent(new CustomEvent('agda-reload-needed', {
-      bubbles: true,
-      detail: { reason: 'case-split' },
-    }))
   }
 
   /** @param {number | Agda._InteractionPoint} interactionPoint */
@@ -334,13 +267,18 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
         return
       }
       const interactionPointId = getInteractionPointId(interactionPoint)
+      const fallbackGoal = controller.pendingGiveGoal?.id === interactionPointId
+        ? controller.pendingGiveGoal
+        : undefined
+      let replaced = true
       if ('str' in giveResult) {
-        replaceGoal(interactionPointId, giveResult.str)
+        replaced = replaceGoal(editorView, interactionPointId, giveResult.str, fallbackGoal)
       } else if ('paren' in giveResult) {
-        removeGoalBoundary(interactionPointId, Boolean(giveResult.paren))
+        replaced = removeGoalBoundary(editorView, interactionPointId, Boolean(giveResult.paren), fallbackGoal)
       } else {
         console.warn('unhandled give action', giveResult)
       }
+      if (!replaced) emitMessage(`Could not find goal ${interactionPointId} in the editor.`)
       controller.pendingGiveGoal = undefined
       acceptCurrentDocumentVersion()
     },
@@ -355,7 +293,7 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       const goal = controller.pendingCaseSplitGoal
       controller.pendingCaseSplitGoal = undefined
       if (goal) {
-        replaceGoalClause(goal, renderedClauses)
+        replaceGoalClause(editorView, goal, renderedClauses)
       } else {
         emitMessage(renderedClauses.join('\n'))
       }
