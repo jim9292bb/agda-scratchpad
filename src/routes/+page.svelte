@@ -13,6 +13,7 @@ import { makeBufUint32LE } from '$lib/stdlib'
 import { myCodeMirrorTheme } from '$lib/codemirror/theme'
 import { agdaSupport } from '$lib/agda'
 import { mergeGoalInfos } from '$lib/agda/goal-state'
+import { getGoalRangeById } from '$lib/agda/goals'
 import { getAgdaShortcutContext } from '$lib/agda/shortcut-context'
 import {
   autoOneCommand,
@@ -366,6 +367,22 @@ function sendAbort() {
   })
 }
 
+/** @param {number | string} goalId */
+function focusGoal(goalId) {
+  if (typeof goalId !== 'number' || !agdaController.editorView) return
+
+  const view = agdaController.editorView
+  const range = getGoalRangeById(view.state, goalId)
+  if (!range) return
+
+  const cursor = Math.min(range.to, range.from + 3)
+  view.dispatch({
+    selection: { anchor: cursor },
+    scrollIntoView: true,
+  })
+  view.focus()
+}
+
 async function loadAgdaFile() {
   textboxContent = `Loading ${agdaController.currentFilePath}...\n`
   goalInfos = []
@@ -426,7 +443,11 @@ $effect(() => {
             <div class="goals-empty">No goals.</div>
           {:else}
             {#each goalInfos as goal (`${goal.id}-${goal.range ?? ''}`)}
-              <article class="goal-card">
+              <button
+                type="button"
+                class="goal-card"
+                aria-label={`Focus goal ${goal.id}`}
+                onclick={() => focusGoal(goal.id)}>
                 <div class="goal-meta">
                   <strong>Goal {goal.id}</strong>
                   {#if goal.range}
@@ -438,7 +459,7 @@ $effect(() => {
                 {:else}
                   <div class="goal-type-empty">Type information is not available yet.</div>
                 {/if}
-              </article>
+              </button>
             {/each}
           {/if}
         </div>
@@ -664,10 +685,23 @@ quiet-text-field.mono::part(text-box) {
 }
 
 .goal-card {
+  display: block;
+  width: 100%;
   border: 1px solid var(--quiet-neutral-stroke-softer);
   border-radius: 4px;
   background: var(--quiet-neutral-fill-softer);
   padding: 8px;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+}
+
+.goal-card:hover,
+.goal-card:focus-visible {
+  border-color: var(--quiet-primary-stroke-soft);
+  outline: none;
+  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill-softer));
 }
 
 .goal-card + .goal-card {

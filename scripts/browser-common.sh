@@ -32,20 +32,43 @@ click_button() {
   label_json="$(json_string "$1")"
   ab eval "(() => {
     const label = $label_json
-    const button = Array.from(document.querySelectorAll('button'))
-      .find(button => button.textContent.trim() === label)
-    if (!button) return { ok: false, error: 'button not found', label }
+    const button = Array.from(document.querySelectorAll('button, quiet-button'))
+      .find(button => button.textContent.trim() === label && !(button.disabled ?? button.hasAttribute('disabled')))
+    if (!button) throw new Error('button not found: ' + label)
     button.click()
     return { ok: true, label }
   })()"
 }
 
+wait_for_button() {
+  local label="$1"
+  local timeout_ms="${2:-30000}"
+  local elapsed=0
+  while (( elapsed < timeout_ms )); do
+    local found
+    found="$(ab eval "(() => {
+      const button = Array.from(document.querySelectorAll('button, quiet-button'))
+        .find(button => button.textContent.trim() === '$label' && !(button.disabled ?? button.hasAttribute('disabled')))
+      return Boolean(button)
+    })()")"
+    if [[ "$found" == *"true"* ]]; then
+      return 0
+    fi
+    ab wait 1000 >/dev/null
+    elapsed=$((elapsed + 1000))
+  done
+  echo "Timed out waiting for button: $label" >&2
+  return 1
+}
+
 start_als() {
   local started
   started="$(ab eval "(() => {
-    const load = Array.from(document.querySelectorAll('button')).some(button => button.textContent.trim() === 'Load')
+    const buttons = Array.from(document.querySelectorAll('button, quiet-button'))
+    const isEnabled = button => !(button.disabled ?? button.hasAttribute('disabled'))
+    const load = buttons.some(button => button.textContent.trim() === 'Load' && isEnabled(button))
     if (load) return 'already-active'
-    const start = Array.from(document.querySelectorAll('button')).find(button => button.textContent.trim() === 'Start')
+    const start = buttons.find(button => button.textContent.trim() === 'Start' && isEnabled(button))
     if (!start) return 'missing-start'
     start.click()
     return 'started'
@@ -57,7 +80,7 @@ start_als() {
   fi
 
   if [[ "$started" == *"started"* ]]; then
-    ab wait 15000
+    wait_for_button Load 45000
   fi
 }
 

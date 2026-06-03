@@ -59,8 +59,8 @@ References:
 
 - [ ] Add Next goal command.
 - [ ] Add Previous goal command.
-- [ ] Make the Goals panel entries clickable.
-- [ ] Move the editor cursor into the selected goal when a goal is clicked.
+- [x] Make the Goals panel entries clickable.
+- [x] Move the editor cursor into the selected goal when a goal is clicked.
 - [ ] Show goal ids in the editor as CodeMirror decorations.
 - [ ] Highlight the active goal.
 - [ ] Keep the Goals panel synchronized after edits, Load, Give, Refine, and Case split.
