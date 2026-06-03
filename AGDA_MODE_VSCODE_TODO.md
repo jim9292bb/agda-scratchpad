@@ -42,17 +42,17 @@ References:
 
 ## Phase 3: Goal Queries
 
-- [ ] Implement `C-c C-t` Goal type using `Cmd_goal_type`.
-- [ ] Implement `C-c C-e` Context using `Cmd_context`.
-- [x] Wire `C-c C-,` Goal type using `Cmd_goal_type`.
-- [x] Wire `C-c C-.` Goal type and context using `Cmd_goal_type_context`.
-- [ ] Align `C-c C-,` and `C-c C-.` semantics with `agda-mode-vscode` naming and expected output.
-- [ ] Implement `C-c C-;` Goal type, context, and checked type using `Cmd_goal_type_context_check`.
+- [x] Implement `C-c C-t` Goal type using `Cmd_goal_type`.
+- [x] Implement `C-c C-e` Context using `Cmd_context`.
+- [x] Wire `C-c C-,` Goal type and context using `Cmd_goal_type_context`.
+- [x] Wire `C-c C-.` Goal type, context, and inferred type using `Cmd_goal_type_context_infer`.
+- [x] Align `C-c C-,` and `C-c C-.` semantics with `agda-mode-vscode` naming and expected output.
+- [x] Implement `C-c C-;` Goal type, context, and checked type using `Cmd_goal_type_context_check`.
 - [x] Wire `C-c C-d` Infer type using `Cmd_infer`.
 - [x] Wire `C-c C-n` Compute normal form using `Cmd_compute`.
-- [ ] Implement `C-c C-z` Search about using `Cmd_search_about_toplevel`.
-- [ ] Implement `C-c C-o` Module contents using `Cmd_show_module_contents`.
-- [ ] Implement `C-c C-w` Why in scope using `Cmd_why_in_scope`.
+- [x] Implement `C-c C-z` Search about using `Cmd_search_about_toplevel`.
+- [x] Implement `C-c C-o` Module contents using `Cmd_show_module_contents`.
+- [x] Implement `C-c C-w` Why in scope using `Cmd_why_in_scope`.
 - [x] Extract query command construction from `src/routes/+page.svelte` into a reusable Agda command module.
 
 ## Phase 4: Goal Navigation and Display

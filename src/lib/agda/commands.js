@@ -30,6 +30,14 @@ export function goalTypeCommand(normalization, goal) {
  * @param {Normalization} normalization
  * @param {AgdaCommandGoal} goal
  */
+export function contextCommand(normalization, goal) {
+  return `(Cmd_context ${normalization} ${goal.id} noRange "")`
+}
+
+/**
+ * @param {Normalization} normalization
+ * @param {AgdaCommandGoal} goal
+ */
 export function goalTypeContextCommand(normalization, goal) {
   return `(Cmd_goal_type_context ${normalization} ${goal.id} noRange "")`
 }
@@ -50,6 +58,44 @@ export function goalTypeContextInferCommand(normalization, goal, content) {
  */
 export function goalTypeContextCheckCommand(normalization, goal, content) {
   return `(Cmd_goal_type_context_check ${normalization} ${goal.id} noRange ${quoted(content)})`
+}
+
+/**
+ * @param {Normalization} normalization
+ * @param {string} content
+ */
+export function searchAboutToplevelCommand(normalization, content) {
+  return `(Cmd_search_about_toplevel ${normalization} ${quoted(content)})`
+}
+
+/**
+ * @param {Normalization} normalization
+ * @param {AgdaCommandGoal} goal
+ * @param {string} content
+ */
+export function moduleContentsCommand(normalization, goal, content) {
+  return `(Cmd_show_module_contents ${normalization} ${goal.id} noRange ${quoted(content)})`
+}
+
+/**
+ * @param {Normalization} normalization
+ * @param {string} content
+ */
+export function moduleContentsToplevelCommand(normalization, content) {
+  return `(Cmd_show_module_contents_toplevel ${normalization} ${quoted(content)})`
+}
+
+/**
+ * @param {AgdaCommandGoal} goal
+ * @param {string} content
+ */
+export function whyInScopeCommand(goal, content) {
+  return `(Cmd_why_in_scope ${goal.id} noRange ${quoted(content)})`
+}
+
+/** @param {string} content */
+export function whyInScopeToplevelCommand(content) {
+  return `(Cmd_why_in_scope_toplevel ${quoted(content)})`
 }
 
 /**

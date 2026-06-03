@@ -16,15 +16,23 @@ import { mergeGoalInfos } from '$lib/agda/goal-state'
 import { getAgdaShortcutContext } from '$lib/agda/shortcut-context'
 import {
   autoOneCommand,
+  contextCommand,
   computeCommand,
   elaborateGiveCommand,
   giveCommand,
   goalTypeCommand,
   goalTypeContextCommand,
+  goalTypeContextCheckCommand,
+  goalTypeContextInferCommand,
   helperFunctionCommand,
   inferCommand,
   makeCaseCommand,
+  moduleContentsCommand,
+  moduleContentsToplevelCommand,
   refineCommand,
+  searchAboutToplevelCommand,
+  whyInScopeCommand,
+  whyInScopeToplevelCommand,
 } from '$lib/agda/commands'
 
 import { clearGoals, clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo } from '$lib/agda/effects'
@@ -124,6 +132,12 @@ function requireInput(context) {
   return context.input
 }
 
+/** @param {ReturnType<typeof getAgdaShortcutContext>} context */
+function requireGoalOrSelectedInput(context) {
+  const input = requireInput(context)
+  return { goal: context.goal, input }
+}
+
 const agdaKeymap = keymap.of([
   { key: 'Mod-Enter', run: () => { runLoadShortcut(); return true } },
 ])
@@ -184,10 +198,42 @@ function handleAgdaChordKeydown(event, view) {
 
   if (isCtrlKey(event, 'l')) {
     runLoadShortcut()
+  } else if (isCtrlKey(event, 't')) {
+    runAgdaShortcut('Goal type', view, context => goalTypeCommand('Simplified', requireGoal(context)))
+  } else if (isCtrlKey(event, 'e')) {
+    runAgdaShortcut('Context', view, context => contextCommand('Simplified', requireGoal(context)))
   } else if (isCtrlKey(event, ',')) {
-    runAgdaShortcut('Goal type', view, context => goalTypeCommand('Normalised', requireGoal(context)))
+    runAgdaShortcut('Goal type and context', view, context => goalTypeContextCommand('Simplified', requireGoal(context)))
   } else if (isCtrlKey(event, '.')) {
-    runAgdaShortcut('Goal type and context', view, context => goalTypeContextCommand('Normalised', requireGoal(context)))
+    runAgdaShortcut('Goal type, context and inferred type', view, context => {
+      const goal = requireGoal(context)
+      if (!context.input.trim()) {
+        return goalTypeContextCommand('Simplified', goal)
+      }
+      return goalTypeContextInferCommand('Simplified', goal, context.input)
+    })
+  } else if (isCtrlKey(event, ';')) {
+    runAgdaShortcut('Goal type, context and checked type', view, context => {
+      return goalTypeContextCheckCommand('Simplified', requireGoal(context), requireInput(context))
+    })
+  } else if (isCtrlKey(event, 'z')) {
+    runAgdaShortcut('Search about', view, context => {
+      return searchAboutToplevelCommand('Simplified', requireInput(context))
+    })
+  } else if (isCtrlKey(event, 'o')) {
+    runAgdaShortcut('Module contents', view, context => {
+      const { goal, input } = requireGoalOrSelectedInput(context)
+      return goal
+        ? moduleContentsCommand('Simplified', goal, input)
+        : moduleContentsToplevelCommand('Simplified', input)
+    })
+  } else if (isCtrlKey(event, 'w')) {
+    runAgdaShortcut('Why in scope', view, context => {
+      const { goal, input } = requireGoalOrSelectedInput(context)
+      return goal
+        ? whyInScopeCommand(goal, input)
+        : whyInScopeToplevelCommand(input)
+    })
   } else if (isCtrlSpace(event) || isSpace(event)) {
     runAgdaShortcut('Give', view, context => {
       const goal = requireGoal(context)
@@ -485,8 +531,11 @@ $effect(() => {
       <summary>Agda shortcuts</summary>
       <dl>
         <div><dt>Ctrl-c Ctrl-l / Cmd-Enter</dt><dd>Load</dd></div>
-        <div><dt>Ctrl-c Ctrl-,</dt><dd>Goal type</dd></div>
-        <div><dt>Ctrl-c Ctrl-.</dt><dd>Goal type and context</dd></div>
+        <div><dt>Ctrl-c Ctrl-t</dt><dd>Goal type</dd></div>
+        <div><dt>Ctrl-c Ctrl-e</dt><dd>Context</dd></div>
+        <div><dt>Ctrl-c Ctrl-,</dt><dd>Goal type and context</dd></div>
+        <div><dt>Ctrl-c Ctrl-.</dt><dd>Goal type, context and inferred type</dd></div>
+        <div><dt>Ctrl-c Ctrl-;</dt><dd>Goal type, context and checked type</dd></div>
         <div><dt>Ctrl-c Ctrl-Space</dt><dd>Give</dd></div>
         <div><dt>Ctrl-c Ctrl-r</dt><dd>Refine</dd></div>
         <div><dt>Ctrl-c Ctrl-a</dt><dd>Auto</dd></div>
@@ -495,6 +544,9 @@ $effect(() => {
         <div><dt>Ctrl-c Ctrl-c</dt><dd>Case split</dd></div>
         <div><dt>Ctrl-c Ctrl-n</dt><dd>Compute</dd></div>
         <div><dt>Ctrl-c Ctrl-d</dt><dd>Infer type</dd></div>
+        <div><dt>Ctrl-c Ctrl-z</dt><dd>Search about</dd></div>
+        <div><dt>Ctrl-c Ctrl-o</dt><dd>Module contents</dd></div>
+        <div><dt>Ctrl-c Ctrl-w</dt><dd>Why in scope</dd></div>
       </dl>
     </details>
   {/if}
