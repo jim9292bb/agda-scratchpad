@@ -17,12 +17,33 @@ This file documents repeatable Codex workflows for this repository. Use it toget
 4. Make the smallest coherent change.
 5. Run:
    ```sh
-   npm run check
-   npm run build
+   source /usr/share/nvm/init-nvm.sh && npm run check
+   source /usr/share/nvm/init-nvm.sh && npm run build
    ```
 6. For editor, shortcut, goal, or browser behavior changes, run an `agent-browser` regression.
 7. Summarize changed files, tests, and residual risk.
 8. Commit only when requested. Never push unless explicitly requested.
+
+## Local Tooling
+
+This workspace uses `nvm`. Load Node tools before running `npm` or `agent-browser`:
+
+```sh
+source /usr/share/nvm/init-nvm.sh
+```
+
+Use one-shot commands when possible:
+
+```sh
+source /usr/share/nvm/init-nvm.sh && npm run check
+source /usr/share/nvm/init-nvm.sh && npm run build
+```
+
+`agent-browser` is also installed through the nvm-managed Node environment:
+
+```sh
+source /usr/share/nvm/init-nvm.sh && agent-browser --version
+```
 
 ## Phase 2 Command Refactor Workflow
 
@@ -37,8 +58,9 @@ Recommended steps:
 3. Move command string construction into named functions.
 4. Keep shortcut key handling in `+page.svelte` until command construction is fully extracted.
 5. Preserve existing labels, logs, pending goal behavior, and error messages.
-6. Run `npm run check` and `npm run build`.
-7. Browser-test at least Load, Give, Case split, and Refine.
+6. Run `source /usr/share/nvm/init-nvm.sh && npm run check`.
+7. Run `source /usr/share/nvm/init-nvm.sh && npm run build`.
+8. Browser-test at least Load, Give, Case split, and Refine.
 
 Do not implement new shortcuts in the same commit as the extraction unless explicitly requested.
 
@@ -58,17 +80,53 @@ Use this before porting behavior from another project.
 4. Prefer small ports that preserve browser constraints.
 5. Do not modify files under `../references/`.
 
+Before researching `agda-mode-vscode` shortcuts, check:
+
+```sh
+docs/AGDA_MODE_VSCODE_MAPPING.md
+```
+
+That file records keybinding and `Cmd_*` mappings that have already been researched.
+
 ## Browser Regression Workflow
 
 Use `agent-browser` for any CodeMirror, shortcut, or goal lifecycle change.
 
+Prefer the scripted regressions first:
+
+```sh
+scripts/browser-test-goal-lifecycle.sh
+scripts/browser-test-auto.sh
+scripts/browser-test-query-shortcuts.sh
+```
+
+Run the scripts with a dev server already running:
+
 Start the dev server:
 
 ```sh
-npm run dev -- --host 0.0.0.0 --force
+source /usr/share/nvm/init-nvm.sh && npm run dev -- --host 0.0.0.0 --force
 ```
 
-Open the app in the browser and test this Agda source:
+Open the app:
+
+```sh
+source /usr/share/nvm/init-nvm.sh && XDG_RUNTIME_DIR=/tmp/agent-browser-runtime agent-browser open http://127.0.0.1:8099/
+```
+
+If `agent-browser` fails with a daemon socket, bind, or read-only filesystem error inside the sandbox, rerun the browser command with escalated execution. The browser daemon needs to create sockets outside the restricted sandbox.
+
+Use fixtures from `test-fixtures/agda/` instead of rewriting Agda snippets in prompts whenever possible:
+
+- `plus-case-split.agda`: Load, case split, and give lifecycle.
+- `idN-auto.agda`: Auto fills a simple identity function.
+- `idN-elaborate.agda`: Elaborate and give fills a simple identity function.
+- `query-goal.agda`: Goal query fixture.
+- `query-bool.agda`: Search/module/why-in-scope query fixture.
+- `cubical-prelude.agda`: Cubical load regression.
+- `stdlib-nat.agda`: standard-library load regression.
+
+For manual testing, use this Agda source:
 
 ```agda
 data N : Set where
@@ -94,6 +152,30 @@ Minimum checks:
 7. Verify the first goal is replaced by `b` and the second goal remains valid.
 8. Inspect `.agda-hole` DOM if behavior looks wrong.
 9. Check the log panel for unexpected Agda or ALS errors.
+
+When setting editor content from `agent-browser`, use CodeMirror's `EditorView.dispatch()` through the exposed internal view:
+
+```sh
+source /usr/share/nvm/init-nvm.sh && XDG_RUNTIME_DIR=/tmp/agent-browser-runtime agent-browser eval '(() => {
+  const source = `data N : Set where
+  z : N
+  s : N -> N
+
+idN : N -> N
+idN n = {! !}
+`
+  const view = document.querySelector(".cm-content")?.cmTile?.view
+  if (!view) return { ok: false, error: "missing CodeMirror view" }
+  view.dispatch({
+    changes: { from: 0, to: view.state.doc.length, insert: source },
+    selection: { anchor: source.indexOf("{! !}") + 3 },
+  })
+  view.focus()
+  return { ok: true, text: view.state.doc.toString() }
+})()'
+```
+
+Do not use `document.execCommand()` or direct `.cm-content` DOM mutation for tests. Direct DOM mutation can corrupt CodeMirror widgets and make goal marker text appear in the editor content.
 
 ## Cubical Regression Workflow
 
@@ -124,8 +206,8 @@ Before committing:
 
 ```sh
 git status --short
-npm run check
-npm run build
+source /usr/share/nvm/init-nvm.sh && npm run check
+source /usr/share/nvm/init-nvm.sh && npm run build
 ```
 
 Use a focused commit message:

@@ -22,11 +22,16 @@ Use `CODEX_WORKFLOWS.md` for repeatable development, browser regression, Cubical
 - Do not duplicate existing `Cmd_*` shortcut handling in `src/routes/+page.svelte`; extract or refactor it instead.
 - Treat unchecked TODO items as planning state, not proof that no implementation exists.
 - For common development, testing, browser regression, and commit flows, follow `CODEX_WORKFLOWS.md`.
+- In this workspace, load Node tools with `source /usr/share/nvm/init-nvm.sh` before running `npm` or `agent-browser`.
+- Browser tests should edit CodeMirror with `EditorView.dispatch()`, not direct `contenteditable` DOM mutation.
 
 ## Important Files
 
 - `AGDA_MODE_VSCODE_TODO.md`: feature plan and progress.
 - `CODEX_WORKFLOWS.md`: repeatable Codex workflows and regression checklists.
+- `docs/AGDA_MODE_VSCODE_MAPPING.md`: researched shortcut and `Cmd_*` mappings from `agda-mode-vscode`.
+- `test-fixtures/agda/`: reusable Agda snippets for browser and load regressions.
+- `scripts/browser-test-*.sh`: reusable `agent-browser` regressions.
 - `src/lib/agda/goal-state.js`: centralized goal state.
 - `src/lib/agda/goals.js`: goal decorations and interaction point handling.
 - `src/lib/agda/shortcut-context.js`: shortcut goal lookup and fallback logic.
@@ -58,8 +63,8 @@ Useful references:
 After code changes, run:
 
 ```sh
-npm run check
-npm run build
+source /usr/share/nvm/init-nvm.sh && npm run check
+source /usr/share/nvm/init-nvm.sh && npm run build
 ```
 
 For editor, shortcut, goal, or browser behavior changes, also verify with `agent-browser`.
@@ -81,9 +86,11 @@ Verify `C-c C-l`, `C-c C-c`, and `C-c C-Space` preserve valid goals and update t
 
 Phase 1 in `AGDA_MODE_VSCODE_TODO.md` is complete.
 
-Next priority: Phase 2, Core Agda Commands.
+Phase 2 and Phase 3 command/query shortcut wiring are substantially complete.
 
-Some Phase 2 and Phase 3 shortcut commands are already wired inline in `src/routes/+page.svelte`. Before adding command behavior, inspect existing `Cmd_*` usage and prefer extracting it into reusable modules.
+Next priority: Phase 4 goal navigation/display or Phase 5 panel prompt/diagnostics, depending on whether the next task focuses on editor navigation or richer command input/output.
+
+Before adding command behavior, inspect existing `Cmd_*` usage and prefer adding command builders in `src/lib/agda/commands.js` instead of duplicating request strings in `src/routes/+page.svelte`.
 
 ## Known Warnings
 
