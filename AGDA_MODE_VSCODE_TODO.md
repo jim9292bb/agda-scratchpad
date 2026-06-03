@@ -32,9 +32,9 @@ References:
 - [x] Wire `C-c C-c` Case split using `Cmd_make_case goalId range content`.
 - [x] After Case split, replace the old goal with returned clauses and immediately reload.
 - [x] Wire `C-c C-r` Refine using `Cmd_refine_or_intro False goalId range content`.
-- [ ] Replace the current `C-c C-a` provisional refine behavior with real Auto using `Cmd_autoOne normalization goalId range content`.
-- [ ] Implement `C-c C-m` Elaborate and give using `Cmd_elaborate_give`.
-- [ ] Implement `C-c C-h` Helper function type using `Cmd_helper_function`.
+- [x] Replace the current `C-c C-a` provisional refine behavior with real Auto using `Cmd_autoOne normalization goalId range content`.
+- [x] Implement `C-c C-m` Elaborate and give using `Cmd_elaborate_give`.
+- [x] Implement `C-c C-h` Helper function type using `Cmd_helper_function`.
 - [x] Show a clear error when a command requires content but the current goal is empty.
 - [x] Show a clear error when the cursor is not inside a goal.
 - [x] Extract core command construction from `src/routes/+page.svelte` into a reusable Agda command module.
@@ -68,6 +68,11 @@ References:
 
 ## Phase 5: Panel and Diagnostics
 
+- [ ] Add a panel prompt for commands that require input when the active goal is empty.
+- [ ] Use the prompt result as command content for Case split, Give, Refine, Auto, Elaborate and give, Helper function type, Infer, Compute, and related query commands.
+- [ ] Allow cancelling the prompt without sending an Agda command.
+- [ ] Restore editor focus after prompt submit or cancel.
+- [ ] Support Agda Unicode input method inside the prompt after Phase 6 input method exists.
 - [ ] Parse Agda errors into structured diagnostics.
 - [ ] Show file, line, and column for errors.
 - [ ] Allow clicking an error to jump to its source position.

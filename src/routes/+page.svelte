@@ -15,10 +15,13 @@ import { agdaSupport } from '$lib/agda'
 import { mergeGoalInfos } from '$lib/agda/goal-state'
 import { getAgdaShortcutContext } from '$lib/agda/shortcut-context'
 import {
+  autoOneCommand,
   computeCommand,
+  elaborateGiveCommand,
   giveCommand,
   goalTypeCommand,
   goalTypeContextCommand,
+  helperFunctionCommand,
   inferCommand,
   makeCaseCommand,
   refineCommand,
@@ -86,7 +89,7 @@ function runAgdaShortcut(label, view, command) {
     } catch (err) {
       if (label === 'Case split' && agdaController.alsRouter) {
         agdaController.alsRouter.pendingCaseSplitGoal = undefined
-      } else if (label === 'Give' && agdaController.alsRouter) {
+      } else if ((label === 'Give' || label === 'Auto' || label === 'Elaborate and give') && agdaController.alsRouter) {
         agdaController.alsRouter.pendingGiveGoal = undefined
       }
       textboxContent += `${label} failed: ${err instanceof Error ? err.message : String(err)}\n`
@@ -196,7 +199,25 @@ function handleAgdaChordKeydown(event, view) {
   } else if (isCtrlKey(event, 'r')) {
     runAgdaShortcut('Refine', view, context => refineCommand(requireGoal(context), context.range, requireInput(context)))
   } else if (isCtrlKey(event, 'a')) {
-    runAgdaShortcut('Auto/refine', view, context => refineCommand(requireGoal(context), context.range, context.input))
+    runAgdaShortcut('Auto', view, context => {
+      const goal = requireGoal(context)
+      if (agdaController.alsRouter) {
+        agdaController.alsRouter.pendingGiveGoal = goal
+      }
+      return autoOneCommand('AsIs', goal, context.range, context.input)
+    })
+  } else if (isCtrlKey(event, 'm')) {
+    runAgdaShortcut('Elaborate and give', view, context => {
+      const goal = requireGoal(context)
+      if (agdaController.alsRouter) {
+        agdaController.alsRouter.pendingGiveGoal = goal
+      }
+      return elaborateGiveCommand('Simplified', goal, requireInput(context))
+    })
+  } else if (isCtrlKey(event, 'h')) {
+    runAgdaShortcut('Helper function type', view, context => {
+      return helperFunctionCommand('AsIs', requireGoal(context), requireInput(context))
+    })
   } else if (isCtrlKey(event, 'c')) {
     runAgdaShortcut('Case split', view, context => {
       const goal = requireGoal(context)
@@ -468,7 +489,9 @@ $effect(() => {
         <div><dt>Ctrl-c Ctrl-.</dt><dd>Goal type and context</dd></div>
         <div><dt>Ctrl-c Ctrl-Space</dt><dd>Give</dd></div>
         <div><dt>Ctrl-c Ctrl-r</dt><dd>Refine</dd></div>
-        <div><dt>Ctrl-c Ctrl-a</dt><dd>Auto/refine or intro</dd></div>
+        <div><dt>Ctrl-c Ctrl-a</dt><dd>Auto</dd></div>
+        <div><dt>Ctrl-c Ctrl-m</dt><dd>Elaborate and give</dd></div>
+        <div><dt>Ctrl-c Ctrl-h</dt><dd>Helper function type</dd></div>
         <div><dt>Ctrl-c Ctrl-c</dt><dd>Case split</dd></div>
         <div><dt>Ctrl-c Ctrl-n</dt><dd>Compute</dd></div>
         <div><dt>Ctrl-c Ctrl-d</dt><dd>Infer type</dd></div>
