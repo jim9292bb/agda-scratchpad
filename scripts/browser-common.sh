@@ -113,6 +113,28 @@ load_agda() {
   ab wait 5000
 }
 
+wait_for_log_contains() {
+  local needle_json timeout_ms elapsed
+  needle_json="$(json_string "$1")"
+  timeout_ms="${2:-30000}"
+  elapsed=0
+  while (( elapsed < timeout_ms )); do
+    local found
+    found="$(ab eval "(() => {
+      const needle = $needle_json
+      const text = document.querySelector('textarea.textbox')?.value ?? ''
+      return text.includes(needle)
+    })()")"
+    if [[ "$found" == *"true"* ]]; then
+      return 0
+    fi
+    ab wait 1000 >/dev/null
+    elapsed=$((elapsed + 1000))
+  done
+  echo "Timed out waiting for log text: $1" >&2
+  return 1
+}
+
 select_text() {
   local text_json occurrence
   text_json="$(json_string "$1")"
@@ -319,4 +341,17 @@ assert_log_not_contains() {
     return { ok: true, missing: needle }
   })()"
   echo "PASS log excludes: $label"
+}
+
+assert_log_not_matches() {
+  local pattern_json label
+  pattern_json="$(json_string "$1")"
+  label="${2:-$1}"
+  ab eval "(() => {
+    const pattern = new RegExp($pattern_json, 'i')
+    const text = document.querySelector('textarea.textbox')?.value ?? ''
+    if (pattern.test(text)) throw new Error('Log unexpectedly matches: ' + pattern)
+    return { ok: true, pattern: String(pattern) }
+  })()"
+  echo "PASS log does not match: $label"
 }

@@ -34,8 +34,8 @@ Goal: examples should load reliably in a browser without local Agda installation
 - [x] Register Cubical in Agda library configuration.
 - [x] Set the default source to a minimal Cubical example.
 - [x] Show Cubical `v0.9` in startup configuration.
-- [ ] Add a scripted Cubical regression that loads `Cubical.Foundations.Prelude`.
-- [ ] Add a scripted standard-library regression that loads `Data.Nat`.
+- [x] Add a scripted Cubical regression that loads `Cubical.Foundations.Prelude`.
+- [x] Add a scripted standard-library regression that loads `Data.Nat.Base`.
 - [ ] Show a read-only runtime summary for Agda, ALS, stdlib, and Cubical versions.
 
 ## Goal Lifecycle and Editor State
@@ -198,8 +198,8 @@ Goal: common scratchpad workflows should be repeatable by Codex and humans.
 - [x] Add browser regression script for query shortcuts.
 - [x] Add browser regression script for command input panel submit, cancel, and focus restore.
 - [x] Add browser regression script for active Goals panel details.
-- [ ] Add browser regression script for Cubical load.
-- [ ] Add browser regression script for standard-library load.
+- [x] Add browser regression script for Cubical load.
+- [x] Add browser regression script for standard-library load.
 - [ ] Add browser regression script for syntax and semantic error display.
 - [ ] Expose browser regressions through `package.json` scripts where practical.
 

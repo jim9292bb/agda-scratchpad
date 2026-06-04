@@ -103,6 +103,7 @@ Prefer the scripted regressions first:
 scripts/browser-test-goal-lifecycle.sh
 scripts/browser-test-command-input-panel.sh
 scripts/browser-test-goal-details.sh
+scripts/browser-test-library-loads.sh
 scripts/browser-test-auto.sh
 scripts/browser-test-query-shortcuts.sh
 ```
@@ -204,8 +205,11 @@ Expected result:
 Also test standard library still works:
 
 ```agda
-open import Data.Nat
+open import Data.Nat.Base
 ```
+
+`Data.Nat` can be used as a heavier manual check, but it is too slow for the
+regular browser regression script.
 
 ## Commit Workflow
 
