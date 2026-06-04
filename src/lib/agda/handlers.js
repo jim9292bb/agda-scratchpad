@@ -4,6 +4,7 @@ import { buildHighlightEffects, highlightState } from './highlight'
 import { buildGoalTransaction, buildLegacyGoalTransaction } from './goals'
 import { getAgdaDocumentVersion } from './goal-state'
 import { removeGoalBoundary, replaceGoal, replaceGoalClause } from './editor-mutations'
+import { focusAgdaUtf8Position, parseAgdaDiagnostic } from './diagnostics'
 
 /** @import { EditorView } from '@codemirror/view' */
 /** @import { ALSMessageRouter } from './transport' */
@@ -16,6 +17,8 @@ import { removeGoalBoundary, replaceGoal, replaceGoalClause } from './editor-mut
  * @prop {boolean} suppressDisplayInfo
  * @prop {string | null} lastAgdaInternalError
  * @prop {string | null} lastAgdaError
+ * @prop {import('./diagnostics').AgdaDiagnostic[]} lastAgdaDiagnostics
+ * @prop {{filepath: string, position: number, cmPosition?: number} | null} lastJumpToError
  * @prop {{id: number, from: number, to: number, text: string} | undefined} [pendingCaseSplitGoal]
  * @prop {{id: number, from: number, to: number, text: string} | undefined} [pendingGiveGoal]
  * @prop {number | null} activeDocumentVersion
@@ -147,6 +150,11 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
     return typeof interactionPoint === 'number' ? interactionPoint : interactionPoint.id
   }
 
+  /** @param {import('./diagnostics').AgdaDiagnostic | null} diagnostic */
+  function isAgdaDiagnostic(diagnostic) {
+    return diagnostic != null
+  }
+
   /** @type {Partial<Record<ALSResponseType, (this: ALSMessageRouter, contents: any) => void>>} */
   const handlers = {
     ResponseStatus([checked, showImplicitArgs]) {
@@ -237,8 +245,21 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       }
       if (info.kind === 'Error' || info.kind === 'AllGoalsWarnings' && (info.errors?.length ?? 0) > 0) {
         controller.lastAgdaError = message
+        controller.lastAgdaDiagnostics = message
+          .split(/\n\n+/)
+          .map(parseAgdaDiagnostic)
+          .filter(isAgdaDiagnostic)
       }
       if (!controller.suppressDisplayInfo) emitMessage(message)
+    },
+    JumpToError({ filepath, position }) {
+      if (!shouldAcceptEditorResponse('JumpToError')) return
+      if (filepath !== '/source.agda') {
+        controller.lastJumpToError = { filepath, position }
+        return
+      }
+      const cmPosition = focusAgdaUtf8Position(editorView, position)
+      controller.lastJumpToError = { filepath, position, cmPosition }
     },
     ClearHighlighting({ tokenBased }) {
       if (!shouldAcceptEditorResponse('ClearHighlighting')) return

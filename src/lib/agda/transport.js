@@ -40,6 +40,10 @@ export class ALSMessageRouter {
     this.lastAgdaInternalError = null
     /** @type {string | null} */
     this.lastAgdaError = null
+    /** @type {import('./diagnostics').AgdaDiagnostic[]} */
+    this.lastAgdaDiagnostics = []
+    /** @type {{filepath: string, position: number, cmPosition?: number} | null} */
+    this.lastJumpToError = null
     /** @type {{id: number, from: number, to: number, text: string} | undefined} */
     this.pendingCaseSplitGoal = undefined
     /** @type {{id: number, from: number, to: number, text: string} | undefined} */
