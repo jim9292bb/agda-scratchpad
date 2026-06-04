@@ -8,7 +8,7 @@ focused interaction with one source buffer, not project-oriented development.
 
 Use `PROJECT_GOAL.md` as the source of truth for product positioning.
 
-Follow `AGDA_MODE_VSCODE_TODO.md` as the source of truth for planned work and progress.
+Follow `ROADMAP.md` as the source of truth for planned work and progress.
 Use `CODEX_WORKFLOWS.md` for repeatable development, browser regression, Cubical regression, and commit workflows.
 
 ## Development Rules
@@ -34,7 +34,7 @@ Use `CODEX_WORKFLOWS.md` for repeatable development, browser regression, Cubical
 
 ## Important Files
 
-- `AGDA_MODE_VSCODE_TODO.md`: feature plan and progress.
+- `ROADMAP.md`: feature plan and progress.
 - `PROJECT_GOAL.md`: product positioning and scope boundaries.
 - `CODEX_WORKFLOWS.md`: repeatable Codex workflows and regression checklists.
 - `docs/AGDA_MODE_VSCODE_MAPPING.md`: researched shortcut and `Cmd_*` mappings from `agda-mode-vscode`.
@@ -92,13 +92,13 @@ Verify `C-c C-l`, `C-c C-c`, and `C-c C-Space` preserve valid goals and update t
 
 ## Current Status
 
-Project positioning has shifted from "enable Cubical Agda" to "build a
-continuously improving single-file Agda scratchpad IDE".
+Current positioning: build a continuously improving single-file Agda scratchpad
+IDE for demonstrations, learning, and practice.
 
 Cubical Agda support is implemented and should be preserved as part of the
 scratchpad runtime environment.
 
-The roadmap in `AGDA_MODE_VSCODE_TODO.md` is product-oriented rather than a
+The roadmap in `ROADMAP.md` is product-oriented rather than a
 VSCode porting checklist. Runtime support, goal lifecycle, core practice
 commands, goal queries, and Goals panel/navigation are substantially complete,
 with remaining browser regression coverage tracked in the TODO.

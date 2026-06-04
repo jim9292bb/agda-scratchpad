@@ -27,8 +27,8 @@ declare global {
     }
   }
 
-  const ALS_DEMO_REPO_URL: string
-  const ALS_DEMO_COMMIT_ID: string
+  const APP_REPO_URL: string
+  const APP_COMMIT_ID: string
 }
 
 declare global {

@@ -37,8 +37,8 @@ export default defineConfig(async ({ command }) => {
   },
   define: {
     // XXX: is using env better?
-    ALS_DEMO_REPO_URL: JSON.stringify('https://github.com/agda-web/als-demo'),
-    ALS_DEMO_COMMIT_ID: GIT_COMMIT_HASH,
+    APP_REPO_URL: JSON.stringify('https://github.com/agda-web/als-demo'),
+    APP_COMMIT_ID: GIT_COMMIT_HASH,
   },
   optimizeDeps: {
     include: ['@runno/wasi', 'jszip'],

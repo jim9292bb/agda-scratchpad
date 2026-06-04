@@ -2,17 +2,17 @@
 
 ## Purpose
 
-This file documents repeatable Codex workflows for this repository. Use it together with `AGENTS.md`, `PROJECT_GOAL.md`, and `AGDA_MODE_VSCODE_TODO.md`.
+This file documents repeatable Codex workflows for this repository. Use it together with `AGENTS.md`, `PROJECT_GOAL.md`, and `ROADMAP.md`.
 
 `PROJECT_GOAL.md` defines product positioning. `AGENTS.md` defines rules.
-`AGDA_MODE_VSCODE_TODO.md` defines the roadmap. This file defines how to
+`ROADMAP.md` defines the roadmap. This file defines how to
 execute common tasks.
 
 ## Default Development Workflow
 
 1. Read `AGENTS.md`.
 2. Read `PROJECT_GOAL.md` when the task could affect product scope.
-3. Read the relevant section of `AGDA_MODE_VSCODE_TODO.md`.
+3. Read the relevant section of `ROADMAP.md`.
 4. Reject or defer features that primarily support multi-file or project-level
    development.
 5. Search existing implementation before editing:
@@ -50,7 +50,7 @@ source /usr/share/nvm/init-nvm.sh && npm run build
 source /usr/share/nvm/init-nvm.sh && agent-browser --version
 ```
 
-## Phase 2 Command Refactor Workflow
+## Core Practice Command Refactor Workflow
 
 Use this when working on Core Agda Commands.
 
