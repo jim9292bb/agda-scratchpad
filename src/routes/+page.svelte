@@ -581,7 +581,6 @@ function focusGoal(goalId) {
 
 async function loadAgdaFile() {
   textboxContent = `Loading ${agdaController.currentFilePath}...\n`
-  diagnostics = []
   goalInfos = []
   panelGoalInfos = []
   activeGoalId = null
@@ -593,24 +592,17 @@ async function loadAgdaFile() {
   agdaController.editorView?.dispatch({ effects: clearGoals.of() })
   try {
     await agdaController.loadAgdaFile()
-    diagnostics = []
     textboxContent += 'Load finished.\n'
   } catch (err) {
-    loadDiagnosticsFromRouter()
     textboxContent += `Load failed: ${err instanceof Error ? err.message : String(err)}\n`
     throw err
   }
-}
-
-function loadDiagnosticsFromRouter() {
-  diagnostics = agdaController.alsRouter?.lastAgdaDiagnostics ?? []
 }
 
 /** @type {HTMLTextAreaElement} */
 let textbox
 
 let textboxContent = $state('WIP')
-let diagnostics = $state(/** @type {import('$lib/agda/diagnostics').AgdaDiagnostic[]} */([]))
 let goalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
 let panelGoalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
 let activeGoalId = $state(/** @type {number | string | null} */(null))
@@ -764,24 +756,6 @@ $effect(() => {
       </section>
 
       <section slot="end" class="output-section">
-        {#if diagnostics.length > 0}
-          <section class="errors-panel" aria-label="Errors">
-            <header class="panel-header">Errors</header>
-            <div class="errors-list">
-              {#each diagnostics as diagnostic}
-                <article class="error-card">
-                  <div class="error-meta">
-                    <strong>{diagnostic.filepath}:{diagnostic.line}.{diagnostic.column}</strong>
-                    {#if diagnostic.code}
-                      <span>{diagnostic.code}</span>
-                    {/if}
-                  </div>
-                  <pre>{diagnostic.message}</pre>
-                </article>
-              {/each}
-            </div>
-          </section>
-        {/if}
         <textarea bind:this={textbox} class="textbox" value={textboxContent} placeholder="(log area is empty)"></textarea>
       </section>
     </quiet-splitter>
@@ -986,54 +960,6 @@ quiet-text-field.mono::part(text-box) {
   flex-direction: column;
   min-height: 0;
   margin-top: -1px;
-}
-
-.errors-panel {
-  flex: 0 1 45%;
-  min-height: 7rem;
-  overflow: hidden;
-  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
-  background: color-mix(in srgb, #fff4f0 65%, var(--quiet-neutral-fill-softer));
-}
-
-.errors-list {
-  max-height: calc(100% - 29px);
-  overflow: auto;
-  padding: 8px;
-}
-
-.error-card {
-  border: 1px solid color-mix(in srgb, #b42318 35%, var(--quiet-neutral-stroke-softer));
-  border-radius: 4px;
-  background: color-mix(in srgb, #fff 70%, #fff4f0);
-  padding: 8px;
-}
-
-.error-card + .error-card {
-  margin-top: 8px;
-}
-
-.error-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 10px;
-  color: #8f1d16;
-  font-family: monospace;
-  font-size: .8rem;
-}
-
-.error-meta span {
-  border-radius: 999px;
-  background: #fce8e6;
-  padding: 0 6px;
-}
-
-.error-card pre {
-  margin: 6px 0 0;
-  white-space: pre-wrap;
-  color: inherit;
-  font-family: JuliaMono, monospace;
-  font-size: .82rem;
 }
 
 .command-input-panel {

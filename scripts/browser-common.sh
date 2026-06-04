@@ -390,18 +390,3 @@ assert_log_matches() {
   })()"
   echo "PASS log matches: $label"
 }
-
-assert_errors_panel_contains() {
-  local needle_json label
-  needle_json="$(json_string "$1")"
-  label="${2:-$1}"
-  ab eval "(() => {
-    const needle = $needle_json
-    const panel = document.querySelector('.errors-panel')
-    if (!panel) throw new Error('Errors panel is missing')
-    const text = panel.textContent ?? ''
-    if (!text.includes(needle)) throw new Error('Errors panel does not contain: ' + needle + '\\n' + text)
-    return { ok: true, contains: needle, text: text.trim() }
-  })()"
-  echo "PASS errors panel contains: $label"
-}
