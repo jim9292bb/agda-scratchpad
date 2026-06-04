@@ -1,21 +1,51 @@
-# agda-mode-vscode Porting TODO
+# Agda Scratchpad IDE Roadmap
 
-This TODO tracks features from `banacorn/agda-mode-vscode` that are suitable for
-this browser-hosted ALS demo.
+This roadmap tracks work for a browser-hosted, single-file Agda IDE for
+teaching, demonstrations, and practice. The product positioning is close to the
+JSCoq scratchpad: focused interaction with one source buffer, not development of
+a multi-file Agda project.
 
-References:
+`banacorn/agda-mode-vscode` is a reference for Agda interaction behavior,
+shortcut semantics, and request/response handling. It is not the product
+roadmap, and this project does not aim for complete VSCode parity.
 
-- https://github.com/banacorn/agda-mode-vscode/blob/master/package.json
-- https://github.com/banacorn/agda-mode-vscode/blob/master/src/Request.res
-- https://github.com/banacorn/agda-mode-vscode/blob/master/src/Goals.res
-- https://github.com/banacorn/agda-mode-vscode/blob/master/src/State/State__Command.res
-- https://github.com/banacorn/agda-mode-vscode/blob/master/src/State/State__Response.res
+Use `PROJECT_GOAL.md` for product scope and `docs/AGDA_MODE_VSCODE_MAPPING.md`
+for researched Agda command mappings.
 
-## Phase 1: Goal Lifecycle Foundation
+## Scope Boundaries
+
+- [x] Preserve the single-file scratchpad model backed by `/source.agda`.
+- [x] Treat Cubical Agda and the standard library as preloaded runtime assets, not as project-management features.
+- [ ] Do not add multi-file editing.
+- [ ] Do not add a file explorer.
+- [ ] Do not add package manager UI.
+- [ ] Do not add project/workspace configuration UI.
+- [ ] Do not port Agda executable download or version switching unless multiple WASM runtimes are intentionally supported.
+- [ ] Do not port VSCode-specific Markdown preview or editor-workspace keybindings.
+
+## Runtime and Library Support
+
+Goal: examples should load reliably in a browser without local Agda installation.
+
+- [x] Load ALS/Agda `2.8.0` from WASM.
+- [x] Preserve existing standard-library behavior.
+- [x] Add Cubical Agda `v0.9` as a static runtime asset.
+- [x] Extract Cubical into the virtual filesystem at startup.
+- [x] Register Cubical in Agda library configuration.
+- [x] Set the default source to a minimal Cubical example.
+- [x] Show Cubical `v0.9` in startup configuration.
+- [ ] Add a scripted Cubical regression that loads `Cubical.Foundations.Prelude`.
+- [ ] Add a scripted standard-library regression that loads `Data.Nat`.
+- [ ] Show a read-only runtime summary for Agda, ALS, stdlib, and Cubical versions.
+
+## Goal Lifecycle and Editor State
+
+Goal: Agda goals should remain correct after load, edits, case split, give,
+refine, auto, and asynchronous ALS responses.
 
 - [x] Create a centralized goal state module.
 - [x] Track each goal by Agda interaction point id.
-- [x] Store each goal's outer range, inner range, and document version.
+- [x] Store each goal's outer range, inner range, input, and document version.
 - [x] Map CodeMirror offsets to Agda UTF-8 ranges through one shared utility.
 - [x] Update goal ranges after every CodeMirror document transaction.
 - [x] Reject or rebase async Agda responses when the document version is stale.
@@ -23,24 +53,31 @@ References:
 - [x] Merge existing and newly generated goals after `Give` and `Refine`.
 - [x] Remove goal boundaries after successful `Give`.
 - [x] Add defensive handling for damaged or partially edited goal boundaries.
+- [ ] Verify `Load` updates highlighting, diagnostics, warnings, and goals after the goal-state refactor.
+- [ ] Add browser regression coverage for damaged or partially edited goal boundaries.
 
-## Phase 2: Core Agda Commands
+## Core Practice Commands
+
+Goal: common Agda exercise workflows should work from the editor with familiar
+Agda shortcuts.
 
 - [x] Keep `C-c C-l` wired to `Cmd_load`.
-- [ ] Verify `Load` updates highlighting, diagnostics, warnings, and goals after the Phase 1 goal-state refactor.
 - [x] Wire `C-c C-Space` Give using `Cmd_give WithoutForce goalId range content`.
 - [x] Wire `C-c C-c` Case split using `Cmd_make_case goalId range content`.
 - [x] After Case split, replace the old goal with returned clauses and immediately reload.
 - [x] Wire `C-c C-r` Refine using `Cmd_refine_or_intro False goalId range content`.
-- [x] Replace the current `C-c C-a` provisional refine behavior with real Auto using `Cmd_autoOne normalization goalId range content`.
+- [x] Replace provisional Auto behavior with real `Cmd_autoOne normalization goalId range content`.
 - [x] Implement `C-c C-m` Elaborate and give using `Cmd_elaborate_give`.
 - [x] Implement `C-c C-h` Helper function type using `Cmd_helper_function`.
 - [x] Show a clear error when a command requires content but the current goal is empty.
 - [x] Show a clear error when the cursor is not inside a goal.
-- [x] Extract core command construction from `src/routes/+page.svelte` into a reusable Agda command module.
-- [ ] Browser-test Load, Give, Case split, Refine, and Auto with `agent-browser`.
+- [x] Extract core command construction into `src/lib/agda/commands.js`.
+- [ ] Browser-test Load, Give, Case split, Refine, Auto, Elaborate and give, and Helper function type with `agent-browser` scripts.
 
-## Phase 3: Goal Queries
+## Goal Queries and Exploration
+
+Goal: learners should be able to inspect goal type, context, inferred types,
+normal forms, scope, and module contents without leaving the scratchpad.
 
 - [x] Implement `C-c C-t` Goal type using `Cmd_goal_type`.
 - [x] Implement `C-c C-e` Context using `Cmd_context`.
@@ -53,44 +90,71 @@ References:
 - [x] Implement `C-c C-z` Search about using `Cmd_search_about_toplevel`.
 - [x] Implement `C-c C-o` Module contents using `Cmd_show_module_contents`.
 - [x] Implement `C-c C-w` Why in scope using `Cmd_why_in_scope`.
-- [x] Extract query command construction from `src/routes/+page.svelte` into a reusable Agda command module.
+- [x] Extract query command construction into `src/lib/agda/commands.js`.
+- [ ] Move query results from the raw log into a structured Queries panel.
+- [ ] Render query results without losing Agda formatting.
+- [ ] Browser-test query shortcuts with reusable fixtures.
 
-## Phase 4: Goal Navigation and Display
+## Goals Panel and Navigation
 
+Goal: the Goals panel should be the main practice aid for single-file proof and
+program construction.
+
+- [x] Show current goals below the editor.
+- [x] Make Goals panel entries clickable.
+- [x] Move the editor cursor into the selected goal when a goal is clicked.
 - [x] Add Next goal command.
 - [x] Add Previous goal command.
-- [x] Make the Goals panel entries clickable.
-- [x] Move the editor cursor into the selected goal when a goal is clicked.
 - [x] Show goal ids in the editor as CodeMirror decorations.
 - [x] Highlight the active goal.
 - [x] Keep the Goals panel synchronized after edits, Load, Give, Refine, and Case split.
 - [x] Display goal type and context for the active goal.
+- [ ] Add a browser regression for active goal type/context display.
+- [ ] Consider a compact mode for examples with many goals.
 
-## Phase 5: Panel and Diagnostics
+## Command Input Panel
 
-- [ ] Add a panel prompt for commands that require input when the active goal is empty.
-- [ ] Use the prompt result as command content for Case split, Give, Refine, Auto, Elaborate and give, Helper function type, Infer, Compute, and related query commands.
-- [ ] Allow cancelling the prompt without sending an Agda command.
-- [ ] Restore editor focus after prompt submit or cancel.
-- [ ] Support Agda Unicode input method inside the prompt after Phase 6 input method exists.
+Goal: when a command needs text and the active goal is empty, users should be
+able to type the required content in a panel, similar to the useful parts of
+`agda-mode-vscode`'s goal input workflow.
+
+- [x] Add a panel prompt for commands that require input when the active goal is empty.
+- [x] Use the prompt result as command content for Case split, Give, Refine, Elaborate and give, Helper function type, Infer, Compute, Search, Module contents, Why in scope, and checked-type queries.
+- [x] Allow cancelling the prompt without sending an Agda command.
+- [x] Restore editor focus after prompt submit or cancel.
+- [ ] Support Agda Unicode input method inside the prompt after the Unicode input method exists.
+- [ ] Add browser regressions for prompt submit, cancel, and focus restore.
+
+## Diagnostics and Output Panels
+
+Goal: errors, warnings, logs, and query results should be readable for learners
+and not buried in raw transport output.
+
 - [ ] Parse Agda errors into structured diagnostics.
 - [ ] Show file, line, and column for errors.
 - [ ] Allow clicking an error to jump to its source position.
 - [ ] Separate output into Log, Goals, Queries, Warnings, and Errors.
-- [ ] Render query results without losing Agda formatting.
 - [ ] Preserve raw Agda output behind a debug view.
 - [ ] Add an internal debug panel for request/response tracing.
+- [ ] Add teaching-oriented examples for syntax errors and semantic errors.
 
-## Phase 6: Unicode Input Method
+## Unicode Input Method
+
+Goal: learners should be able to type Agda symbols in the browser without an
+external editor setup.
 
 - [ ] Add Agda input method triggered by backslash.
+- [ ] Use `../references/agda-web-agda-input` as the primary browser-compatible reference.
 - [ ] Provide CodeMirror completion candidates for Agda symbols.
 - [ ] Support selecting candidates with keyboard navigation.
 - [ ] Replace the input sequence with the chosen Unicode symbol.
 - [ ] Add a lookup command similar to `C-x C-=`.
 - [ ] Ensure Agda shortcuts still have priority while the editor is focused.
 
-## Phase 7: Normalization Prefix Variants
+## Normalization and Command Variants
+
+Goal: expose useful Agda command variants without copying VSCode's exact prefix
+UI when it does not fit the browser scratchpad.
 
 - [ ] Support AsIs normalization.
 - [ ] Support Simplified normalization.
@@ -100,7 +164,10 @@ References:
 - [ ] Add a browser-friendly alternative to VSCode's `C-u` prefix flow.
 - [ ] Apply normalization variants to Goal type, Context, Auto, Compute, Search, and Constraints.
 
-## Phase 8: Constraints and Metas
+## Constraints and Metas
+
+Goal: expose constraints and metas only where they help learning and debugging
+single-file exercises.
 
 - [ ] Implement Show constraints using `Cmd_constraints`.
 - [ ] Implement Solve one constraint using `Cmd_solveOne`.
@@ -109,16 +176,35 @@ References:
 - [ ] Display constraints in a structured panel.
 - [ ] Handle Agda version differences in command syntax.
 
-## Phase 9: Optional or Browser-Specific Features
+## Scratchpad UX and Teaching Examples
 
-- [ ] Add a read-only display for current Agda/ALS runtime version.
-- [ ] Add a browser debug log for ALS transport messages.
-- [ ] Consider an experimental Compile button only if the WASM runtime supports it.
-- [ ] Do not port Agda executable download or version switching unless multiple WASM runtimes are available.
-- [ ] Do not port VSCode-specific Markdown preview keybindings.
+Goal: the default experience should support demos and short practice sessions.
+
+- [ ] Add a small example picker for built-in single-file examples.
+- [ ] Include examples for natural numbers, case split, auto, refine, queries, Cubical import, and standard-library import.
+- [ ] Keep examples as single buffers, not as multi-file projects.
+- [ ] Add a reset-to-default-example action.
+- [ ] Keep debug output hidden by default.
+- [ ] Make shortcut help easier to scan for beginners.
+
+## Browser Regression Suite
+
+Goal: common scratchpad workflows should be repeatable by Codex and humans.
+
+- [x] Add reusable Agda fixtures under `test-fixtures/agda/`.
+- [x] Add shared `agent-browser` helper functions.
+- [x] Add browser regression script for goal lifecycle basics.
+- [x] Add browser regression script for Auto.
+- [x] Add browser regression script for query shortcuts.
+- [ ] Add browser regression script for active Goals panel details.
+- [ ] Add browser regression script for Cubical load.
+- [ ] Add browser regression script for standard-library load.
+- [ ] Add browser regression script for syntax and semantic error display.
+- [ ] Expose browser regressions through `package.json` scripts where practical.
 
 ## Implementation Notes
 
+- Prioritize single-file learning workflows over project-oriented IDE features.
 - Prioritize goal lifecycle correctness before adding more shortcuts.
 - Treat `InteractionPoints` as the source of truth for Agda goal ids.
 - Treat CodeMirror document changes as the source of truth for current ranges.
@@ -126,4 +212,16 @@ References:
 - Avoid command-specific hacks that search raw `{! !}` text without consulting goal state.
 - Keep request construction separate from UI event handling.
 - Keep response handling separate from editor mutation.
-- Include browser tests for Give, Case split, Refine, Auto, and goal navigation.
+- Use `agda-mode-vscode` as an interaction reference, not as a parity checklist.
+- Include browser tests for any editor, shortcut, goal, or panel behavior change.
+
+## References
+
+- `PROJECT_GOAL.md`
+- `docs/AGDA_MODE_VSCODE_MAPPING.md`
+- https://coq.vercel.app/scratchpad.html
+- https://github.com/banacorn/agda-mode-vscode/blob/master/package.json
+- https://github.com/banacorn/agda-mode-vscode/blob/master/src/Request.res
+- https://github.com/banacorn/agda-mode-vscode/blob/master/src/Goals.res
+- https://github.com/banacorn/agda-mode-vscode/blob/master/src/State/State__Command.res
+- https://github.com/banacorn/agda-mode-vscode/blob/master/src/State/State__Response.res

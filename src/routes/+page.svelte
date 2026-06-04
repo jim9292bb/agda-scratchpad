@@ -1,5 +1,5 @@
 <script>
-import { onDestroy, untrack } from 'svelte'
+import { onDestroy, tick, untrack } from 'svelte'
 
 import { SPSC } from 'spsc'
 // import { SplitPane } from '@rich_harris/svelte-split-pane'
@@ -106,6 +106,37 @@ function runAgdaShortcut(label, view, command) {
   })()
 }
 
+/**
+ * @param {string} label
+ * @param {EditorView} view
+ * @param {(context: import('$lib/agda/shortcut-context').AgdaShortcutContext, input: string) => string | Promise<void>} command
+ */
+function runAgdaShortcutWithInputPrompt(label, view, command) {
+  void (async () => {
+    if (agdaController.alsWorkerStatus !== 'active') {
+      textboxContent += `${label} failed: ALS is not active.\n`
+      return
+    }
+
+    try {
+      await agdaController.syncSourceFileToDrive()
+      const context = getAgdaShortcutContext(view, agdaController.currentFilePath, goalInfos)
+      if (!context.input.trim()) {
+        openCommandInputPrompt(label, view, context, command)
+        return
+      }
+
+      textboxContent += `${label}...\n`
+      const interaction = await command(context, context.input)
+      if (interaction) await agdaController.runAgdaInteraction(interaction)
+      textboxContent += `${label} finished.\n`
+    } catch (err) {
+      clearPendingAgdaGoal(label)
+      textboxContent += `${label} failed: ${err instanceof Error ? err.message : String(err)}\n`
+    }
+  })()
+}
+
 function runLoadShortcut() {
   void (async () => {
     if (agdaController.alsWorkerStatus !== 'active') {
@@ -137,6 +168,76 @@ function requireInput(context) {
 function requireGoalOrSelectedInput(context) {
   const input = requireInput(context)
   return { goal: context.goal, input }
+}
+
+/** @param {string} label */
+function clearPendingAgdaGoal(label) {
+  if (label === 'Case split' && agdaController.alsRouter) {
+    agdaController.alsRouter.pendingCaseSplitGoal = undefined
+  } else if ((label === 'Give' || label === 'Auto' || label === 'Elaborate and give') && agdaController.alsRouter) {
+    agdaController.alsRouter.pendingGiveGoal = undefined
+  }
+}
+
+/**
+ * @param {string} label
+ * @param {EditorView} view
+ * @param {import('$lib/agda/shortcut-context').AgdaShortcutContext} context
+ * @param {(context: import('$lib/agda/shortcut-context').AgdaShortcutContext, input: string) => string | Promise<void>} command
+ */
+function openCommandInputPrompt(label, view, context, command) {
+  commandInputError = ''
+  commandInputPrompt = {
+    label,
+    value: '',
+    documentVersion: getAgdaDocumentVersion(view.state),
+    command,
+    context,
+  }
+  textboxContent += `${label}: enter command input in the Goals panel.\n`
+  void tick().then(() => commandInputElement?.focus())
+}
+
+function cancelCommandInputPrompt() {
+  const label = commandInputPrompt?.label
+  commandInputPrompt = null
+  if (label) textboxContent += `${label} cancelled.\n`
+  agdaController.editorView?.focus()
+}
+
+function submitCommandInputPrompt() {
+  void (async () => {
+    const prompt = commandInputPrompt
+    const view = agdaController.editorView
+    if (!prompt || !view) return
+
+    const input = prompt.value.trim()
+    if (!input) {
+      commandInputError = 'Enter an expression before submitting.'
+      return
+    }
+
+    if (getAgdaDocumentVersion(view.state) !== prompt.documentVersion) {
+      commandInputPrompt = null
+      textboxContent += `${prompt.label} failed: Reload or retry because the editor changed while the prompt was open.\n`
+      view.focus()
+      return
+    }
+
+    commandInputError = ''
+    commandInputPrompt = null
+    try {
+      textboxContent += `${prompt.label}...\n`
+      const interaction = await prompt.command(prompt.context, input)
+      if (interaction) await agdaController.runAgdaInteraction(interaction)
+      textboxContent += `${prompt.label} finished.\n`
+    } catch (err) {
+      clearPendingAgdaGoal(prompt.label)
+      textboxContent += `${prompt.label} failed: ${err instanceof Error ? err.message : String(err)}\n`
+    } finally {
+      view.focus()
+    }
+  })()
 }
 
 /** @param {EditorView} view */
@@ -303,37 +404,36 @@ function handleAgdaChordKeydown(event, view) {
       return goalTypeContextInferCommand('Simplified', goal, context.input)
     })
   } else if (isCtrlKey(event, ';')) {
-    runAgdaShortcut('Goal type, context and checked type', view, context => {
-      return goalTypeContextCheckCommand('Simplified', requireGoal(context), requireInput(context))
-    })
+    runAgdaShortcutWithInputPrompt('Goal type, context and checked type', view, (context, input) =>
+      goalTypeContextCheckCommand('Simplified', requireGoal(context), input))
   } else if (isCtrlKey(event, 'z')) {
-    runAgdaShortcut('Search about', view, context => {
-      return searchAboutToplevelCommand('Simplified', requireInput(context))
-    })
+    runAgdaShortcutWithInputPrompt('Search about', view, (_context, input) =>
+      searchAboutToplevelCommand('Simplified', input))
   } else if (isCtrlKey(event, 'o')) {
-    runAgdaShortcut('Module contents', view, context => {
-      const { goal, input } = requireGoalOrSelectedInput(context)
+    runAgdaShortcutWithInputPrompt('Module contents', view, (context, input) => {
+      const goal = context.goal
       return goal
         ? moduleContentsCommand('Simplified', goal, input)
         : moduleContentsToplevelCommand('Simplified', input)
     })
   } else if (isCtrlKey(event, 'w')) {
-    runAgdaShortcut('Why in scope', view, context => {
-      const { goal, input } = requireGoalOrSelectedInput(context)
+    runAgdaShortcutWithInputPrompt('Why in scope', view, (context, input) => {
+      const goal = context.goal
       return goal
         ? whyInScopeCommand(goal, input)
         : whyInScopeToplevelCommand(input)
     })
   } else if (isCtrlSpace(event) || isSpace(event)) {
-    runAgdaShortcut('Give', view, context => {
+    runAgdaShortcutWithInputPrompt('Give', view, (context, input) => {
       const goal = requireGoal(context)
       if (agdaController.alsRouter) {
         agdaController.alsRouter.pendingGiveGoal = goal
       }
-      return giveCommand(goal, context.range, requireInput(context))
+      return giveCommand(goal, context.range, input)
     })
   } else if (isCtrlKey(event, 'r')) {
-    runAgdaShortcut('Refine', view, context => refineCommand(requireGoal(context), context.range, requireInput(context)))
+    runAgdaShortcutWithInputPrompt('Refine', view, (context, input) =>
+      refineCommand(requireGoal(context), context.range, input))
   } else if (isCtrlKey(event, 'a')) {
     runAgdaShortcut('Auto', view, context => {
       const goal = requireGoal(context)
@@ -343,29 +443,30 @@ function handleAgdaChordKeydown(event, view) {
       return autoOneCommand('AsIs', goal, context.range, context.input)
     })
   } else if (isCtrlKey(event, 'm')) {
-    runAgdaShortcut('Elaborate and give', view, context => {
+    runAgdaShortcutWithInputPrompt('Elaborate and give', view, (context, input) => {
       const goal = requireGoal(context)
       if (agdaController.alsRouter) {
         agdaController.alsRouter.pendingGiveGoal = goal
       }
-      return elaborateGiveCommand('Simplified', goal, requireInput(context))
+      return elaborateGiveCommand('Simplified', goal, input)
     })
   } else if (isCtrlKey(event, 'h')) {
-    runAgdaShortcut('Helper function type', view, context => {
-      return helperFunctionCommand('AsIs', requireGoal(context), requireInput(context))
-    })
+    runAgdaShortcutWithInputPrompt('Helper function type', view, (context, input) =>
+      helperFunctionCommand('AsIs', requireGoal(context), input))
   } else if (isCtrlKey(event, 'c')) {
-    runAgdaShortcut('Case split', view, context => {
+    runAgdaShortcutWithInputPrompt('Case split', view, (context, input) => {
       const goal = requireGoal(context)
       if (agdaController.alsRouter) {
         agdaController.alsRouter.pendingCaseSplitGoal = goal
       }
-      return makeCaseCommand(goal, context.range, requireInput(context))
+      return makeCaseCommand(goal, context.range, input)
     })
   } else if (isCtrlKey(event, 'n')) {
-    runAgdaShortcut('Compute', view, context => computeCommand('DefaultCompute', requireGoal(context), requireInput(context)))
+    runAgdaShortcutWithInputPrompt('Compute', view, (context, input) =>
+      computeCommand('DefaultCompute', requireGoal(context), input))
   } else if (isCtrlKey(event, 'd')) {
-    runAgdaShortcut('Infer type', view, context => inferCommand('Normalised', requireGoal(context), requireInput(context)))
+    runAgdaShortcutWithInputPrompt('Infer type', view, (context, input) =>
+      inferCommand('Normalised', requireGoal(context), input))
   }
 
   return true
@@ -486,6 +587,8 @@ async function loadAgdaFile() {
   activeGoalDetailRequestKey = ''
   activeGoalDetailStatus = 'idle'
   activeGoalDetailError = ''
+  commandInputPrompt = null
+  commandInputError = ''
   agdaController.editorView?.dispatch({ effects: clearGoals.of() })
   try {
     await agdaController.loadAgdaFile()
@@ -506,6 +609,16 @@ let activeGoalId = $state(/** @type {number | string | null} */(null))
 let activeGoalDetailRequestKey = $state('')
 let activeGoalDetailStatus = $state(/** @type {'idle' | 'loading' | 'ready' | 'error'} */('idle'))
 let activeGoalDetailError = $state('')
+let commandInputPrompt = $state(/** @type {null | {
+  label: string,
+  value: string,
+  documentVersion: number,
+  context: import('$lib/agda/shortcut-context').AgdaShortcutContext,
+  command: (context: import('$lib/agda/shortcut-context').AgdaShortcutContext, input: string) => string | Promise<void>,
+}} */(null))
+let commandInputError = $state('')
+/** @type {HTMLInputElement | undefined} */
+let commandInputElement = $state(/** @type {HTMLInputElement | undefined} */(undefined))
 
 /** @type {number | undefined} */
 let raf
@@ -565,6 +678,25 @@ $effect(() => {
       </section>
       <section slot="end" class="goals-section">
         <header class="panel-header">Goals</header>
+        {#if commandInputPrompt}
+          <form class="command-input-panel" onsubmit={(event) => { event.preventDefault(); submitCommandInputPrompt() }}>
+            <label for="command-input">Input for {commandInputPrompt.label}</label>
+            <div class="command-input-row">
+              <input
+                id="command-input"
+                bind:this={commandInputElement}
+                bind:value={commandInputPrompt.value}
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="Agda expression or name" />
+              <button type="submit">Run</button>
+              <button type="button" onclick={cancelCommandInputPrompt}>Cancel</button>
+            </div>
+            {#if commandInputError}
+              <div class="command-input-error">{commandInputError}</div>
+            {/if}
+          </form>
+        {/if}
         <div class="goals-list">
           {#if panelGoalInfos.length === 0}
             <div class="goals-empty">No goals.</div>
@@ -821,6 +953,57 @@ quiet-text-field.mono::part(text-box) {
   font-size: .75rem;
   letter-spacing: .08em;
   text-transform: uppercase;
+}
+
+.command-input-panel {
+  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
+  padding: 8px;
+  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill-softer));
+}
+
+.command-input-panel label {
+  display: block;
+  margin-bottom: 6px;
+  color: #666;
+  font-size: .8rem;
+  font-weight: 700;
+}
+
+.command-input-row {
+  display: flex;
+  gap: 6px;
+}
+
+.command-input-row input {
+  min-width: 0;
+  flex: 1 1;
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 4px;
+  padding: 4px 6px;
+  background: var(--quiet-neutral-fill-softer);
+  color: inherit;
+  font-family: JuliaMono, monospace;
+}
+
+.command-input-row button {
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 4px;
+  padding: 4px 8px;
+  background: var(--quiet-neutral-fill-softer);
+  color: inherit;
+  cursor: pointer;
+}
+
+.command-input-row button:hover,
+.command-input-row button:focus-visible {
+  border-color: var(--quiet-primary-stroke-soft);
+  outline: none;
+}
+
+.command-input-error {
+  margin-top: 6px;
+  color: var(--quiet-destructive-text, #a33);
+  font-size: .8rem;
 }
 
 .goals-list {

@@ -2,27 +2,32 @@
 
 ## Purpose
 
-This file documents repeatable Codex workflows for this repository. Use it together with `AGENTS.md` and `AGDA_MODE_VSCODE_TODO.md`.
+This file documents repeatable Codex workflows for this repository. Use it together with `AGENTS.md`, `PROJECT_GOAL.md`, and `AGDA_MODE_VSCODE_TODO.md`.
 
-`AGENTS.md` defines rules. `AGDA_MODE_VSCODE_TODO.md` defines the roadmap. This file defines how to execute common tasks.
+`PROJECT_GOAL.md` defines product positioning. `AGENTS.md` defines rules.
+`AGDA_MODE_VSCODE_TODO.md` defines the roadmap. This file defines how to
+execute common tasks.
 
 ## Default Development Workflow
 
 1. Read `AGENTS.md`.
-2. Read the relevant section of `AGDA_MODE_VSCODE_TODO.md`.
-3. Search existing implementation before editing:
+2. Read `PROJECT_GOAL.md` when the task could affect product scope.
+3. Read the relevant section of `AGDA_MODE_VSCODE_TODO.md`.
+4. Reject or defer features that primarily support multi-file or project-level
+   development.
+5. Search existing implementation before editing:
    ```sh
    rg "Cmd_|runAgdaShortcut|handleAgdaChord|InteractionPoints|GiveAction|MakeCase" src
    ```
-4. Make the smallest coherent change.
-5. Run:
+6. Make the smallest coherent change.
+7. Run:
    ```sh
    source /usr/share/nvm/init-nvm.sh && npm run check
    source /usr/share/nvm/init-nvm.sh && npm run build
    ```
-6. For editor, shortcut, goal, or browser behavior changes, run an `agent-browser` regression.
-7. Summarize changed files, tests, and residual risk.
-8. Commit only when requested. Never push unless explicitly requested.
+8. For editor, shortcut, goal, or browser behavior changes, run an `agent-browser` regression.
+9. Summarize changed files, tests, and residual risk.
+10. Commit only when requested. Never push unless explicitly requested.
 
 ## Local Tooling
 

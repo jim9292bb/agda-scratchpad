@@ -2,7 +2,11 @@
 
 ## Project Goal
 
-This project is a browser-hosted Agda/ALS demo. The current development goal is to support Cubical Agda and port suitable browser-compatible features from `banacorn/agda-mode-vscode`.
+This project is a browser-hosted single-file Agda IDE for demonstration,
+learning, and practice. Its positioning is close to the JSCoq scratchpad:
+focused interaction with one source buffer, not project-oriented development.
+
+Use `PROJECT_GOAL.md` as the source of truth for product positioning.
 
 Follow `AGDA_MODE_VSCODE_TODO.md` as the source of truth for planned work and progress.
 Use `CODEX_WORKFLOWS.md` for repeatable development, browser regression, Cubical regression, and commit workflows.
@@ -11,6 +15,9 @@ Use `CODEX_WORKFLOWS.md` for repeatable development, browser regression, Cubical
 
 - Do not push unless explicitly requested.
 - Prefer small commits after each completed phase or self-contained feature.
+- Preserve the single-file scratchpad model. Do not add multi-file editing,
+  file explorers, or project management features unless the project goal changes
+  explicitly.
 - Preserve Cubical Agda support and existing standard-library behavior.
 - Prioritize Agda goal lifecycle correctness over adding new shortcuts.
 - Treat Agda interaction point ids as the source of truth for goals.
@@ -28,6 +35,7 @@ Use `CODEX_WORKFLOWS.md` for repeatable development, browser regression, Cubical
 ## Important Files
 
 - `AGDA_MODE_VSCODE_TODO.md`: feature plan and progress.
+- `PROJECT_GOAL.md`: product positioning and scope boundaries.
 - `CODEX_WORKFLOWS.md`: repeatable Codex workflows and regression checklists.
 - `docs/AGDA_MODE_VSCODE_MAPPING.md`: researched shortcut and `Cmd_*` mappings from `agda-mode-vscode`.
 - `test-fixtures/agda/`: reusable Agda snippets for browser and load regressions.
@@ -84,11 +92,20 @@ Verify `C-c C-l`, `C-c C-c`, and `C-c C-Space` preserve valid goals and update t
 
 ## Current Status
 
-Phase 1 in `AGDA_MODE_VSCODE_TODO.md` is complete.
+Project positioning has shifted from "enable Cubical Agda" to "build a
+continuously improving single-file Agda scratchpad IDE".
 
-Phase 2 and Phase 3 command/query shortcut wiring are substantially complete.
+Cubical Agda support is implemented and should be preserved as part of the
+scratchpad runtime environment.
 
-Next priority: Phase 4 goal navigation/display or Phase 5 panel prompt/diagnostics, depending on whether the next task focuses on editor navigation or richer command input/output.
+The roadmap in `AGDA_MODE_VSCODE_TODO.md` is product-oriented rather than a
+VSCode porting checklist. Runtime support, goal lifecycle, core practice
+commands, goal queries, and Goals panel/navigation are substantially complete,
+with remaining browser regression coverage tracked in the TODO.
+
+Next priority: Command Input Panel, followed by Diagnostics and Output Panels,
+because these improve the single-file learning workflow without expanding into
+project management.
 
 Before adding command behavior, inspect existing `Cmd_*` usage and prefer adding command builders in `src/lib/agda/commands.js` instead of duplicating request strings in `src/routes/+page.svelte`.
 
