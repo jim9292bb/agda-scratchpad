@@ -131,7 +131,7 @@ Goal: errors, warnings, logs, and query results should be readable for learners
 and not buried in raw transport output.
 
 - [x] Parse Agda errors into structured diagnostics.
-- [ ] Show file, line, and column for errors.
+- [x] Show file, line, and column for errors.
 - [ ] Allow clicking an error to jump to its source position.
 - [x] Handle `JumpToError` responses by moving the editor cursor to the reported position.
 - [ ] Separate output into Log, Goals, Queries, Warnings, and Errors.
