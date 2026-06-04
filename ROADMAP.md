@@ -123,7 +123,7 @@ able to type the required content in a panel, similar to the useful parts of
 - [x] Allow cancelling the prompt without sending an Agda command.
 - [x] Restore editor focus after prompt submit or cancel.
 - [ ] Support Agda Unicode input method inside the prompt after the Unicode input method exists.
-- [ ] Add browser regressions for prompt submit, cancel, and focus restore.
+- [x] Add browser regressions for prompt submit, cancel, and focus restore.
 
 ## Diagnostics and Output Panels
 
@@ -196,6 +196,7 @@ Goal: common scratchpad workflows should be repeatable by Codex and humans.
 - [x] Add browser regression script for goal lifecycle basics.
 - [x] Add browser regression script for Auto.
 - [x] Add browser regression script for query shortcuts.
+- [x] Add browser regression script for command input panel submit, cancel, and focus restore.
 - [ ] Add browser regression script for active Goals panel details.
 - [ ] Add browser regression script for Cubical load.
 - [ ] Add browser regression script for standard-library load.

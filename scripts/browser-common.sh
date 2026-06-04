@@ -236,3 +236,59 @@ assert_log_contains() {
   })()"
   echo "PASS log contains: $label"
 }
+
+assert_command_prompt() {
+  local label_json
+  label_json="$(json_string "$1")"
+  ab eval "(() => {
+    const label = $label_json
+    const panel = document.querySelector('.command-input-panel')
+    const input = document.querySelector('#command-input')
+    if (!panel) throw new Error('Command input panel is missing')
+    if (!panel.textContent.includes(label)) throw new Error('Command input panel label mismatch: ' + panel.textContent)
+    if (document.activeElement !== input) throw new Error('Command input is not focused')
+    return { ok: true, label, text: panel.textContent.trim() }
+  })()"
+  echo "PASS command prompt focused: $1"
+}
+
+submit_command_prompt() {
+  local content_json
+  content_json="$(json_string "$1")"
+  ab eval "(() => {
+    const content = $content_json
+    const input = document.querySelector('#command-input')
+    const panel = document.querySelector('.command-input-panel')
+    if (!input || !panel) throw new Error('Command input panel is missing')
+    input.value = content
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    panel.requestSubmit()
+    return { ok: true, content }
+  })()"
+}
+
+cancel_command_prompt() {
+  ab eval "(() => {
+    const button = document.querySelector('.command-input-panel button[type=button]')
+    if (!button) throw new Error('Cancel button is missing')
+    button.click()
+    return { ok: true }
+  })()"
+}
+
+assert_no_command_prompt() {
+  ab eval "(() => {
+    if (document.querySelector('.command-input-panel')) throw new Error('Command input panel is still visible')
+    return { ok: true }
+  })()"
+  echo "PASS command prompt hidden"
+}
+
+assert_editor_focused() {
+  ab eval "(() => {
+    const editor = document.querySelector('.cm-content')
+    if (!editor?.contains(document.activeElement)) throw new Error('Editor is not focused')
+    return { ok: true }
+  })()"
+  echo "PASS editor focused"
+}
