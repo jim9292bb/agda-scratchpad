@@ -34,6 +34,8 @@ export class ALSMessageRouter {
     this.showIrrelevantArgs = false
     /** @type {boolean} */
     this.suppressAgdaInternalErrors = false
+    /** @type {boolean} */
+    this.suppressDisplayInfo = false
     /** @type {string | null} */
     this.lastAgdaInternalError = null
     /** @type {string | null} */

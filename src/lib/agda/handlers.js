@@ -13,6 +13,7 @@ import { removeGoalBoundary, replaceGoal, replaceGoalClause } from './editor-mut
  * @prop {boolean} showImplicitArgs
  * @prop {boolean} showIrrelevantArgs
  * @prop {boolean} suppressAgdaInternalErrors
+ * @prop {boolean} suppressDisplayInfo
  * @prop {string | null} lastAgdaInternalError
  * @prop {string | null} lastAgdaError
  * @prop {{id: number, from: number, to: number, text: string} | undefined} [pendingCaseSplitGoal]
@@ -92,6 +93,23 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       id: getConstraintId(goal.constraintObj),
       range: formatRange(goal.constraintObj.range?.[0]),
       type: 'type' in goal ? goal.type : undefined,
+    }
+  }
+
+  /** @param {Agda._ContextEntry[]} entries */
+  function formatContextEntries(entries) {
+    return entries
+      .filter(entry => entry.inScope)
+      .map(entry => `${entry.reifiedName || entry.originalName} : ${entry.binding}`)
+      .join('\n')
+  }
+
+  /** @param {Agda._GoalInfo | undefined} goalInfo */
+  function summarizeGoalInfo(goalInfo) {
+    if (goalInfo?.kind !== 'GoalType') return {}
+    return {
+      type: goalInfo.type,
+      context: formatContextEntries(goalInfo.entries ?? []),
     }
   }
 
@@ -199,11 +217,12 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
         }
       } else if (info.kind === 'GoalSpecific') {
         if (!stale) {
+          const goalInfo = summarizeGoalInfo(info.goalInfo)
           editorView.dispatch({
             effects: setGoalInfo.of([{
               id: info.interactionPoint.id,
               range: formatRange(info.interactionPoint.range?.[0]),
-              type: info.goalInfo?.kind === 'GoalType' ? info.goalInfo.type : undefined,
+              ...goalInfo,
             }]),
           })
           acceptCurrentDocumentVersion()
@@ -219,7 +238,7 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
       if (info.kind === 'Error' || info.kind === 'AllGoalsWarnings' && (info.errors?.length ?? 0) > 0) {
         controller.lastAgdaError = message
       }
-      emitMessage(message)
+      if (!controller.suppressDisplayInfo) emitMessage(message)
     },
     ClearHighlighting({ tokenBased }) {
       if (!shouldAcceptEditorResponse('ClearHighlighting')) return

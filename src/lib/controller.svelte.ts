@@ -419,7 +419,7 @@ export class AgdaController {
     })
   }
 
-  async runAgdaInteraction(interaction: string, options: { suppressAgdaInternalErrors?: boolean } = {}) {
+  async runAgdaInteraction(interaction: string, options: { suppressAgdaInternalErrors?: boolean, suppressDisplayInfo?: boolean } = {}) {
     const encodedFilePath = JSON.stringify(this.currentFilePath)
 
     this.alsRouter!.lastAgdaInternalError = null
@@ -462,13 +462,14 @@ export class AgdaController {
 
   async runAgdaCommand(
     params: { tag: 'CmdReq', contents: string },
-    options: { suppressAgdaInternalErrors?: boolean } = {},
+    options: { suppressAgdaInternalErrors?: boolean, suppressDisplayInfo?: boolean } = {},
   ) {
     if (!this.alsRouter) {
       throw new Error('ALS router not ready')
     }
 
     this.alsRouter.suppressAgdaInternalErrors = options.suppressAgdaInternalErrors ?? false
+    this.alsRouter.suppressDisplayInfo = options.suppressDisplayInfo ?? false
     this.alsRouter.beginCommandDocumentVersion(getAgdaDocumentVersion(this.editorView!.state))
     try {
       await this.lspClient!.request('agda', params)
@@ -478,6 +479,7 @@ export class AgdaController {
       }
     } finally {
       this.alsRouter.suppressAgdaInternalErrors = false
+      this.alsRouter.suppressDisplayInfo = false
       this.alsRouter.clearCommandDocumentVersion()
     }
   }

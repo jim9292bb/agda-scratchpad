@@ -34,6 +34,7 @@ export const clearGoals = StateEffect.define()
  * @prop {number | string} id
  * @prop {string} [range]
  * @prop {string} [type]
+ * @prop {string} [context]
  */
 /** @type {StateEffectType<GoalInfo[]>} */
 export const setGoalInfo = StateEffect.define()

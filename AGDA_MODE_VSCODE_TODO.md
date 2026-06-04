@@ -57,14 +57,14 @@ References:
 
 ## Phase 4: Goal Navigation and Display
 
-- [ ] Add Next goal command.
-- [ ] Add Previous goal command.
+- [x] Add Next goal command.
+- [x] Add Previous goal command.
 - [x] Make the Goals panel entries clickable.
 - [x] Move the editor cursor into the selected goal when a goal is clicked.
-- [ ] Show goal ids in the editor as CodeMirror decorations.
-- [ ] Highlight the active goal.
-- [ ] Keep the Goals panel synchronized after edits, Load, Give, Refine, and Case split.
-- [ ] Display goal type and context for the active goal.
+- [x] Show goal ids in the editor as CodeMirror decorations.
+- [x] Highlight the active goal.
+- [x] Keep the Goals panel synchronized after edits, Load, Give, Refine, and Case split.
+- [x] Display goal type and context for the active goal.
 
 ## Phase 5: Panel and Diagnostics
 

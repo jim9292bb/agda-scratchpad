@@ -12,8 +12,8 @@ import { withDriveLock } from '$lib'
 import { makeBufUint32LE } from '$lib/stdlib'
 import { myCodeMirrorTheme } from '$lib/codemirror/theme'
 import { agdaSupport } from '$lib/agda'
-import { mergeGoalInfos } from '$lib/agda/goal-state'
-import { getGoalRangeById } from '$lib/agda/goals'
+import { getAgdaDocumentVersion, getAgdaGoals, mergeGoalInfos } from '$lib/agda/goal-state'
+import { getGoalAtPosition, getGoalRangeById } from '$lib/agda/goals'
 import { getAgdaShortcutContext } from '$lib/agda/shortcut-context'
 import {
   autoOneCommand,
@@ -139,6 +139,91 @@ function requireGoalOrSelectedInput(context) {
   return { goal: context.goal, input }
 }
 
+/** @param {EditorView} view */
+function getActiveGoalId(view) {
+  const docLength = view.state.doc.length
+  const head = view.state.selection.main.head
+  const previousPos = Math.max(0, head - 1)
+  const nextPos = Math.min(docLength, head + 1)
+  return (
+    getGoalAtPosition(view.state, head) ??
+    getGoalAtPosition(view.state, previousPos) ??
+    getGoalAtPosition(view.state, nextPos)
+  )?.id ?? null
+}
+
+/**
+ * @param {EditorView} view
+ * @param {1 | -1} direction
+ */
+function focusAdjacentGoal(view, direction) {
+  const goals = getAgdaGoals(view.state)
+  if (goals.length === 0) {
+    textboxContent += 'Goal navigation failed: No goals.\n'
+    return
+  }
+
+  const head = view.state.selection.main.head
+  const currentIndex = goals.findIndex(goal => goal.outerFrom <= head && head <= goal.outerTo)
+  let targetIndex
+
+  if (currentIndex >= 0) {
+    targetIndex = (currentIndex + direction + goals.length) % goals.length
+  } else if (direction > 0) {
+    const nextIndex = goals.findIndex(goal => goal.outerFrom > head)
+    targetIndex = nextIndex >= 0 ? nextIndex : 0
+  } else {
+    for (let i = goals.length - 1; i >= 0; i--) {
+      if (goals[i].outerTo < head) {
+        targetIndex = i
+        break
+      }
+    }
+    targetIndex ??= goals.length - 1
+  }
+
+  focusGoal(goals[targetIndex].id)
+}
+
+/** @param {EditorView} view */
+function syncGoalPanel(view) {
+  panelGoalInfos = getAgdaGoals(view.state).map(goal => ({
+    id: goal.id,
+    range: goal.range,
+    type: goal.type,
+    context: goal.context,
+  }))
+
+  const active = getActiveGoalId(view)
+  activeGoalId = active != null && panelGoalInfos.some(goal => goal.id === active) ? active : null
+}
+
+/**
+ * @param {number} goalId
+ * @param {number} documentVersion
+ */
+async function requestActiveGoalDetails(goalId, documentVersion) {
+  const requestKey = `${documentVersion}:${goalId}`
+  if (activeGoalDetailRequestKey === requestKey) return
+
+  activeGoalDetailRequestKey = requestKey
+  activeGoalDetailStatus = 'loading'
+  activeGoalDetailError = ''
+
+  try {
+    await agdaController.runAgdaInteraction(
+      goalTypeContextCommand('Simplified', { id: goalId }),
+      { suppressDisplayInfo: true },
+    )
+    if (activeGoalDetailRequestKey === requestKey) activeGoalDetailStatus = 'ready'
+  } catch (err) {
+    if (activeGoalDetailRequestKey === requestKey) {
+      activeGoalDetailStatus = 'error'
+      activeGoalDetailError = err instanceof Error ? err.message : String(err)
+    }
+  }
+}
+
 const agdaKeymap = keymap.of([
   { key: 'Mod-Enter', run: () => { runLoadShortcut(); return true } },
 ])
@@ -199,6 +284,10 @@ function handleAgdaChordKeydown(event, view) {
 
   if (isCtrlKey(event, 'l')) {
     runLoadShortcut()
+  } else if (isCtrlKey(event, 'f')) {
+    focusAdjacentGoal(view, 1)
+  } else if (isCtrlKey(event, 'b')) {
+    focusAdjacentGoal(view, -1)
   } else if (isCtrlKey(event, 't')) {
     runAgdaShortcut('Goal type', view, context => goalTypeCommand('Simplified', requireGoal(context)))
   } else if (isCtrlKey(event, 'e')) {
@@ -300,6 +389,12 @@ function codeMirror(el) {
       agdaSupport(),
       agdaKeymap,
       agdaChordKeymap,
+      EditorView.updateListener.of(update => {
+        const goalEffects = update.transactions.some(tr => tr.effects.length > 0)
+        if (update.selectionSet || update.docChanged || goalEffects) {
+          syncGoalPanel(update.view)
+        }
+      }),
       agdaController.lspClientCompartment.of([]),
       EditorState.changeFilter.of(tr => {
         for (const e of tr.effects) {
@@ -386,6 +481,11 @@ function focusGoal(goalId) {
 async function loadAgdaFile() {
   textboxContent = `Loading ${agdaController.currentFilePath}...\n`
   goalInfos = []
+  panelGoalInfos = []
+  activeGoalId = null
+  activeGoalDetailRequestKey = ''
+  activeGoalDetailStatus = 'idle'
+  activeGoalDetailError = ''
   agdaController.editorView?.dispatch({ effects: clearGoals.of() })
   try {
     await agdaController.loadAgdaFile()
@@ -400,7 +500,12 @@ async function loadAgdaFile() {
 let textbox
 
 let textboxContent = $state('WIP')
-let goalInfos = $state(/** @type {{id: number | string, range?: string, type?: string}[]} */([]))
+let goalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
+let panelGoalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
+let activeGoalId = $state(/** @type {number | string | null} */(null))
+let activeGoalDetailRequestKey = $state('')
+let activeGoalDetailStatus = $state(/** @type {'idle' | 'loading' | 'ready' | 'error'} */('idle'))
+let activeGoalDetailError = $state('')
 
 /** @type {number | undefined} */
 let raf
@@ -424,6 +529,28 @@ $effect(() => {
     })
   }
 })
+
+$effect(() => {
+  const view = agdaController.editorView
+  const goalId = activeGoalId
+  const goal = panelGoalInfos.find(goal => goal.id === goalId)
+
+  if (
+    !view ||
+    typeof goalId !== 'number' ||
+    !goal ||
+    goal.context !== undefined ||
+    agdaController.alsWorkerStatus !== 'active' ||
+    agdaController.iotcmStatus !== 'ready'
+  ) {
+    return
+  }
+
+  const documentVersion = getAgdaDocumentVersion(view.state)
+  untrack(() => {
+    void requestActiveGoalDetails(goalId, documentVersion)
+  })
+})
 </script>
 
 {#snippet editor(/** @type {'horizontal' | 'vertical'} */ orientation)}
@@ -439,12 +566,13 @@ $effect(() => {
       <section slot="end" class="goals-section">
         <header class="panel-header">Goals</header>
         <div class="goals-list">
-          {#if goalInfos.length === 0}
+          {#if panelGoalInfos.length === 0}
             <div class="goals-empty">No goals.</div>
           {:else}
-            {#each goalInfos as goal (`${goal.id}-${goal.range ?? ''}`)}
+            {#each panelGoalInfos as goal (`${goal.id}-${goal.range ?? ''}`)}
               <button
                 type="button"
+                class:active={goal.id === activeGoalId}
                 class="goal-card"
                 aria-label={`Focus goal ${goal.id}`}
                 onclick={() => focusGoal(goal.id)}>
@@ -454,7 +582,29 @@ $effect(() => {
                     <span>{goal.range}</span>
                   {/if}
                 </div>
-                {#if goal.type}
+                {#if goal.id === activeGoalId}
+                  <div class="goal-detail">
+                    <div class="goal-detail-label">Type</div>
+                    {#if goal.type}
+                      <pre>{goal.type}</pre>
+                    {:else if activeGoalDetailStatus === 'loading'}
+                      <div class="goal-type-empty">Loading goal details...</div>
+                    {:else}
+                      <div class="goal-type-empty">Type information is not available yet.</div>
+                    {/if}
+
+                    <div class="goal-detail-label">Context</div>
+                    {#if goal.context}
+                      <pre>{goal.context}</pre>
+                    {:else if activeGoalDetailStatus === 'loading'}
+                      <div class="goal-type-empty">Loading context...</div>
+                    {:else if activeGoalDetailStatus === 'error'}
+                      <div class="goal-type-empty">{activeGoalDetailError}</div>
+                    {:else}
+                      <div class="goal-type-empty">No context entries.</div>
+                    {/if}
+                  </div>
+                {:else if goal.type}
                   <pre>{goal.type}</pre>
                 {:else}
                   <div class="goal-type-empty">Type information is not available yet.</div>
@@ -552,6 +702,8 @@ $effect(() => {
       <summary>Agda shortcuts</summary>
       <dl>
         <div><dt>Ctrl-c Ctrl-l / Cmd-Enter</dt><dd>Load</dd></div>
+        <div><dt>Ctrl-c Ctrl-f</dt><dd>Next goal</dd></div>
+        <div><dt>Ctrl-c Ctrl-b</dt><dd>Previous goal</dd></div>
         <div><dt>Ctrl-c Ctrl-t</dt><dd>Goal type</dd></div>
         <div><dt>Ctrl-c Ctrl-e</dt><dd>Context</dd></div>
         <div><dt>Ctrl-c Ctrl-,</dt><dd>Goal type and context</dd></div>
@@ -702,6 +854,25 @@ quiet-text-field.mono::part(text-box) {
   border-color: var(--quiet-primary-stroke-soft);
   outline: none;
   background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill-softer));
+}
+
+.goal-card.active {
+  border-color: var(--quiet-primary-stroke);
+  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 32%, var(--quiet-neutral-fill-softer));
+  box-shadow: inset 3px 0 0 var(--quiet-primary-stroke);
+}
+
+.goal-detail {
+  margin-top: .5em;
+}
+
+.goal-detail-label {
+  margin-top: .75em;
+  font-size: .75rem;
+  font-weight: 700;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  color: #777;
 }
 
 .goal-card + .goal-card {

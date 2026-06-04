@@ -24,6 +24,7 @@ import {
  * @prop {string} input
  * @prop {string} [range]
  * @prop {string} [type]
+ * @prop {string} [context]
  */
 
 /**
@@ -31,6 +32,7 @@ import {
  * @prop {number | string} id
  * @prop {string} [range]
  * @prop {string} [type]
+ * @prop {string} [context]
  */
 
 /**
@@ -68,7 +70,7 @@ function parseGoalText(text) {
  * @param {number} from
  * @param {number} to
  * @param {number} documentVersion
- * @param {Partial<Pick<AgdaGoal, 'range' | 'type'>>} [metadata]
+ * @param {Partial<Pick<AgdaGoal, 'range' | 'type' | 'context'>>} [metadata]
  * @returns {AgdaGoal | null}
  */
 export function makeAgdaGoal(state, id, from, to, documentVersion, metadata = {}) {
@@ -120,6 +122,7 @@ export function mergeGoalInfos(current, incoming) {
       ...goal,
       type: goal.type ?? goalsById.get(goal.id)?.type,
       range: goal.range ?? goalsById.get(goal.id)?.range,
+      context: goal.context ?? goalsById.get(goal.id)?.context,
     })
   }
   return [...goalsById.values()]
@@ -128,11 +131,11 @@ export function mergeGoalInfos(current, incoming) {
 /**
  * @param {GoalInfo[]} infos
  * @param {number} id
- * @returns {Partial<Pick<AgdaGoal, 'range' | 'type'>>}
+ * @returns {Partial<Pick<AgdaGoal, 'range' | 'type' | 'context'>>}
  */
 function metadataForGoal(infos, id) {
   const info = infos.find(goal => goal.id === id)
-  return info ? { range: info.range, type: info.type } : {}
+  return info ? { range: info.range, type: info.type, context: info.context } : {}
 }
 
 /**
@@ -187,7 +190,7 @@ function refreshGoalText(state, goal, documentVersion) {
     goal.outerFrom,
     goal.outerTo,
     documentVersion,
-    { range: goal.range, type: goal.type },
+    { range: goal.range, type: goal.type, context: goal.context },
   )
 }
 
@@ -259,6 +262,7 @@ export const agdaGoalState = StateField.define({
             ...goal,
             range: metadata.get(goal.id)?.range ?? goal.range,
             type: metadata.get(goal.id)?.type ?? goal.type,
+            context: metadata.get(goal.id)?.context ?? goal.context,
           })),
         }
       } else if (effect.is(removeGoalInfo)) {

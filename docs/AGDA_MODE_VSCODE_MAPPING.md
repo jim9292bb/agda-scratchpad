@@ -21,6 +21,8 @@ for this browser-hosted ALS demo. Use it before searching `../references/`.
 | `C-c C-a` | Auto `[AsIs]` | `Cmd_autoOne AsIs goalId range content` |
 | `C-c C-m` | Elaborate and give `[Simplified]` | `Cmd_elaborate_give Simplified goalId noRange content` |
 | `C-c C-h` | Helper function type `[AsIs]` | `Cmd_helper_function AsIs goalId noRange content` |
+| `C-c C-f` | Next goal | browser-side focus next goal |
+| `C-c C-b` | Previous goal | browser-side focus previous goal |
 
 ## Query Commands
 
