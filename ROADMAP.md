@@ -136,7 +136,7 @@ and not buried in raw transport output.
 - [ ] Separate output into Log, Goals, Queries, Warnings, and Errors.
 - [ ] Preserve raw Agda output behind a debug view.
 - [ ] Add an internal debug panel for request/response tracing.
-- [ ] Add teaching-oriented examples for syntax errors and semantic errors.
+- [x] Add teaching-oriented examples for syntax errors and semantic errors.
 
 ## Unicode Input Method
 
@@ -200,7 +200,7 @@ Goal: common scratchpad workflows should be repeatable by Codex and humans.
 - [x] Add browser regression script for active Goals panel details.
 - [x] Add browser regression script for Cubical load.
 - [x] Add browser regression script for standard-library load.
-- [ ] Add browser regression script for syntax and semantic error display.
+- [x] Add browser regression script for syntax and semantic error display.
 - [ ] Expose browser regressions through `package.json` scripts where practical.
 
 ## Implementation Notes

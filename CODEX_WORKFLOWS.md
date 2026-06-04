@@ -104,6 +104,7 @@ scripts/browser-test-goal-lifecycle.sh
 scripts/browser-test-command-input-panel.sh
 scripts/browser-test-goal-details.sh
 scripts/browser-test-library-loads.sh
+scripts/browser-test-error-display.sh
 scripts/browser-test-auto.sh
 scripts/browser-test-query-shortcuts.sh
 ```
@@ -133,6 +134,8 @@ Use fixtures from `test-fixtures/agda/` instead of rewriting Agda snippets in pr
 - `query-bool.agda`: Search/module/why-in-scope query fixture.
 - `cubical-prelude.agda`: Cubical load regression.
 - `stdlib-nat.agda`: standard-library load regression.
+- `error-syntax.agda`: syntax error display regression.
+- `error-not-in-scope.agda`: semantic error display regression.
 
 For manual testing, use this Agda source:
 

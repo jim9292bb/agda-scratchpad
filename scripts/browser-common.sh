@@ -135,6 +135,28 @@ wait_for_log_contains() {
   return 1
 }
 
+wait_for_log_matches() {
+  local pattern_json timeout_ms elapsed
+  pattern_json="$(json_string "$1")"
+  timeout_ms="${2:-30000}"
+  elapsed=0
+  while (( elapsed < timeout_ms )); do
+    local found
+    found="$(ab eval "(() => {
+      const pattern = new RegExp($pattern_json, 'i')
+      const text = document.querySelector('textarea.textbox')?.value ?? ''
+      return pattern.test(text)
+    })()")"
+    if [[ "$found" == *"true"* ]]; then
+      return 0
+    fi
+    ab wait 1000 >/dev/null
+    elapsed=$((elapsed + 1000))
+  done
+  echo "Timed out waiting for log pattern: $1" >&2
+  return 1
+}
+
 select_text() {
   local text_json occurrence
   text_json="$(json_string "$1")"
@@ -354,4 +376,17 @@ assert_log_not_matches() {
     return { ok: true, pattern: String(pattern) }
   })()"
   echo "PASS log does not match: $label"
+}
+
+assert_log_matches() {
+  local pattern_json label
+  pattern_json="$(json_string "$1")"
+  label="${2:-$1}"
+  ab eval "(() => {
+    const pattern = new RegExp($pattern_json, 'i')
+    const text = document.querySelector('textarea.textbox')?.value ?? ''
+    if (!pattern.test(text)) throw new Error('Log does not match: ' + pattern + '\\n' + text)
+    return { ok: true, pattern: String(pattern) }
+  })()"
+  echo "PASS log matches: $label"
 }
