@@ -102,6 +102,7 @@ Prefer the scripted regressions first:
 ```sh
 scripts/browser-test-goal-lifecycle.sh
 scripts/browser-test-command-input-panel.sh
+scripts/browser-test-goal-details.sh
 scripts/browser-test-auto.sh
 scripts/browser-test-query-shortcuts.sh
 ```
@@ -124,7 +125,7 @@ If `agent-browser` fails with a daemon socket, bind, or read-only filesystem err
 
 Use fixtures from `test-fixtures/agda/` instead of rewriting Agda snippets in prompts whenever possible:
 
-- `plus-case-split.agda`: Load, case split, give lifecycle, and command input panel prompt behavior.
+- `plus-case-split.agda`: Load, case split, give lifecycle, active goal details, and command input panel prompt behavior.
 - `idN-auto.agda`: Auto fills a simple identity function.
 - `idN-elaborate.agda`: Elaborate and give fills a simple identity function.
 - `query-goal.agda`: Goal query fixture.

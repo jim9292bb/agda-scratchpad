@@ -292,3 +292,31 @@ assert_editor_focused() {
   })()"
   echo "PASS editor focused"
 }
+
+assert_active_goal_contains() {
+  local needle_json label
+  needle_json="$(json_string "$1")"
+  label="${2:-$1}"
+  ab eval "(() => {
+    const needle = $needle_json
+    const card = document.querySelector('.goal-card.active')
+    if (!card) throw new Error('Active goal card is missing')
+    const text = card.textContent
+    if (!text.includes(needle)) throw new Error('Active goal card does not contain: ' + needle + '\\n' + text)
+    return { ok: true, contains: needle, text: card.textContent.trim() }
+  })()"
+  echo "PASS active goal contains: $label"
+}
+
+assert_log_not_contains() {
+  local needle_json label
+  needle_json="$(json_string "$1")"
+  label="${2:-$1}"
+  ab eval "(() => {
+    const needle = $needle_json
+    const text = document.querySelector('textarea.textbox')?.value ?? ''
+    if (text.includes(needle)) throw new Error('Log unexpectedly contains: ' + needle)
+    return { ok: true, missing: needle }
+  })()"
+  echo "PASS log excludes: $label"
+}

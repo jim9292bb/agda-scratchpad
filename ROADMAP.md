@@ -109,7 +109,7 @@ program construction.
 - [x] Highlight the active goal.
 - [x] Keep the Goals panel synchronized after edits, Load, Give, Refine, and Case split.
 - [x] Display goal type and context for the active goal.
-- [ ] Add a browser regression for active goal type/context display.
+- [x] Add a browser regression for active goal type/context display.
 - [ ] Consider a compact mode for examples with many goals.
 
 ## Command Input Panel
@@ -197,7 +197,7 @@ Goal: common scratchpad workflows should be repeatable by Codex and humans.
 - [x] Add browser regression script for Auto.
 - [x] Add browser regression script for query shortcuts.
 - [x] Add browser regression script for command input panel submit, cancel, and focus restore.
-- [ ] Add browser regression script for active Goals panel details.
+- [x] Add browser regression script for active Goals panel details.
 - [ ] Add browser regression script for Cubical load.
 - [ ] Add browser regression script for standard-library load.
 - [ ] Add browser regression script for syntax and semantic error display.
