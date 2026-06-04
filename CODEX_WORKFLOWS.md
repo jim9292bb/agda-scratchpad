@@ -97,19 +97,20 @@ That file records keybinding and `Cmd_*` mappings that have already been researc
 
 Use `agent-browser` for any CodeMirror, shortcut, or goal lifecycle change.
 
-Prefer the scripted regressions first:
+Prefer the npm regression entry points first:
 
 ```sh
-scripts/browser-test-goal-lifecycle.sh
-scripts/browser-test-command-input-panel.sh
-scripts/browser-test-goal-details.sh
-scripts/browser-test-library-loads.sh
-scripts/browser-test-error-display.sh
-scripts/browser-test-auto.sh
-scripts/browser-test-query-shortcuts.sh
+npm run test:browser
+npm run test:browser:goal-lifecycle
+npm run test:browser:auto
+npm run test:browser:queries
+npm run test:browser:command-input
+npm run test:browser:goal-details
+npm run test:browser:libraries
+npm run test:browser:errors
 ```
 
-Run the scripts with a dev server already running:
+Run browser regressions with a dev server already running:
 
 Start the dev server:
 
@@ -124,6 +125,8 @@ source /usr/share/nvm/init-nvm.sh && XDG_RUNTIME_DIR=/tmp/agent-browser-runtime 
 ```
 
 If `agent-browser` fails with a daemon socket, bind, or read-only filesystem error inside the sandbox, rerun the browser command with escalated execution. The browser daemon needs to create sockets outside the restricted sandbox.
+
+The npm scripts delegate to `scripts/browser-test-*.sh`. Use the shell scripts directly only when debugging the test helper itself.
 
 Use fixtures from `test-fixtures/agda/` instead of rewriting Agda snippets in prompts whenever possible:
 

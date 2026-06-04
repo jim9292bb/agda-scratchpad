@@ -201,7 +201,7 @@ Goal: common scratchpad workflows should be repeatable by Codex and humans.
 - [x] Add browser regression script for Cubical load.
 - [x] Add browser regression script for standard-library load.
 - [x] Add browser regression script for syntax and semantic error display.
-- [ ] Expose browser regressions through `package.json` scripts where practical.
+- [x] Expose browser regressions through `package.json` scripts where practical.
 
 ## Implementation Notes
 
