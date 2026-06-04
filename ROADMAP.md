@@ -36,7 +36,7 @@ Goal: examples should load reliably in a browser without local Agda installation
 - [x] Show Cubical `v0.9` in startup configuration.
 - [x] Add a scripted Cubical regression that loads `Cubical.Foundations.Prelude`.
 - [x] Add a scripted standard-library regression that loads `Data.Nat.Base`.
-- [ ] Show a read-only runtime summary for Agda, ALS, stdlib, and Cubical versions.
+- [x] Show a read-only runtime summary for Agda, ALS, stdlib, and Cubical versions.
 
 ## Goal Lifecycle and Editor State
 

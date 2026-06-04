@@ -58,6 +58,13 @@ const agdaController = new AgdaController({
   agdaVersion: '2.8.0',
 })
 
+const runtimeSummary = [
+  { label: 'Agda runtime', value: 'v2.8.0' },
+  { label: 'ALS WASM', value: 'als-2.8ext.wasm' },
+  { label: 'standard-library', value: 'v2.3' },
+  { label: 'Cubical', value: 'v0.9' },
+]
+
 let width = $state(0)
 let isMobile = $derived(width < 540)
 
@@ -799,26 +806,7 @@ $effect(() => {
     <quiet-button onclick={() => { agdaController.alsWorkerStatus = 'initial' }}>Reset state to initial</quiet-button>
   {:else if agdaController.alsWorkerStatus === 'initial'}
     <div><strong>Startup config</strong></div>
-
-    <div style="display: flex; flex-direction: column; gap: .25em;">
-      <quiet-select label="Agda version" class="quiet-side-label" disabled>
-        <option value="2.8.0" selected>v2.8.0</option>
-        <option value="2.7.0.1">v2.7.0.1</option>
-        <option value="2.6.4.3">v2.6.4.3</option>
-      </quiet-select>
-      <quiet-text-field label="Agda CLI args" class="quiet-side-label mono" placeholder="(empty)" disabled></quiet-text-field>
-      <quiet-text-field label="Load args" class="quiet-side-label mono" placeholder="(empty)" disabled></quiet-text-field>
-      <quiet-text-field label="Source file name" class="quiet-side-label mono" value="source.agda" disabled></quiet-text-field>
-      <quiet-select label="Stdlib version" class="quiet-side-label" disabled>
-        <option value="NONE">None</option>
-        <option value="2.0">v2.0</option>
-        <option value="2.1">v2.1</option>
-        <option value="2.1.1">v2.1.1</option>
-        <option value="2.2">v2.2</option>
-        <option value="2.3" selected>v2.3</option>
-      </quiet-select>
-      <quiet-text-field label="Cubical version" class="quiet-side-label mono" value="v0.9" disabled></quiet-text-field>
-    </div>
+    {@render runtimeSummaryPanel()}
   {:else}
     Status: <strong>{agdaController.alsWorkerStatus}</strong>
     <ul>
@@ -826,6 +814,7 @@ $effect(() => {
       <li>Load args: (empty)</li>
       <li>IOTCM status: {agdaController.iotcmStatus}</li>
     </ul>
+    {@render runtimeSummaryPanel()}
     <div class="flex">
       <quiet-button variant="primary" onclick={() => loadAgdaFile()}>Load</quiet-button>
       <quiet-button onclick={() => sendAbort()}>Abort</quiet-button>
@@ -857,6 +846,20 @@ $effect(() => {
   {/if}
   </div>
 
+{/snippet}
+
+{#snippet runtimeSummaryPanel()}
+  <section class="runtime-summary" aria-label="Runtime summary">
+    <header class="runtime-summary-title">Runtime summary</header>
+    <dl>
+      {#each runtimeSummary as item}
+        <div>
+          <dt>{item.label}</dt>
+          <dd>{item.value}</dd>
+        </div>
+      {/each}
+    </dl>
+  </section>
 {/snippet}
 
 <div
@@ -910,12 +913,42 @@ quiet-splitter {
   }
 }
 
-quiet-text-field.mono::part(text-box) {
-  font-family: monospace;
+.runtime-summary {
+  margin: 8px 0 12px;
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 68%, transparent);
+  padding: 8px;
 }
 
-.quiet-side-label {
-  --label-width: 12ch;
+.runtime-summary-title {
+  margin-bottom: 6px;
+  color: #777;
+  font-family: monospace;
+  font-size: .75rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.runtime-summary dl {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.runtime-summary div {
+  display: grid;
+  grid-template-columns: minmax(9rem, max-content) 1fr;
+  gap: 8px;
+}
+
+.runtime-summary dt {
+  color: #666;
+}
+
+.runtime-summary dd {
+  margin: 0;
+  font-family: JuliaMono, monospace;
 }
 
 .container > :global(*) {
