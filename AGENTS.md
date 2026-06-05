@@ -32,6 +32,36 @@ Use `CODEX_WORKFLOWS.md` for repeatable development, browser regression, Cubical
 - In this workspace, load Node tools with `source /usr/share/nvm/init-nvm.sh` before running `npm` or `agent-browser`.
 - Browser tests should edit CodeMirror with `EditorView.dispatch()`, not direct `contenteditable` DOM mutation.
 
+## Codex Tooling
+
+- Use `agent-browser` as the primary browser verification tool for UI, editor,
+  shortcut, goal lifecycle, and panel behavior changes.
+- Use `context7` for current Svelte, Vite, CodeMirror, and other library
+  documentation when API details or version behavior matter.
+- Use OpenAI docs MCP for OpenAI API, Codex, or OpenAI product documentation.
+- Use the GitHub plugin for repository metadata, issues, pull requests, and CI
+  inspection when working with GitHub state. Do not let it replace local
+  `git status`, `git diff`, `npm run check`, or `npm run build`.
+- Canva is not part of normal development for this repository. Use it only if a
+  future task explicitly asks for presentation, teaching, or visual assets.
+
+## Superpowers
+
+`obra/superpowers` is treated as a lightweight agent-side methodology reference,
+not as a runtime dependency or a mandatory workflow for this repository.
+
+Apply the parts that fit this project:
+
+- Clarify intent and write a decision-complete plan before large or ambiguous
+  changes.
+- Prefer spec-first and plan-first work for new features or risky refactors.
+- Use systematic debugging for complex failures instead of speculative edits.
+- Verify before reporting completion, using the project-specific checks in
+  `CODEX_WORKFLOWS.md`.
+
+Do not make Superpowers-specific worktrees, subagents, or strict TDD mandatory
+unless the user explicitly asks for that workflow.
+
 ## Important Files
 
 - `ROADMAP.md`: feature plan and progress.

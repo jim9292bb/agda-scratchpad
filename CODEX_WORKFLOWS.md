@@ -50,6 +50,50 @@ source /usr/share/nvm/init-nvm.sh && npm run build
 source /usr/share/nvm/init-nvm.sh && agent-browser --version
 ```
 
+## Plugin/MCP Usage
+
+Use plugins and MCP servers as support tools. They do not replace this repo's
+local checks, roadmap, or product scope.
+
+- `agent-browser`: use for browser regressions and manual UI inspection. Prefer
+  the npm scripts under `test:browser:*` before ad hoc browser commands.
+- `context7`: use for current Svelte, Vite, CodeMirror, and other
+  library/framework documentation when API behavior is uncertain.
+- OpenAI docs MCP: use for Codex, OpenAI API, or OpenAI product documentation.
+- GitHub plugin: use for PRs, issues, repository metadata, and CI inspection.
+  Still verify local work with `git status`, `git diff`, `npm run check`, and
+  `npm run build`.
+- Canva plugin: outside the normal engineering workflow. Use only for explicit
+  presentation, teaching, or visual-asset requests.
+
+If a plugin answer conflicts with local repository files, treat the local
+repository as the source of truth and investigate before editing.
+
+## Superpowers-Inspired Workflow
+
+Use `obra/superpowers` as a lightweight methodology reference, not as a
+mandatory dependency.
+
+For large features, risky refactors, or ambiguous requests:
+
+1. Clarify the product intent against `PROJECT_GOAL.md`.
+2. Check `ROADMAP.md` and existing implementation before deciding what to do.
+3. Write or confirm a handoff-quality plan before editing.
+4. Make the smallest coherent implementation that satisfies the plan.
+5. Verify before completion with the checks required by the change type.
+6. Summarize what changed, what was tested, and any remaining risk.
+
+For complex bugs:
+
+1. Reproduce or inspect the failing behavior first.
+2. Form a concrete hypothesis from code, logs, or browser state.
+3. Change one layer at a time.
+4. Add or update a regression when the bug is fixed.
+
+Do not require Superpowers-specific worktrees, subagents, or strict TDD unless
+the user explicitly asks for them. This repo's primary workflow remains
+`AGENTS.md`, `PROJECT_GOAL.md`, `ROADMAP.md`, and this file.
+
 ## Core Practice Command Refactor Workflow
 
 Use this when working on Core Agda Commands.
