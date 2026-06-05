@@ -125,6 +125,21 @@ able to type the required content in a panel, similar to the useful parts of
 - [ ] Support Agda Unicode input method inside the prompt after the Unicode input method exists.
 - [x] Add browser regressions for prompt submit, cancel, and focus restore.
 
+## Shortcut Configuration
+
+Goal: Agda shortcuts should work for learners by default, while still allowing
+users to replace bindings that conflict with their browser, operating system, or
+keyboard layout.
+
+- [ ] Centralize shortcut definitions in a data-driven registry instead of scattering hard-coded key checks through UI event handlers.
+- [ ] Keep the default bindings aligned with familiar Agda mode shortcuts where practical.
+- [ ] Add a lightweight shortcut settings UI for replacing command bindings.
+- [ ] Validate replacement bindings and warn about duplicate Agda command shortcuts.
+- [ ] Persist shortcut overrides in browser local storage.
+- [ ] Add a reset-to-default-shortcuts action.
+- [ ] Make shortcut help render from the same registry used by the dispatcher.
+- [ ] Browser-test at least one overridden shortcut for Load, one goal command, and one query command.
+
 ## Diagnostics and Output Panels
 
 Goal: errors, warnings, logs, and query results should be readable for learners
@@ -212,6 +227,7 @@ Goal: common scratchpad workflows should be repeatable by Codex and humans.
 - Treat CodeMirror document changes as the source of truth for current ranges.
 - Always reload after Case split so new holes receive real Agda interaction point ids.
 - Avoid command-specific hacks that search raw `{! !}` text without consulting goal state.
+- Route all keyboard shortcuts through the shortcut registry once shortcut configuration exists.
 - Keep request construction separate from UI event handling.
 - Keep response handling separate from editor mutation.
 - Use `agda-mode-vscode` as an interaction reference, not as a parity checklist.
