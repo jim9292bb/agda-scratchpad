@@ -152,7 +152,7 @@ and not buried in raw transport output.
 
 - [x] Parse Agda errors into structured diagnostics.
 - [x] Show file, line, and column for errors.
-- [ ] Allow clicking an error to jump to its source position.
+- [x] Allow clicking an error to jump to its source position.
 - [x] Handle `JumpToError` responses by moving the editor cursor to the reported position.
 - [x] Add a Messages panel with switchable Log and Errors views.
 - [ ] Separate output into Log, Goals, Queries, Warnings, and Errors.

@@ -37,4 +37,22 @@ ab eval "(async () => {
 
 echo "PASS diagnostics panel shows file, line, and column"
 
+ab eval "(() => {
+  const diagnostic = document.querySelector('.diagnostic-card.clickable')
+  const view = document.querySelector('.cm-content')?.cmTile?.view
+  const editor = document.querySelector('.cm-content')
+  if (!diagnostic) throw new Error('Clickable diagnostic card missing')
+  if (!view || !editor) throw new Error('Editor missing')
+  diagnostic.click()
+  const text = view.state.doc.toString()
+  const expected = text.indexOf('x')
+  const actual = view.state.selection.main.head
+  if (expected < 0) throw new Error('Fixture marker x missing')
+  if (actual !== expected) throw new Error('Diagnostic jump mismatch: expected ' + expected + ', got ' + actual)
+  if (!editor.contains(document.activeElement)) throw new Error('Editor is not focused after diagnostic jump')
+  return { ok: true, cursor: actual }
+})()"
+
+echo "PASS clicking diagnostic jumps to source position"
+
 echo "browser-test-error-display: PASS"

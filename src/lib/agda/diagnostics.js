@@ -48,6 +48,24 @@ export function clampAgdaUtf8Position(state, position) {
 }
 
 /**
+ * Convert an Agda diagnostic line/column pair to an absolute Agda/ALS UTF-8
+ * document offset. Agda's textual diagnostics use 1-based columns.
+ *
+ * @param {import('@codemirror/state').EditorState} state
+ * @param {AgdaDiagnostic} diagnostic
+ */
+export function diagnosticToAgdaUtf8Position(state, diagnostic) {
+  const { text: utf8Text, doc } = state.field(offsetTable)
+  const lineNumber = Math.max(1, Math.min(diagnostic.line, doc.lines))
+  const sourceLine = doc.line(lineNumber)
+  const utf8Line = utf8Text.lineUTF8(lineNumber)
+  const column = Math.max(1, diagnostic.column)
+  const prefix = Array.from(sourceLine.text).slice(0, column - 1).join('')
+  const prefixUtf8Length = new TextEncoder().encode(prefix).byteLength
+  return clampAgdaUtf8Position(state, utf8Line.from + prefixUtf8Length)
+}
+
+/**
  * Move the editor selection to an Agda/ALS UTF-8 document offset.
  *
  * @param {import('@codemirror/view').EditorView} editorView

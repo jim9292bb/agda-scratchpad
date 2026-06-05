@@ -43,6 +43,7 @@ import {
   whyInScopeCommand,
   whyInScopeToplevelCommand,
 } from '$lib/agda/commands'
+import { diagnosticToAgdaUtf8Position, focusAgdaUtf8Position } from '$lib/agda/diagnostics'
 
 import { clearGoals, clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo } from '$lib/agda/effects'
 
@@ -853,6 +854,21 @@ function formatDiagnosticLocation(diagnostic) {
   return `${start}-${diagnostic.endLine}.${diagnostic.endColumn}`
 }
 
+/** @param {import('$lib/agda/diagnostics').AgdaDiagnostic} diagnostic */
+function canFocusDiagnostic(diagnostic) {
+  return diagnostic.filepath === '/source.agda' &&
+    Number.isFinite(diagnostic.line) &&
+    Number.isFinite(diagnostic.column)
+}
+
+/** @param {import('$lib/agda/diagnostics').AgdaDiagnostic} diagnostic */
+function focusDiagnostic(diagnostic) {
+  const editorView = agdaController.editorView
+  if (!editorView || !canFocusDiagnostic(diagnostic)) return
+  const position = diagnosticToAgdaUtf8Position(editorView.state, diagnostic)
+  focusAgdaUtf8Position(editorView, position)
+}
+
 /** @type {HTMLDivElement | undefined} */
 let textbox = $state(/** @type {HTMLDivElement | undefined} */(undefined))
 
@@ -1075,7 +1091,16 @@ $effect(() => {
     {#if agdaDiagnostics.length}
       <div class="diagnostics-list">
           {#each agdaDiagnostics as diagnostic}
-            <article class:error={diagnostic.severity === 'error'} class:warning={diagnostic.severity === 'warning'} class="diagnostic-card">
+            <button
+              class:clickable={canFocusDiagnostic(diagnostic)}
+              class:error={diagnostic.severity === 'error'}
+              class:warning={diagnostic.severity === 'warning'}
+              class="diagnostic-card"
+              type="button"
+              disabled={!canFocusDiagnostic(diagnostic)}
+              aria-label={`Jump to ${formatDiagnosticLocation(diagnostic)}`}
+              onclick={() => focusDiagnostic(diagnostic)}
+            >
               <div class="diagnostic-meta">
                 <strong>{diagnostic.severity}</strong>
                 {#if diagnostic.code}
@@ -1084,7 +1109,7 @@ $effect(() => {
               </div>
               <div class="diagnostic-location">{formatDiagnosticLocation(diagnostic)}</div>
               <pre>{diagnostic.message}</pre>
-            </article>
+            </button>
           {/each}
       </div>
     {:else}
@@ -1789,11 +1814,16 @@ quiet-splitter {
 .diagnostic-card {
   display: grid;
   gap: 6px;
+  width: 100%;
   padding: 8px;
   border: 1px solid var(--quiet-neutral-stroke-softer);
   border-left-width: 4px;
   border-radius: 6px;
   background: var(--quiet-neutral-fill-softer);
+  color: inherit;
+  text-align: left;
+  appearance: none;
+  font: inherit;
 }
 
 .diagnostic-card.error {
@@ -1802,6 +1832,22 @@ quiet-splitter {
 
 .diagnostic-card.warning {
   border-left-color: #ca8a04;
+}
+
+.diagnostic-card.clickable {
+  cursor: pointer;
+}
+
+.diagnostic-card.clickable:hover,
+.diagnostic-card.clickable:focus-visible {
+  border-color: #777;
+  border-left-color: currentColor;
+  background: #fff;
+  outline: none;
+}
+
+.diagnostic-card:disabled {
+  opacity: 1;
 }
 
 .diagnostic-meta {
