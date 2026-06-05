@@ -9,25 +9,30 @@ function concatUint8Arrays(a, b) {
   return result
 }
 
+/**
+ * @param {Uint8Array} buffer
+ */
+function findBoundary(buffer) {
+  let idx = 0
+  while (idx <= buffer.byteLength - 4) {
+    idx = buffer.indexOf(13, idx)
+    if (idx < 0) break
+    if (buffer[idx + 1] == 10 &&
+        buffer[idx + 2] == 13 &&
+        buffer[idx + 3] == 10) {
+      return idx
+    }
+    idx++
+  }
+  return -1
+}
+
 /** @implements {Transformer<Uint8Array, string>} */
 export class LSPMessageDecoder {
   constructor() {
     this.buffer = new Uint8Array
     this.pending = -1
     this.decoder = new TextDecoder
-  }
-
-  findBoundary() {
-    for (let idx = 0; idx <= this.buffer.length - 4; idx++) {
-      idx = this.buffer.indexOf(13, idx)
-      if (idx < 0) break
-      if (this.buffer[idx + 1] == 10 &&
-          this.buffer[idx + 2] == 13 &&
-          this.buffer[idx + 3] == 10) {
-        return idx
-      }
-    }
-    return -1
   }
 
   /**
@@ -39,7 +44,7 @@ export class LSPMessageDecoder {
     while (true) {
       if (this.pending == -1) {
         // header phase; this is accidentally conforming to use "ascii" encoding
-        const brk = this.findBoundary()
+        const brk = findBoundary(this.buffer)
         if (brk < 0) break
         const header = String.fromCharCode(...this.buffer.subarray(0, brk))
         const matched = header.match(/^content-length:\s*(\d+)/i)
