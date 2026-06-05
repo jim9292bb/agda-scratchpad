@@ -17,9 +17,11 @@ import { getGoalAtPosition, getGoalRangeById } from '$lib/agda/goals'
 import { getAgdaShortcutContext } from '$lib/agda/shortcut-context'
 import {
   agdaShortcutRegistry,
+  createAgdaShortcutRegistry,
   findAgdaChordShortcut,
   formatAgdaShortcutHelpBinding,
   isAgdaCtrlKey,
+  validateAgdaShortcutOverrides,
 } from '$lib/agda/shortcuts'
 import {
   autoOneCommand,
@@ -80,6 +82,37 @@ const settingsSegments = [
 ]
 
 const defaultSource = '{-# OPTIONS --cubical --guardedness #-}\n\nopen import Cubical.Foundations.Prelude\n'
+const LS_SHORTCUT_OVERRIDES_KEY = 'agda-scratchpad.shortcut-overrides.v1'
+const agdaShortcutIds = new Set(agdaShortcutRegistry.map(shortcut => shortcut.id))
+
+/** @returns {Record<string, string>} */
+function loadShortcutOverrides() {
+  if (typeof localStorage === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(LS_SHORTCUT_OVERRIDES_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    return Object.fromEntries(
+      Object.entries(parsed)
+        .filter(([, value]) => typeof value === 'string')
+    )
+  } catch {
+    return {}
+  }
+}
+
+/**
+ * @param {Record<string, string>} overrides
+ * @returns {Record<string, string>}
+ */
+function cleanShortcutOverrides(overrides) {
+  return Object.fromEntries(
+    Object.entries(overrides)
+      .map(([id, value]) => [id, value.trim()])
+      .filter(([id, value]) => agdaShortcutIds.has(id) && value)
+  )
+}
 
 const scratchpadExamples = [
   {
@@ -579,7 +612,7 @@ function handleAgdaChordKeydown(event, view) {
   event.stopPropagation()
   clearAgdaChord()
 
-  const shortcut = findAgdaChordShortcut(event)
+  const shortcut = findAgdaChordShortcut(event, activeAgdaShortcutRegistry)
   if (shortcut) runAgdaShortcutDefinition(shortcut, view)
 
   return true
@@ -694,12 +727,54 @@ function resetDefaultExample() {
 
 function openSettingsPanel() {
   selectedSettingsSegment = 'general'
+  shortcutDrafts = { ...shortcutOverrides }
+  shortcutOverrideMessage = ''
   settingsPanelVisible = true
 }
 
 function closeSettingsPanel() {
   settingsPanelVisible = false
   agdaController.editorView?.focus()
+}
+
+/**
+ * @param {string} id
+ * @param {string} value
+ */
+function setShortcutDraft(id, value) {
+  shortcutDrafts = { ...shortcutDrafts, [id]: value }
+  shortcutOverrideMessage = ''
+}
+
+/** @param {string} id */
+function clearShortcutDraft(id) {
+  const next = { ...shortcutDrafts }
+  delete next[id]
+  shortcutDrafts = next
+  shortcutOverrideMessage = ''
+}
+
+function saveShortcutOverrides() {
+  const cleaned = cleanShortcutOverrides(shortcutDrafts)
+  const validation = validateAgdaShortcutOverrides(cleaned)
+  if (!validation.valid) {
+    shortcutOverrideMessage = validation.errors.join(' ')
+    return
+  }
+
+  shortcutOverrides = cleaned
+  shortcutDrafts = { ...cleaned }
+  localStorage.setItem(LS_SHORTCUT_OVERRIDES_KEY, JSON.stringify(cleaned))
+  shortcutOverrideMessage = Object.keys(cleaned).length
+    ? 'Shortcut overrides saved.'
+    : 'Shortcut overrides cleared.'
+}
+
+function resetShortcutOverrides() {
+  shortcutOverrides = {}
+  shortcutDrafts = {}
+  localStorage.removeItem(LS_SHORTCUT_OVERRIDES_KEY)
+  shortcutOverrideMessage = 'Shortcut overrides reset to defaults.'
 }
 
 async function dumpFS() {
@@ -765,6 +840,7 @@ let textbox
 let textboxContent = $state('WIP')
 let selectedExampleId = $state('cubical-prelude')
 let selectedScratchpadExample = $derived(scratchpadExamples.find(example => example.id === selectedExampleId))
+const initialShortcutOverrides = loadShortcutOverrides()
 let goalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
 let panelGoalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
 let activeGoalId = $state(/** @type {number | string | null} */(null))
@@ -774,6 +850,11 @@ let activeGoalDetailError = $state('')
 let commandsPanelVisible = $state(false)
 let settingsPanelVisible = $state(false)
 let selectedSettingsSegment = $state('general')
+let shortcutOverrides = $state(initialShortcutOverrides)
+let shortcutDrafts = $state({ ...initialShortcutOverrides })
+let shortcutOverrideMessage = $state('')
+let activeAgdaShortcutRegistry = $derived(createAgdaShortcutRegistry(shortcutOverrides))
+let shortcutDraftValidation = $derived(validateAgdaShortcutOverrides(cleanShortcutOverrides(shortcutDrafts)))
 let commandInputPrompt = $state(/** @type {null | {
   label: string,
   value: string,
@@ -994,7 +1075,7 @@ $effect(() => {
       </button>
       {#if commandsPanelVisible}
         <div id="commands-panel" class="commands-panel" aria-label="Agda commands">
-          {#each agdaShortcutRegistry as shortcut}
+          {#each activeAgdaShortcutRegistry as shortcut}
             <button
               type="button"
               class="command-button"
@@ -1014,7 +1095,7 @@ $effect(() => {
     <details class="shortcut-help">
       <summary>Agda shortcuts</summary>
       <dl>
-        {#each agdaShortcutRegistry as shortcut}
+        {#each activeAgdaShortcutRegistry as shortcut}
           <div><dt>{formatAgdaShortcutHelpBinding(shortcut)}</dt><dd>{shortcut.label}</dd></div>
         {/each}
       </dl>
@@ -1114,15 +1195,35 @@ $effect(() => {
           {:else if selectedSettingsSegment === 'commands'}
             <div id="settings-panel-commands" class="settings-section" role="tabpanel" aria-labelledby="command-settings-title">
               <h3 id="command-settings-title">Commands and shortcuts</h3>
-              <p class="settings-note">Command buttons and shortcut key overrides belong here. Editing controls will be added in this section.</p>
+              <p class="settings-note">Replace Agda chord shortcuts with values like <code>Ctrl-c Ctrl-g</code> or <code>Ctrl-c Space</code>. CodeMirror keymap fallbacks such as Cmd-Enter remain available.</p>
+              <div class="shortcut-settings-actions">
+                <button type="button" class="settings-action-button primary" disabled={!shortcutDraftValidation.valid} onclick={saveShortcutOverrides}>Save shortcuts</button>
+                <button type="button" class="settings-action-button" onclick={resetShortcutOverrides}>Reset to defaults</button>
+              </div>
+              {#if shortcutOverrideMessage || !shortcutDraftValidation.valid}
+                <p class:settings-error={!shortcutDraftValidation.valid} class="settings-message">
+                  {shortcutDraftValidation.valid ? shortcutOverrideMessage : shortcutDraftValidation.errors.join(' ')}
+                </p>
+              {/if}
               <div class="shortcut-settings-list">
                 {#each agdaShortcutRegistry as shortcut}
+                  {@const activeShortcut = activeAgdaShortcutRegistry.find(active => active.id === shortcut.id) ?? shortcut}
                   <div class="shortcut-settings-row">
                     <div>
                       <strong>{shortcut.label}</strong>
                       <span>{shortcut.id}</span>
+                      <span>Default: {formatAgdaShortcutHelpBinding(shortcut)}</span>
+                      <span>Effective: {formatAgdaShortcutHelpBinding(activeShortcut)}</span>
                     </div>
-                    <code>{formatAgdaShortcutHelpBinding(shortcut)}</code>
+                    <label>
+                      <span>Override</span>
+                      <input
+                        type="text"
+                        placeholder="Default"
+                        value={shortcutDrafts[shortcut.id] ?? ''}
+                        oninput={event => setShortcutDraft(shortcut.id, event.currentTarget.value)} />
+                    </label>
+                    <button type="button" class="settings-action-button compact" onclick={() => clearShortcutDraft(shortcut.id)}>Clear</button>
                   </div>
                 {/each}
               </div>
@@ -1756,8 +1857,8 @@ quiet-splitter {
 
 .shortcut-settings-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) max-content;
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 220px) max-content;
+  align-items: end;
   gap: 12px;
   padding: 8px;
   border: 1px solid var(--quiet-neutral-stroke-softer);
@@ -1776,11 +1877,82 @@ quiet-splitter {
   font-size: .72rem;
 }
 
-.shortcut-settings-row code {
+.shortcut-settings-row label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.shortcut-settings-row input {
+  min-width: 0;
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 4px;
+  padding: 5px 7px;
+  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 70%, white);
+  color: inherit;
+  font: inherit;
+  font-family: JuliaMono, monospace;
+  font-size: .78rem;
+}
+
+.shortcut-settings-row input:focus {
+  border-color: var(--quiet-primary-stroke-soft);
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--quiet-primary-fill-soft) 45%, transparent);
+}
+
+.settings-action-button {
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 4px;
+  background: var(--quiet-neutral-fill-softer);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 6px 8px;
+}
+
+.settings-action-button.primary {
+  border-color: var(--quiet-primary-stroke-soft);
+  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 42%, var(--quiet-neutral-fill-softer));
+}
+
+.settings-action-button.compact {
+  padding: 5px 7px;
+}
+
+.settings-action-button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+.settings-action-button:hover:not(:disabled),
+.settings-action-button:focus-visible:not(:disabled) {
+  border-color: var(--quiet-primary-stroke-soft);
+  outline: none;
+  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 22%, var(--quiet-neutral-fill-softer));
+}
+
+.shortcut-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.settings-message {
+  margin: 0 0 10px;
+  color: #4f5b36;
+  font-size: .78rem;
+}
+
+.settings-message.settings-error {
+  color: #9a3412;
+}
+
+.settings-note code {
   color: #555;
   font-family: JuliaMono, monospace;
-  font-size: .72rem;
-  white-space: nowrap;
+  font-size: .78em;
 }
 
 .commands-panel-shell {

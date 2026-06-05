@@ -134,13 +134,16 @@ keyboard layout.
 - [x] Centralize shortcut definitions in a data-driven registry instead of scattering hard-coded key checks through UI event handlers.
 - [x] Keep the default bindings aligned with familiar Agda mode shortcuts where practical.
 - [x] Add a floating Settings dialog with a shortcut settings section.
-- [ ] Add a lightweight shortcut settings UI for replacing command bindings.
-- [ ] Validate replacement bindings and warn about duplicate Agda command shortcuts.
-- [ ] Persist shortcut overrides in browser local storage.
-- [ ] Add a reset-to-default-shortcuts action.
+- [x] Add a lightweight shortcut settings UI for replacing command bindings.
+- [x] Validate replacement bindings and warn about duplicate Agda command shortcuts.
+- [x] Persist shortcut overrides in browser local storage.
+- [x] Add a reset-to-default-shortcuts action.
 - [x] Make shortcut help render from the same registry used by the dispatcher.
 - [x] Add a collapsible, scrollable Commands panel rendered from the shortcut registry.
-- [ ] Browser-test at least one overridden shortcut for Load, one goal command, and one query command.
+- [ ] Browser-test overridden shortcuts for representative command classes.
+- [x] Browser-test an overridden Load shortcut.
+- [ ] Browser-test an overridden goal command shortcut.
+- [ ] Browser-test an overridden query command shortcut.
 
 ## Diagnostics and Output Panels
 

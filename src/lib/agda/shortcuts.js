@@ -128,6 +128,100 @@ export const agdaShortcutRegistry = Object.freeze([
 ])
 
 /**
+ * @param {string} key
+ * @returns {string}
+ */
+function displayKey(key) {
+  if (key === ' ') return 'Space'
+  return key.length === 1 ? key : key[0].toUpperCase() + key.slice(1)
+}
+
+/**
+ * @param {AgdaShortcutBinding} binding
+ * @returns {string}
+ */
+function chordIdentity(binding) {
+  return `${binding.ctrl ? 'ctrl+' : ''}${binding.key.toLowerCase()}`
+}
+
+/**
+ * @param {string} input
+ * @returns {AgdaShortcutBinding | null}
+ */
+export function parseAgdaChordBinding(input) {
+  const normalized = input.trim().replace(/\s+/g, ' ')
+    .replace(/^C-c\b/i, 'Ctrl-c')
+    .replace(/\bC-/gi, 'Ctrl-')
+
+  const match = /^Ctrl-c (Ctrl-)?(.+)$/i.exec(normalized)
+  if (!match) return null
+
+  const ctrl = Boolean(match[1])
+  const rawKey = match[2].trim()
+  const keyName = rawKey.toLowerCase()
+  const key = keyName === 'space' || keyName === 'spc' ? ' ' : rawKey
+  if (key !== ' ' && key.length !== 1) return null
+
+  const binding = /** @type {AgdaShortcutBinding} */ ({
+    kind: 'chord',
+    key,
+    ctrl,
+    label: `Ctrl-c ${ctrl ? 'Ctrl-' : ''}${displayKey(key)}`,
+  })
+  if (key === ' ') binding.code = 'Space'
+  return binding
+}
+
+/**
+ * @param {Record<string, string>} overrides
+ * @returns {AgdaShortcutDefinition[]}
+ */
+export function createAgdaShortcutRegistry(overrides = {}) {
+  return agdaShortcutRegistry.map(shortcut => {
+    const override = overrides[shortcut.id]
+    const binding = typeof override === 'string' ? parseAgdaChordBinding(override) : null
+    if (!binding) return shortcut
+
+    return {
+      ...shortcut,
+      bindings: [
+        binding,
+        ...shortcut.bindings.filter(defaultBinding => defaultBinding.kind !== 'chord'),
+      ],
+    }
+  })
+}
+
+/**
+ * @param {Record<string, string>} overrides
+ * @returns {{valid: boolean, errors: string[]}}
+ */
+export function validateAgdaShortcutOverrides(overrides) {
+  const errors = []
+  for (const [id, value] of Object.entries(overrides)) {
+    if (!value.trim()) continue
+    if (!parseAgdaChordBinding(value)) {
+      errors.push(`${id}: use a chord such as Ctrl-c Ctrl-g or Ctrl-c Space.`)
+    }
+  }
+
+  const seen = new Map()
+  for (const shortcut of createAgdaShortcutRegistry(overrides)) {
+    for (const binding of shortcut.bindings.filter(binding => binding.kind === 'chord')) {
+      const identity = chordIdentity(binding)
+      const previous = seen.get(identity)
+      if (previous && previous !== shortcut.id) {
+        errors.push(`${binding.label} is assigned to both ${previous} and ${shortcut.id}.`)
+      } else {
+        seen.set(identity, shortcut.id)
+      }
+    }
+  }
+
+  return { valid: errors.length === 0, errors }
+}
+
+/**
  * @param {KeyboardEvent} event
  * @param {string} key
  */
@@ -157,10 +251,11 @@ function matchesBinding(event, binding) {
 
 /**
  * @param {KeyboardEvent} event
+ * @param {readonly AgdaShortcutDefinition[]} [registry]
  * @returns {AgdaShortcutDefinition | undefined}
  */
-export function findAgdaChordShortcut(event) {
-  return agdaShortcutRegistry.find(shortcut =>
+export function findAgdaChordShortcut(event, registry = agdaShortcutRegistry) {
+  return registry.find(shortcut =>
     shortcut.bindings.some(binding => binding.kind === 'chord' && matchesBinding(event, binding)))
 }
 
