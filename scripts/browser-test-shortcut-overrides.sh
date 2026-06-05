@@ -28,14 +28,20 @@ ab eval "(async () => {
   commandsTab.click()
   await new Promise(requestAnimationFrame)
 
-  const loadRow = Array.from(document.querySelectorAll('.shortcut-settings-row'))
-    .find(row => row.querySelector('strong')?.textContent?.trim() === 'Load')
-  if (!loadRow) throw new Error('Load shortcut row missing')
+  const findRow = label => Array.from(document.querySelectorAll('.shortcut-settings-row'))
+    .find(row => row.querySelector('strong')?.textContent?.trim() === label)
+  const setOverride = (label, value) => {
+    const row = findRow(label)
+    if (!row) throw new Error(label + ' shortcut row missing')
+    const input = row.querySelector('input')
+    if (!input) throw new Error(label + ' shortcut input missing')
+    input.value = value
+    input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: value }))
+    return row
+  }
 
-  const input = loadRow.querySelector('input')
-  if (!input) throw new Error('Load shortcut input missing')
-  input.value = 'Ctrl-c Ctrl-g'
-  input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: 'g' }))
+  const loadRow = setOverride('Load', 'Ctrl-c Ctrl-g')
+  const giveRow = setOverride('Give', 'Ctrl-c Ctrl-y')
   await new Promise(requestAnimationFrame)
 
   const save = Array.from(document.querySelectorAll('button'))
@@ -47,9 +53,14 @@ ab eval "(async () => {
 
   const stored = JSON.parse(localStorage.getItem('agda-scratchpad.shortcut-overrides.v1') || '{}')
   if (stored.load !== 'Ctrl-c Ctrl-g') throw new Error('Load shortcut override was not stored')
-  const effective = loadRow.textContent
-  if (!effective.includes('Effective: Ctrl-c Ctrl-g')) {
+  if (stored.give !== 'Ctrl-c Ctrl-y') throw new Error('Give shortcut override was not stored')
+  const loadEffective = loadRow.textContent
+  const giveEffective = giveRow.textContent
+  if (!loadEffective.includes('Effective: Ctrl-c Ctrl-g')) {
     throw new Error('Load effective shortcut did not update')
+  }
+  if (!giveEffective.includes('Effective: Ctrl-c Ctrl-y')) {
+    throw new Error('Give effective shortcut did not update')
   }
 
   const close = Array.from(document.querySelectorAll('button'))
@@ -57,10 +68,10 @@ ab eval "(async () => {
   if (!close) throw new Error('Settings close button missing')
   close.click()
   await new Promise(requestAnimationFrame)
-  return { ok: true, stored, effective }
+  return { ok: true, stored, loadEffective, giveEffective }
 })()"
 
-echo "PASS Load shortcut override saves and updates Settings"
+echo "PASS Load and Give shortcut overrides save and update Settings"
 
 start_als
 
@@ -83,4 +94,17 @@ wait_for_log_contains "Loading /source.agda" 30000
 wait_for_log_contains "Load finished." 45000
 
 echo "PASS overridden Ctrl-c Ctrl-g triggers Load"
+
+set_editor_fixture "test-fixtures/agda/idN-elaborate.agda" "{! n !}" 4
+click_button Load
+wait_for_log_contains "Load finished." 30000
+
+cursor_in_goal 0
+press_agda_chord "y" "KeyY"
+ab wait 5000
+
+assert_editor_contains "idN n = n" "Overridden Give fills goal"
+assert_log_contains "Give finished." "Overridden Give finishes"
+
+echo "PASS overridden Ctrl-c Ctrl-y triggers Give"
 echo "browser-test-shortcut-overrides: PASS"

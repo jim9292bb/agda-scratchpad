@@ -142,7 +142,7 @@ keyboard layout.
 - [x] Add a collapsible, scrollable Commands panel rendered from the shortcut registry.
 - [ ] Browser-test overridden shortcuts for representative command classes.
 - [x] Browser-test an overridden Load shortcut.
-- [ ] Browser-test an overridden goal command shortcut.
+- [x] Browser-test an overridden goal command shortcut.
 - [ ] Browser-test an overridden query command shortcut.
 
 ## Diagnostics and Output Panels
