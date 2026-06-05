@@ -71,6 +71,14 @@ const runtimeSummary = [
   { label: 'Cubical', value: 'v0.9' },
 ]
 
+const settingsSegments = [
+  { id: 'general', label: 'General' },
+  { id: 'editor', label: 'Editor' },
+  { id: 'runtime', label: 'Runtime' },
+  { id: 'commands', label: 'Commands' },
+  { id: 'planned', label: 'Planned' },
+]
+
 const defaultSource = '{-# OPTIONS --cubical --guardedness #-}\n\nopen import Cubical.Foundations.Prelude\n'
 
 const scratchpadExamples = [
@@ -656,6 +664,7 @@ function clearScratchpadInteractionState() {
   activeGoalDetailError = ''
   commandInputPrompt = null
   commandInputError = ''
+  settingsPanelVisible = false
   agdaController.editorView?.dispatch({ effects: clearGoals.of() })
 }
 
@@ -681,6 +690,16 @@ function applySelectedExample() {
 function resetDefaultExample() {
   selectedExampleId = 'cubical-prelude'
   replaceScratchpadSource(defaultSource)
+}
+
+function openSettingsPanel() {
+  selectedSettingsSegment = 'general'
+  settingsPanelVisible = true
+}
+
+function closeSettingsPanel() {
+  settingsPanelVisible = false
+  agdaController.editorView?.focus()
 }
 
 async function dumpFS() {
@@ -753,6 +772,8 @@ let activeGoalDetailRequestKey = $state('')
 let activeGoalDetailStatus = $state(/** @type {'idle' | 'loading' | 'ready' | 'error'} */('idle'))
 let activeGoalDetailError = $state('')
 let commandsPanelVisible = $state(false)
+let settingsPanelVisible = $state(false)
+let selectedSettingsSegment = $state('general')
 let commandInputPrompt = $state(/** @type {null | {
   label: string,
   value: string,
@@ -814,7 +835,10 @@ $effect(() => {
 <quiet-splitter {orientation} position={.6} style="--divider-min-position: 25%; --divider-max-position: 90%;">
   <section slot="start" class="editor-section">
     <header class="header">
-      <span class="header-title">Agda Scratchpad IDE</span> <a target="_blank" href={APP_REPO_URL} class="header-subtitle">{APP_COMMIT_ID}</a>
+      <div>
+        <span class="header-title">Agda Scratchpad IDE</span> <a target="_blank" href={APP_REPO_URL} class="header-subtitle">{APP_COMMIT_ID}</a>
+      </div>
+      <button type="button" class="settings-button header-settings-button" onclick={openSettingsPanel}>Settings</button>
     </header>
     <quiet-splitter class="editor-goals-splitter" orientation="vertical" position={.78} style="--divider-min-position: 35%; --divider-max-position: 92%;">
       <section slot="start" class="editor-pane">
@@ -905,6 +929,7 @@ $effect(() => {
     </quiet-splitter>
   </section>
 </quiet-splitter>
+{@render settingsPanel()}
 {/snippet}
 
 {#snippet alsButtons()}
@@ -999,6 +1024,121 @@ $effect(() => {
 
 {/snippet}
 
+{#snippet settingsPanel()}
+  {#if settingsPanelVisible}
+    <div class="settings-backdrop" role="presentation" onclick={closeSettingsPanel}></div>
+    <div
+      class="settings-panel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="settings-panel-title">
+      <header class="settings-panel-header">
+        <div>
+          <h2 id="settings-panel-title">Scratchpad Settings</h2>
+          <p>Configure the browser IDE experience. These settings apply to the whole page.</p>
+        </div>
+        <button type="button" class="settings-close-button" aria-label="Close settings" onclick={closeSettingsPanel}>Close</button>
+      </header>
+
+      <div class="settings-panel-main">
+        <div class="settings-segmented-control" role="tablist" aria-label="Settings sections">
+          {#each settingsSegments as segment}
+            <button
+              type="button"
+              class:active={selectedSettingsSegment === segment.id}
+              role="tab"
+              aria-selected={selectedSettingsSegment === segment.id}
+              aria-controls={`settings-panel-${segment.id}`}
+              onclick={() => { selectedSettingsSegment = segment.id }}>
+              {segment.label}
+            </button>
+          {/each}
+        </div>
+
+        <div class="settings-panel-body">
+          {#if selectedSettingsSegment === 'general'}
+            <div id="settings-panel-general" class="settings-section settings-overview" role="tabpanel" aria-labelledby="general-settings-title">
+              <h3 id="general-settings-title">General</h3>
+              <p class="settings-note">Global scratchpad behavior for demos and practice sessions.</p>
+              <div class="settings-option-grid">
+                <div class="settings-option">
+                  <strong>Source buffer</strong>
+                  <span>Single-file `/source.agda` scratchpad</span>
+                </div>
+                <div class="settings-option">
+                  <strong>Persistence</strong>
+                  <span>Editor contents are saved in this browser</span>
+                </div>
+                <label class="settings-toggle-row">
+                  <input type="checkbox" checked disabled />
+                  <span>Restore last source on reload</span>
+                </label>
+              </div>
+            </div>
+          {:else if selectedSettingsSegment === 'editor'}
+            <div id="settings-panel-editor" class="settings-section" role="tabpanel" aria-labelledby="editor-settings-title">
+              <h3 id="editor-settings-title">Editor</h3>
+              <p class="settings-note">Display and input options for the CodeMirror editor.</p>
+              <div class="settings-option-grid">
+                <label class="settings-field">
+                  <span>Font</span>
+                  <select disabled>
+                    <option>JuliaMono</option>
+                  </select>
+                </label>
+                <label class="settings-field">
+                  <span>Theme</span>
+                  <select disabled>
+                    <option>Follow browser preference</option>
+                  </select>
+                </label>
+                <label class="settings-toggle-row">
+                  <input type="checkbox" disabled />
+                  <span>Agda Unicode input method</span>
+                </label>
+              </div>
+            </div>
+          {:else if selectedSettingsSegment === 'runtime'}
+            <div id="settings-panel-runtime" class="settings-section" role="tabpanel" aria-labelledby="runtime-settings-title">
+              <h3 id="runtime-settings-title">Runtime and libraries</h3>
+              <p class="settings-note">Read-only runtime assets used by the hosted Agda environment.</p>
+              <dl class="settings-runtime-list">
+                {#each runtimeSummary as item}
+                  <div>
+                    <dt>{item.label}</dt>
+                    <dd>{item.value}</dd>
+                  </div>
+                {/each}
+              </dl>
+            </div>
+          {:else if selectedSettingsSegment === 'commands'}
+            <div id="settings-panel-commands" class="settings-section" role="tabpanel" aria-labelledby="command-settings-title">
+              <h3 id="command-settings-title">Commands and shortcuts</h3>
+              <p class="settings-note">Command buttons and shortcut key overrides belong here. Editing controls will be added in this section.</p>
+              <div class="shortcut-settings-list">
+                {#each agdaShortcutRegistry as shortcut}
+                  <div class="shortcut-settings-row">
+                    <div>
+                      <strong>{shortcut.label}</strong>
+                      <span>{shortcut.id}</span>
+                    </div>
+                    <code>{formatAgdaShortcutHelpBinding(shortcut)}</code>
+                  </div>
+                {/each}
+              </div>
+            </div>
+          {:else}
+            <div id="settings-panel-planned" class="settings-section" role="tabpanel" aria-labelledby="future-settings-title">
+              <h3 id="future-settings-title">Planned settings</h3>
+              <p class="settings-note">Future normalization defaults, output verbosity, layout density, and command behavior settings can be added here without changing the main page layout.</p>
+            </div>
+          {/if}
+        </div>
+      </div>
+    </div>
+  {/if}
+{/snippet}
+
 {#snippet runtimeSummaryPanel()}
   <section class="runtime-summary" aria-label="Runtime summary">
     <header class="runtime-summary-title">Runtime summary</header>
@@ -1039,6 +1179,10 @@ $effect(() => {
 
 <style>
 .header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 8px;
   border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
 }
@@ -1376,7 +1520,267 @@ quiet-splitter {
 
 .flex {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+.settings-button,
+.settings-close-button {
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 4px;
+  background: var(--quiet-neutral-fill-softer);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 6px 10px;
+}
+
+.settings-button:hover,
+.settings-button:focus-visible,
+.settings-close-button:hover,
+.settings-close-button:focus-visible {
+  border-color: var(--quiet-primary-stroke-soft);
+  outline: none;
+  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill-softer));
+}
+
+.header-settings-button {
+  flex: 0 0 auto;
+}
+
+.settings-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgb(0 0 0 / .2);
+}
+
+.settings-panel {
+  position: fixed;
+  z-index: 41;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  width: min(920px, calc(100vw - 24px));
+  height: min(680px, calc(100vh - 48px));
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 10px;
+  background: var(--quiet-neutral-fill, #fff);
+  box-shadow: 0 18px 60px rgb(0 0 0 / .25);
+  overflow: hidden;
+}
+
+.settings-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
+}
+
+.settings-panel-header h2,
+.settings-section h3 {
+  margin: 0;
+}
+
+.settings-panel-header p {
+  margin: 4px 0 0;
+  color: #666;
+  font-size: .82rem;
+}
+
+.settings-panel-main {
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr);
+  min-height: 0;
+  flex: 1 1;
+}
+
+.settings-segmented-control {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px;
+  border-right: 1px solid var(--quiet-neutral-stroke-softer);
+  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 84%, transparent);
+}
+
+.settings-segmented-control button {
+  min-width: 0;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  font: inherit;
+  font-size: .78rem;
+  padding: 8px 10px;
+  text-align: start;
+}
+
+.settings-segmented-control button:hover,
+.settings-segmented-control button:focus-visible {
+  border-color: var(--quiet-primary-stroke-soft);
+  outline: none;
+}
+
+.settings-segmented-control button.active {
+  border-color: var(--quiet-primary-stroke-soft);
+  background: var(--quiet-primary-fill-soft);
+  color: inherit;
+  font-weight: 700;
+}
+
+.settings-panel-body {
+  display: grid;
+  gap: 14px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+@media (max-width: 620px) {
+  .settings-panel {
+    height: min(620px, calc(100vh - 24px));
+  }
+
+  .settings-panel-main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .settings-segmented-control {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: 140px;
+    border-right: 0;
+    border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
+  }
+}
+
+.settings-section {
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 8px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 72%, transparent);
+}
+
+.settings-overview {
+  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 12%, var(--quiet-neutral-fill-softer));
+}
+
+.settings-note {
+  margin: 6px 0 12px;
+  color: #666;
+  font-size: .8rem;
+}
+
+.settings-option-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.settings-option,
+.settings-toggle-row,
+.settings-field {
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 6px;
+  background: var(--quiet-neutral-fill-softer);
+  padding: 8px;
+}
+
+.settings-option,
+.settings-field {
+  display: grid;
+  gap: 4px;
+}
+
+.settings-option span,
+.settings-field span,
+.settings-toggle-row span {
+  color: #666;
+  font-size: .78rem;
+}
+
+.settings-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-field select {
+  min-width: 0;
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 4px;
+  padding: 4px 6px;
+  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 70%, white);
+  color: inherit;
+}
+
+.settings-runtime-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.settings-runtime-list div {
+  display: grid;
+  grid-template-columns: minmax(12ch, max-content) 1fr;
+  gap: 10px;
+  padding: 7px 8px;
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 6px;
+  background: var(--quiet-neutral-fill-softer);
+}
+
+.settings-runtime-list dt {
+  color: #666;
+  font-size: .78rem;
+}
+
+.settings-runtime-list dd {
+  margin: 0;
+  font-family: JuliaMono, monospace;
+  font-size: .78rem;
+}
+
+.shortcut-settings-list {
+  display: grid;
+  gap: 6px;
+}
+
+.shortcut-settings-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 6px;
+  background: var(--quiet-neutral-fill-softer);
+}
+
+.shortcut-settings-row div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.shortcut-settings-row span {
+  color: #777;
+  font-size: .72rem;
+}
+
+.shortcut-settings-row code {
+  color: #555;
+  font-family: JuliaMono, monospace;
+  font-size: .72rem;
+  white-space: nowrap;
 }
 
 .commands-panel-shell {

@@ -133,6 +133,7 @@ keyboard layout.
 
 - [x] Centralize shortcut definitions in a data-driven registry instead of scattering hard-coded key checks through UI event handlers.
 - [x] Keep the default bindings aligned with familiar Agda mode shortcuts where practical.
+- [x] Add a floating Settings dialog with a shortcut settings section.
 - [ ] Add a lightweight shortcut settings UI for replacing command bindings.
 - [ ] Validate replacement bindings and warn about duplicate Agda command shortcuts.
 - [ ] Persist shortcut overrides in browser local storage.
@@ -214,6 +215,7 @@ Goal: common scratchpad workflows should be repeatable by Codex and humans.
 - [x] Add browser regression script for damaged or partially edited goal boundaries.
 - [x] Add browser regression script for Load state refresh across highlighting, diagnostics, warnings, and goals.
 - [x] Add browser regression script for the collapsible Commands panel.
+- [x] Add browser regression script for the Settings dialog shell.
 - [x] Add browser regression script for Auto.
 - [x] Add browser regression script for query shortcuts.
 - [x] Add browser regression script for command input panel submit, cancel, and focus restore.
