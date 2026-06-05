@@ -203,9 +203,10 @@ single-file exercises.
 Goal: the default experience should support demos and short practice sessions.
 
 - [x] Add a small example picker for built-in single-file examples.
+- [x] Move the example picker into the editor header as a compact selector.
 - [x] Include examples for natural numbers, case split, auto, refine, queries, Cubical import, and standard-library import.
 - [x] Keep examples as single buffers, not as multi-file projects.
-- [x] Add a reset-to-default-example action.
+- [x] Apply selected examples immediately without a separate example load or reset button.
 - [ ] Keep debug output hidden by default.
 - [ ] Make shortcut help easier to scan for beginners.
 

@@ -717,14 +717,11 @@ function replaceScratchpadSource(source) {
   view.focus()
 }
 
-function applySelectedExample() {
-  const example = scratchpadExamples.find(example => example.id === selectedExampleId)
+/** @param {string} exampleId */
+function selectScratchpadExample(exampleId) {
+  selectedExampleId = exampleId
+  const example = scratchpadExamples.find(example => example.id === exampleId)
   if (example) replaceScratchpadSource(example.source)
-}
-
-function resetDefaultExample() {
-  selectedExampleId = 'cubical-prelude'
-  replaceScratchpadSource(defaultSource)
 }
 
 function openSettingsPanel() {
@@ -954,10 +951,10 @@ $effect(() => {
 <quiet-splitter {orientation} position={.6} style="--divider-min-position: 25%; --divider-max-position: 90%;">
   <section slot="start" class="editor-section">
     <header class="header">
-      <div>
+      <div class="header-brand">
         <span class="header-title">Agda Scratchpad IDE</span> <a target="_blank" href={APP_REPO_URL} class="header-subtitle">{APP_COMMIT_ID}</a>
       </div>
-      <button type="button" class="settings-button header-settings-button" onclick={openSettingsPanel}>Settings</button>
+      {@render headerExamplePicker()}
     </header>
     <quiet-splitter class="editor-goals-splitter" orientation="vertical" position={.78} style="--divider-min-position: 35%; --divider-max-position: 92%;">
       <section slot="start" class="editor-pane">
@@ -1133,6 +1130,7 @@ $effect(() => {
     <quiet-button onclick={() => agdaController.restartALSWASM()} disabled={agdaController.alsWorkerStatus !== 'active'}>Restart</quiet-button>
     <quiet-button onclick={() => agdaController.terminateALSWASM()}  disabled={['initial', 'terminated'].includes(agdaController.alsWorkerStatus)}>Terminate</quiet-button>
     <quiet-button disabled={!agdaController.driveIsCreated} onclick={() => dumpFS()}>Dump FS</quiet-button>
+    <button type="button" class="settings-button" onclick={openSettingsPanel}>Settings</button>
   </div>
 
   {@const bytesLoaded = agdaController.wasmLoadingProgress?.bytesLoaded ?? 0}
@@ -1155,7 +1153,6 @@ $effect(() => {
   {:else if agdaController.alsWorkerStatus === 'initial'}
     <div><strong>Startup config</strong></div>
     {@render runtimeSummaryPanel()}
-    {@render examplePickerPanel()}
   {:else}
     Status: <strong>{agdaController.alsWorkerStatus}</strong>
     <ul>
@@ -1164,7 +1161,6 @@ $effect(() => {
       <li>IOTCM status: {agdaController.iotcmStatus}</li>
     </ul>
     {@render runtimeSummaryPanel()}
-    {@render examplePickerPanel()}
     <div class="flex">
       <quiet-button variant="primary" onclick={() => loadAgdaFile()}>Load</quiet-button>
       <quiet-button onclick={() => sendAbort()}>Abort</quiet-button>
@@ -1359,23 +1355,19 @@ $effect(() => {
   </section>
 {/snippet}
 
-{#snippet examplePickerPanel()}
-  <section class="example-picker" aria-label="Example picker">
-    <header class="example-picker-title">Examples</header>
-    <label for="scratchpad-example">Single-file example</label>
-    <div class="example-picker-row">
-      <select id="scratchpad-example" bind:value={selectedExampleId}>
-        {#each scratchpadExamples as example}
-          <option value={example.id}>{example.label}</option>
-        {/each}
-      </select>
-      <button type="button" onclick={applySelectedExample}>Load example</button>
-    </div>
-    {#if selectedScratchpadExample}
-      <p>{selectedScratchpadExample.description}</p>
-    {/if}
-    <button class="example-reset" type="button" onclick={resetDefaultExample}>Reset to default Cubical example</button>
-  </section>
+{#snippet headerExamplePicker()}
+  <label class="header-example-picker" for="scratchpad-example">
+    <span>Example</span>
+    <select
+      id="scratchpad-example"
+      value={selectedExampleId}
+      title={selectedScratchpadExample?.description ?? 'Select an Agda example'}
+      onchange={(event) => selectScratchpadExample(event.currentTarget.value)}>
+      {#each scratchpadExamples as example}
+        <option value={example.id}>{example.label}</option>
+      {/each}
+    </select>
+  </label>
 {/snippet}
 
 <div
@@ -1393,6 +1385,10 @@ $effect(() => {
   border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
 }
 
+.header-brand {
+  min-width: 0;
+}
+
 .header-title {
   color: #999;
   letter-spacing: 1px;
@@ -1403,6 +1399,30 @@ $effect(() => {
 .header-subtitle {
   margin-inline-start: 1em;
   font-size: .75rem;
+}
+
+.header-example-picker {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  color: #666;
+  font-size: .8rem;
+  font-weight: 700;
+}
+
+.header-example-picker select {
+  min-width: 220px;
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 4px;
+  padding: 4px 6px;
+  background: var(--quiet-neutral-fill-softer);
+  color: inherit;
+}
+
+.header-example-picker select:focus-visible {
+  border-color: var(--quiet-primary-stroke-soft);
+  outline: none;
 }
 
 .container {
@@ -1469,72 +1489,6 @@ quiet-splitter {
 .runtime-summary dd {
   margin: 0;
   font-family: JuliaMono, monospace;
-}
-
-.example-picker {
-  margin: 8px 0 12px;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 60%, transparent);
-  padding: 8px;
-}
-
-.example-picker-title {
-  margin-bottom: 6px;
-  color: #777;
-  font-family: monospace;
-  font-size: .75rem;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-}
-
-.example-picker label {
-  display: block;
-  margin-bottom: 4px;
-  color: #666;
-  font-size: .8rem;
-  font-weight: 700;
-}
-
-.example-picker-row {
-  display: flex;
-  gap: 6px;
-}
-
-.example-picker select {
-  min-width: 0;
-  flex: 1 1;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  padding: 4px 6px;
-  background: var(--quiet-neutral-fill-softer);
-  color: inherit;
-}
-
-.example-picker button {
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  padding: 4px 8px;
-  background: var(--quiet-neutral-fill-softer);
-  color: inherit;
-  cursor: pointer;
-}
-
-.example-picker button:hover,
-.example-picker button:focus-visible,
-.example-picker select:focus-visible {
-  border-color: var(--quiet-primary-stroke-soft);
-  outline: none;
-}
-
-.example-picker p {
-  margin: 6px 0;
-  color: #666;
-  font-size: .8rem;
-}
-
-.example-reset {
-  margin-top: 2px;
 }
 
 .container > :global(*) {
@@ -1936,10 +1890,6 @@ quiet-splitter {
   border-color: var(--quiet-primary-stroke-soft);
   outline: none;
   background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill-softer));
-}
-
-.header-settings-button {
-  flex: 0 0 auto;
 }
 
 .settings-backdrop {
