@@ -140,10 +140,10 @@ keyboard layout.
 - [x] Add a reset-to-default-shortcuts action.
 - [x] Make shortcut help render from the same registry used by the dispatcher.
 - [x] Add a collapsible, scrollable Commands panel rendered from the shortcut registry.
-- [ ] Browser-test overridden shortcuts for representative command classes.
+- [x] Browser-test overridden shortcuts for representative command classes.
 - [x] Browser-test an overridden Load shortcut.
 - [x] Browser-test an overridden goal command shortcut.
-- [ ] Browser-test an overridden query command shortcut.
+- [x] Browser-test an overridden query command shortcut.
 
 ## Diagnostics and Output Panels
 

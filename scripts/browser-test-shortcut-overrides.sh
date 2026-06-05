@@ -42,6 +42,7 @@ ab eval "(async () => {
 
   const loadRow = setOverride('Load', 'Ctrl-c Ctrl-g')
   const giveRow = setOverride('Give', 'Ctrl-c Ctrl-y')
+  const whyInScopeRow = setOverride('Why in scope', 'Ctrl-c Ctrl-u')
   await new Promise(requestAnimationFrame)
 
   const save = Array.from(document.querySelectorAll('button'))
@@ -54,13 +55,18 @@ ab eval "(async () => {
   const stored = JSON.parse(localStorage.getItem('agda-scratchpad.shortcut-overrides.v1') || '{}')
   if (stored.load !== 'Ctrl-c Ctrl-g') throw new Error('Load shortcut override was not stored')
   if (stored.give !== 'Ctrl-c Ctrl-y') throw new Error('Give shortcut override was not stored')
+  if (stored['why-in-scope'] !== 'Ctrl-c Ctrl-u') throw new Error('Why in scope shortcut override was not stored')
   const loadEffective = loadRow.textContent
   const giveEffective = giveRow.textContent
+  const whyInScopeEffective = whyInScopeRow.textContent
   if (!loadEffective.includes('Effective: Ctrl-c Ctrl-g')) {
     throw new Error('Load effective shortcut did not update')
   }
   if (!giveEffective.includes('Effective: Ctrl-c Ctrl-y')) {
     throw new Error('Give effective shortcut did not update')
+  }
+  if (!whyInScopeEffective.includes('Effective: Ctrl-c Ctrl-u')) {
+    throw new Error('Why in scope effective shortcut did not update')
   }
 
   const close = Array.from(document.querySelectorAll('button'))
@@ -68,10 +74,10 @@ ab eval "(async () => {
   if (!close) throw new Error('Settings close button missing')
   close.click()
   await new Promise(requestAnimationFrame)
-  return { ok: true, stored, loadEffective, giveEffective }
+  return { ok: true, stored, loadEffective, giveEffective, whyInScopeEffective }
 })()"
 
-echo "PASS Load and Give shortcut overrides save and update Settings"
+echo "PASS Load, Give, and Why in scope shortcut overrides save and update Settings"
 
 start_als
 
@@ -107,4 +113,16 @@ assert_editor_contains "idN n = n" "Overridden Give fills goal"
 assert_log_contains "Give finished." "Overridden Give finishes"
 
 echo "PASS overridden Ctrl-c Ctrl-y triggers Give"
+
+set_editor_fixture "test-fixtures/agda/query-bool.agda"
+click_button Load
+wait_for_log_contains "Load finished." 30000
+
+select_text "true" "last"
+press_agda_chord "u" "KeyU"
+ab wait 3000
+
+assert_log_contains "\"kind\":\"WhyInScope\"" "Overridden Why in scope response"
+
+echo "PASS overridden Ctrl-c Ctrl-u triggers Why in scope"
 echo "browser-test-shortcut-overrides: PASS"
