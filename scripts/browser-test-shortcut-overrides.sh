@@ -84,8 +84,6 @@ start_als
 ab eval "(() => {
   const view = document.querySelector('.cm-content')?.cmTile?.view
   if (!view) throw new Error('missing CodeMirror view')
-  const output = document.querySelector('textarea.textbox')
-  if (output) output.value = ''
   view.focus()
   window.dispatchEvent(new KeyboardEvent('keydown', {
     key: 'c', code: 'KeyC', ctrlKey: true, bubbles: true, cancelable: true,

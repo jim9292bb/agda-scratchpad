@@ -122,7 +122,7 @@ wait_for_log_contains() {
     local found
     found="$(ab eval "(() => {
       const needle = $needle_json
-      const text = document.querySelector('textarea.textbox')?.value ?? ''
+      const text = document.querySelector('.messages-panel')?.dataset.logContent ?? ''
       return text.includes(needle)
     })()")"
     if [[ "$found" == *"true"* ]]; then
@@ -144,7 +144,7 @@ wait_for_log_matches() {
     local found
     found="$(ab eval "(() => {
       const pattern = new RegExp($pattern_json, 'i')
-      const text = document.querySelector('textarea.textbox')?.value ?? ''
+      const text = document.querySelector('.messages-panel')?.dataset.logContent ?? ''
       return pattern.test(text)
     })()")"
     if [[ "$found" == *"true"* ]]; then
@@ -252,7 +252,7 @@ editor_text() {
 }
 
 log_text() {
-  ab eval "(() => document.querySelector('textarea.textbox')?.value ?? '')()"
+  ab eval "(() => document.querySelector('.messages-panel')?.dataset.logContent ?? '')()"
 }
 
 assert_editor_contains() {
@@ -274,7 +274,7 @@ assert_log_contains() {
   label="${2:-$1}"
   ab eval "(() => {
     const needle = $needle_json
-    const text = document.querySelector('textarea.textbox')?.value ?? ''
+    const text = document.querySelector('.messages-panel')?.dataset.logContent ?? ''
     if (!text.includes(needle)) throw new Error('Log does not contain: ' + needle)
     return { ok: true, contains: needle }
   })()"
@@ -358,7 +358,7 @@ assert_log_not_contains() {
   label="${2:-$1}"
   ab eval "(() => {
     const needle = $needle_json
-    const text = document.querySelector('textarea.textbox')?.value ?? ''
+    const text = document.querySelector('.messages-panel')?.dataset.logContent ?? ''
     if (text.includes(needle)) throw new Error('Log unexpectedly contains: ' + needle)
     return { ok: true, missing: needle }
   })()"
@@ -371,7 +371,7 @@ assert_log_not_matches() {
   label="${2:-$1}"
   ab eval "(() => {
     const pattern = new RegExp($pattern_json, 'i')
-    const text = document.querySelector('textarea.textbox')?.value ?? ''
+    const text = document.querySelector('.messages-panel')?.dataset.logContent ?? ''
     if (pattern.test(text)) throw new Error('Log unexpectedly matches: ' + pattern)
     return { ok: true, pattern: String(pattern) }
   })()"
@@ -384,7 +384,7 @@ assert_log_matches() {
   label="${2:-$1}"
   ab eval "(() => {
     const pattern = new RegExp($pattern_json, 'i')
-    const text = document.querySelector('textarea.textbox')?.value ?? ''
+    const text = document.querySelector('.messages-panel')?.dataset.logContent ?? ''
     if (!pattern.test(text)) throw new Error('Log does not match: ' + pattern + '\\n' + text)
     return { ok: true, pattern: String(pattern) }
   })()"

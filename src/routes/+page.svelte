@@ -691,6 +691,7 @@ function codeMirror(el) {
 function clearScratchpadInteractionState() {
   goalInfos = []
   panelGoalInfos = []
+  agdaDiagnostics = []
   activeGoalId = null
   activeGoalDetailRequestKey = ''
   activeGoalDetailStatus = 'idle'
@@ -818,6 +819,10 @@ async function loadAgdaFile() {
   textboxContent = `Loading ${agdaController.currentFilePath}...\n`
   goalInfos = []
   panelGoalInfos = []
+  agdaDiagnostics = []
+  if (agdaController.alsRouter) {
+    agdaController.alsRouter.lastAgdaDiagnostics = []
+  }
   activeGoalId = null
   activeGoalDetailRequestKey = ''
   activeGoalDetailStatus = 'idle'
@@ -827,26 +832,43 @@ async function loadAgdaFile() {
   agdaController.editorView?.dispatch({ effects: clearGoals.of() })
   try {
     await agdaController.loadAgdaFile()
+    syncAgdaDiagnostics()
     textboxContent += 'Load finished.\n'
   } catch (err) {
+    syncAgdaDiagnostics()
     textboxContent += `Load failed: ${err instanceof Error ? err.message : String(err)}\n`
     throw err
   }
 }
 
-/** @type {HTMLTextAreaElement} */
-let textbox
+function syncAgdaDiagnostics() {
+  agdaDiagnostics = [...(agdaController.alsRouter?.lastAgdaDiagnostics ?? [])]
+}
+
+/** @param {import('$lib/agda/diagnostics').AgdaDiagnostic} diagnostic */
+function formatDiagnosticLocation(diagnostic) {
+  const start = `${diagnostic.filepath}:${diagnostic.line}.${diagnostic.column}`
+  if (diagnostic.endLine == null || diagnostic.endColumn == null) return start
+  if (diagnostic.endLine === diagnostic.line) return `${start}-${diagnostic.endColumn}`
+  return `${start}-${diagnostic.endLine}.${diagnostic.endColumn}`
+}
+
+/** @type {HTMLDivElement | undefined} */
+let textbox = $state(/** @type {HTMLDivElement | undefined} */(undefined))
 
 let textboxContent = $state('WIP')
+let logEntries = $derived(textboxContent.trimEnd().split(/\n+/).filter(Boolean))
 let selectedExampleId = $state('cubical-prelude')
 let selectedScratchpadExample = $derived(scratchpadExamples.find(example => example.id === selectedExampleId))
 const initialShortcutOverrides = loadShortcutOverrides()
 let goalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
 let panelGoalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
+let agdaDiagnostics = $state(/** @type {import('$lib/agda/diagnostics').AgdaDiagnostic[]} */([]))
 let activeGoalId = $state(/** @type {number | string | null} */(null))
 let activeGoalDetailRequestKey = $state('')
 let activeGoalDetailStatus = $state(/** @type {'idle' | 'loading' | 'ready' | 'error'} */('idle'))
 let activeGoalDetailError = $state('')
+let selectedMessageTab = $state(/** @type {'log' | 'errors'} */('log'))
 let commandsPanelVisible = $state(false)
 let settingsPanelVisible = $state(false)
 let selectedSettingsSegment = $state('general')
@@ -882,7 +904,7 @@ $effect(() => {
   untrack(() => raf)
   if (needScroll && !raf) {
     raf = requestAnimationFrame(() => {
-      textbox.scrollTop = textbox.scrollHeight
+      if (textbox) textbox.scrollTop = textbox.scrollHeight
       raf = undefined
       needScroll = false
     })
@@ -1005,12 +1027,70 @@ $effect(() => {
       </section>
 
       <section slot="end" class="output-section">
-        <textarea bind:this={textbox} class="textbox" value={textboxContent} placeholder="(log area is empty)"></textarea>
+        {@render messagesPanel()}
       </section>
     </quiet-splitter>
   </section>
 </quiet-splitter>
 {@render settingsPanel()}
+{/snippet}
+
+{#snippet messagesPanel()}
+  <section class="messages-panel" data-log-content={textboxContent} aria-label="Messages">
+    <header class="messages-header">
+      <div>
+        <strong>Messages</strong>
+        <span>{selectedMessageTab === 'log' ? 'Agda interaction log' : `${agdaDiagnostics.length} diagnostics`}</span>
+      </div>
+      <label class="messages-view-select">
+        <span>View</span>
+        <select bind:value={selectedMessageTab} aria-label="Message view">
+          <option value="log">Log</option>
+          <option value="errors">Errors {agdaDiagnostics.length ? `(${agdaDiagnostics.length})` : ''}</option>
+        </select>
+      </label>
+    </header>
+
+    <div class="messages-body">
+      {#if selectedMessageTab === 'log'}
+        <div bind:this={textbox} class="messages-log" aria-label="Agda log" role="log">
+          {#if logEntries.length}
+            {#each logEntries as entry}
+              <pre class="messages-log-entry">{entry}</pre>
+            {/each}
+          {:else}
+            <div class="messages-log-empty">(log area is empty)</div>
+          {/if}
+        </div>
+      {:else}
+        {@render diagnosticsPanel()}
+      {/if}
+    </div>
+  </section>
+{/snippet}
+
+{#snippet diagnosticsPanel()}
+  <section class="diagnostics-panel" aria-label="Agda diagnostics">
+    <header class="diagnostics-panel-title">Diagnostics</header>
+    {#if agdaDiagnostics.length}
+      <div class="diagnostics-list">
+          {#each agdaDiagnostics as diagnostic}
+            <article class:error={diagnostic.severity === 'error'} class:warning={diagnostic.severity === 'warning'} class="diagnostic-card">
+              <div class="diagnostic-meta">
+                <strong>{diagnostic.severity}</strong>
+                {#if diagnostic.code}
+                  <code>{diagnostic.code}</code>
+                {/if}
+              </div>
+              <div class="diagnostic-location">{formatDiagnosticLocation(diagnostic)}</div>
+              <pre>{diagnostic.message}</pre>
+            </article>
+          {/each}
+      </div>
+    {:else}
+      <div class="diagnostics-empty">No diagnostics.</div>
+    {/if}
+  </section>
 {/snippet}
 
 {#snippet alsButtons()}
@@ -1607,16 +1687,183 @@ quiet-splitter {
   overflow: auto;
 }
 
-.textbox {
-  display: block;
+.output-section {
+  min-height: 0;
+}
+
+.messages-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  border-top: 1px solid var(--quiet-neutral-stroke-softer);
+  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 82%, transparent);
+}
+
+.messages-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
+}
+
+.messages-header div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.messages-header strong {
+  font-size: .8rem;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+
+.messages-header span {
+  color: #666;
+  font-size: .72rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.messages-view-select {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #666;
+  font-size: .72rem;
+}
+
+.messages-view-select select {
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 4px;
+  background: var(--quiet-neutral-fill-softer);
+  color: inherit;
+  font: inherit;
+  padding: 4px 24px 4px 7px;
+}
+
+.messages-view-select select:hover,
+.messages-view-select select:focus-visible {
+  border-color: var(--quiet-primary-stroke-soft);
+  outline: none;
+}
+
+.messages-body {
+  display: flex;
   flex: 1 1;
   min-height: 0;
-  resize: none;
-  border-style: none;
-  font-size: 11px;
-  font-family: JuliaMono, monospace;
+  padding: 8px;
+}
+
+.diagnostics-panel {
+  display: grid;
+  gap: 8px;
   width: 100%;
-  padding: 4px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.diagnostics-panel-title {
+  color: #555;
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+
+.diagnostics-list {
+  display: grid;
+  gap: 8px;
+}
+
+.diagnostics-empty {
+  color: #777;
+  font-size: .8rem;
+}
+
+.diagnostic-card {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-left-width: 4px;
+  border-radius: 6px;
+  background: var(--quiet-neutral-fill-softer);
+}
+
+.diagnostic-card.error {
+  border-left-color: #c2410c;
+}
+
+.diagnostic-card.warning {
+  border-left-color: #ca8a04;
+}
+
+.diagnostic-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: .76rem;
+  text-transform: capitalize;
+}
+
+.diagnostic-meta code {
+  color: #666;
+  font-family: JuliaMono, monospace;
+  font-size: .72rem;
+  text-transform: none;
+}
+
+.diagnostic-location {
+  color: #444;
+  font-family: JuliaMono, monospace;
+  font-size: .76rem;
+}
+
+.diagnostic-card pre {
+  margin: 0;
+  color: #555;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: JuliaMono, monospace;
+  font-size: .72rem;
+}
+
+.messages-log {
+  flex: 1 1;
+  min-height: 0;
+  width: 100%;
+  overflow: auto;
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 78%, white);
+}
+
+.messages-log-entry {
+  margin: 0;
+  padding: 7px 8px;
+  color: #444;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: JuliaMono, monospace;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.messages-log-entry + .messages-log-entry {
+  border-top: 1px solid var(--quiet-neutral-stroke-softer);
+}
+
+.messages-log-empty {
+  padding: 8px;
+  color: #777;
+  font-size: .8rem;
 }
 
 .flex {
