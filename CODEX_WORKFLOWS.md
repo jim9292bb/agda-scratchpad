@@ -94,6 +94,92 @@ Do not require Superpowers-specific worktrees, subagents, or strict TDD unless
 the user explicitly asks for them. This repo's primary workflow remains
 `AGENTS.md`, `PROJECT_GOAL.md`, `ROADMAP.md`, and this file.
 
+## Spec-First Feature Workflow
+
+Use this for changes that affect ALS commands, goal lifecycle, shortcut
+dispatch, panels, or product scope.
+
+1. State the learner-facing workflow in one or two sentences.
+2. Check `PROJECT_GOAL.md` for scope fit. Reject project-oriented behavior such
+   as multi-file editing unless the goal changes explicitly.
+3. Check `ROADMAP.md` for the nearest existing item. Update the roadmap only
+   when the requested behavior changes the plan.
+4. Inspect existing implementation before designing new code:
+   ```sh
+   rg "Cmd_|InteractionPoints|goalState|shortcut|diagnostic|messages" src
+   ```
+5. For Agda-mode behavior, check `docs/AGDA_MODE_VSCODE_MAPPING.md` and the
+   relevant reference repository before porting.
+6. Write a concise plan that identifies the state owner, UI surface, ALS
+   request/response path, and required regression.
+7. Implement the smallest coherent slice. Do not combine broad refactors with
+   new user-visible behavior unless the refactor is required for correctness.
+
+## Systematic Debugging Workflow
+
+Use this for broken editor behavior, stale goals, missing highlighting,
+shortcut conflicts, browser-only failures, or ALS response surprises.
+
+1. Reproduce the issue with a minimal Agda buffer or fixture under
+   `test-fixtures/agda/`.
+2. Identify which layer owns the failure:
+   - CodeMirror document state and selection.
+   - Goal state and interaction point ids.
+   - ALS request construction.
+   - ALS response handling.
+   - UI rendering or browser event capture.
+3. Inspect concrete evidence before editing:
+   ```sh
+   rg "runAgdaShortcut|handleAgdaChord|InteractionPoints|JumpToError" src
+   git diff -- src
+   ```
+4. For browser behavior, use `agent-browser` to inspect page text, console
+   errors, and relevant DOM. Do not mutate `.cm-content` directly.
+5. Change one layer at a time and rerun the smallest matching regression.
+6. Add or update a browser regression when the bug could recur.
+
+## Verification Before Completion
+
+Use this before saying a code change is complete.
+
+Always run at least:
+
+```sh
+source /usr/share/nvm/init-nvm.sh && npm run check
+```
+
+Run `npm run build` for changes that affect imports, bundling, Svelte
+components, static assets, worker setup, or release output:
+
+```sh
+source /usr/share/nvm/init-nvm.sh && npm run build
+```
+
+Run targeted browser regressions for browser-visible behavior:
+
+- Editor, goal, or shortcut changes: `npm run test:browser:goal-lifecycle`,
+  `npm run test:browser:core-commands`, or the nearest specific script.
+- Query command changes: `npm run test:browser:queries`.
+- Command input changes: `npm run test:browser:command-input`.
+- Settings or shortcut override changes: `npm run test:browser:shortcut-overrides`.
+- Messages, diagnostics, or errors: `npm run test:browser:errors`.
+- Library/runtime startup: `npm run test:browser:libraries`.
+
+If a test is skipped, state why and describe the residual risk.
+
+## Review Before Commit
+
+Use this checklist before making a requested commit.
+
+1. Run `git status --short` and inspect the diff.
+2. Confirm unrelated user changes are not included.
+3. Confirm roadmap or workflow docs are updated when the work changes project
+   direction, command coverage, or regression expectations.
+4. Confirm browser-facing changes have matching browser regression coverage or
+   a documented reason for not adding it.
+5. Confirm the single-file scratchpad scope is preserved.
+6. Commit only when requested and never push unless explicitly requested.
+
 ## Core Practice Command Refactor Workflow
 
 Use this when working on Core Agda Commands.

@@ -229,6 +229,17 @@ Goal: common scratchpad workflows should be repeatable by Codex and humans.
 - [x] Add browser regression script for syntax and semantic error display.
 - [x] Expose browser regressions through `package.json` scripts where practical.
 
+## Codex Workflow and Methodology
+
+Goal: keep Codex-assisted development predictable without making the repository
+depend on agent-specific tooling.
+
+- [x] Document plugin and MCP usage for this workspace.
+- [x] Document lightweight Superpowers-inspired development practices.
+- [x] Add spec-first, systematic debugging, verification, and review checklists.
+- [ ] Keep workflow documentation synchronized when new browser regressions or
+      major development phases are added.
+
 ## Implementation Notes
 
 - Prioritize single-file learning workflows over project-oriented IDE features.

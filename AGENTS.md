@@ -133,9 +133,15 @@ VSCode porting checklist. Runtime support, goal lifecycle, core practice
 commands, goal queries, and Goals panel/navigation are substantially complete,
 with remaining browser regression coverage tracked in the TODO.
 
-Next priority: Command Input Panel, followed by Diagnostics and Output Panels,
-because these improve the single-file learning workflow without expanding into
-project management.
+Next priority: finish Diagnostics and Output Panel interaction, especially
+clickable errors and structured Queries/Warnings views, then continue with the
+Unicode Input Method. These improve the single-file learning workflow without
+expanding into project management.
+
+For larger feature work, use the Superpowers-inspired workflows in
+`CODEX_WORKFLOWS.md`: clarify the intended learner workflow, write a concise
+plan, change one coherent layer at a time, and verify with the matching
+browser regression before reporting completion.
 
 Before adding command behavior, inspect existing `Cmd_*` usage and prefer adding command builders in `src/lib/agda/commands.js` instead of duplicating request strings in `src/routes/+page.svelte`.
 
