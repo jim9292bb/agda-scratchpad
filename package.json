@@ -16,14 +16,16 @@
     "check:watch": "npm run svelte-kit-sync && svelte-check --tsconfig ./tsconfigs/tsconfig.app.json --watch",
     "test:unit": "vitest",
     "test": "npm run test:unit -- --run",
-    "test:browser": "npm run test:browser:goal-lifecycle && npm run test:browser:auto && npm run test:browser:queries && npm run test:browser:command-input && npm run test:browser:goal-details && npm run test:browser:libraries && npm run test:browser:errors",
+    "test:browser": "npm run test:browser:core-commands && npm run test:browser:goal-lifecycle && npm run test:browser:auto && npm run test:browser:queries && npm run test:browser:command-input && npm run test:browser:goal-details && npm run test:browser:libraries && npm run test:browser:errors && npm run test:browser:examples",
+    "test:browser:core-commands": "scripts/browser-test-core-commands.sh",
     "test:browser:goal-lifecycle": "scripts/browser-test-goal-lifecycle.sh",
     "test:browser:auto": "scripts/browser-test-auto.sh",
     "test:browser:queries": "scripts/browser-test-query-shortcuts.sh",
     "test:browser:command-input": "scripts/browser-test-command-input-panel.sh",
     "test:browser:goal-details": "scripts/browser-test-goal-details.sh",
     "test:browser:libraries": "scripts/browser-test-library-loads.sh",
-    "test:browser:errors": "scripts/browser-test-error-display.sh"
+    "test:browser:errors": "scripts/browser-test-error-display.sh",
+    "test:browser:examples": "scripts/browser-test-example-picker.sh"
   },
   "devDependencies": {
     "@sveltejs/kit": "^2.53.4",

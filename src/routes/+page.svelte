@@ -65,6 +65,81 @@ const runtimeSummary = [
   { label: 'Cubical', value: 'v0.9' },
 ]
 
+const defaultSource = '{-# OPTIONS --cubical --guardedness #-}\n\nopen import Cubical.Foundations.Prelude\n'
+
+const scratchpadExamples = [
+  {
+    id: 'cubical-prelude',
+    label: 'Cubical Prelude',
+    description: 'Minimal Cubical Agda import.',
+    source: defaultSource,
+  },
+  {
+    id: 'nat-basics',
+    label: 'Nat basics',
+    description: 'Define a small natural number datatype.',
+    source: `data N : Set where
+  z : N
+  s : N -> N
+
+one : N
+one = s z
+`,
+  },
+  {
+    id: 'case-split-plus',
+    label: 'Case split practice',
+    description: 'Practice C-c C-c on the first argument.',
+    source: `data N : Set where
+  z : N
+  s : N -> N
+
+_+_ : N -> N -> N
+a + b = ?
+`,
+  },
+  {
+    id: 'auto-identity',
+    label: 'Auto practice',
+    description: 'Practice C-c C-a in a simple goal.',
+    source: `data N : Set where
+  z : N
+  s : N -> N
+
+idN : N -> N
+idN n = {! !}
+`,
+  },
+  {
+    id: 'refine-elaborate',
+    label: 'Refine / elaborate',
+    description: 'Practice C-c C-r or C-c C-m with an expression.',
+    source: `data N : Set where
+  z : N
+  s : N -> N
+
+idN : N -> N
+idN n = {! n !}
+`,
+  },
+  {
+    id: 'query-bool',
+    label: 'Query practice',
+    description: 'Practice infer, compute, module contents, and why-in-scope.',
+    source: `open import Agda.Builtin.Bool
+
+test : Bool
+test = true
+`,
+  },
+  {
+    id: 'stdlib-nat',
+    label: 'standard-library Nat',
+    description: 'Minimal standard-library import.',
+    source: 'open import Data.Nat.Base\n',
+  },
+]
+
 let width = $state(0)
 let isMobile = $derived(width < 540)
 
@@ -488,7 +563,7 @@ const agdaChordKeymap = EditorView.domEventHandlers({
 /** @type {import('svelte/attachments').Attachment} */
 function codeMirror(el) {
   const ev = new EditorView({
-    doc: localStorage.getItem(LS_DOC_KEY) ?? '{-# OPTIONS --cubical --guardedness #-}\n\nopen import Cubical.Foundations.Prelude\n',
+    doc: localStorage.getItem(LS_DOC_KEY) ?? defaultSource,
     parent: el,
     extensions: [
       basicSetup,
@@ -547,6 +622,42 @@ function codeMirror(el) {
     clearAgdaChord()
     ev.destroy()
   }
+}
+
+function clearScratchpadInteractionState() {
+  goalInfos = []
+  panelGoalInfos = []
+  activeGoalId = null
+  activeGoalDetailRequestKey = ''
+  activeGoalDetailStatus = 'idle'
+  activeGoalDetailError = ''
+  commandInputPrompt = null
+  commandInputError = ''
+  agdaController.editorView?.dispatch({ effects: clearGoals.of() })
+}
+
+/** @param {string} source */
+function replaceScratchpadSource(source) {
+  const view = agdaController.editorView
+  if (!view) return
+  view.dispatch({
+    changes: { from: 0, to: view.state.doc.length, insert: source },
+    selection: { anchor: 0 },
+  })
+  localStorage.setItem(LS_DOC_KEY, source)
+  clearScratchpadInteractionState()
+  textboxContent = 'Example loaded into editor. Click Load to type-check it.\n'
+  view.focus()
+}
+
+function applySelectedExample() {
+  const example = scratchpadExamples.find(example => example.id === selectedExampleId)
+  if (example) replaceScratchpadSource(example.source)
+}
+
+function resetDefaultExample() {
+  selectedExampleId = 'cubical-prelude'
+  replaceScratchpadSource(defaultSource)
 }
 
 async function dumpFS() {
@@ -610,6 +721,8 @@ async function loadAgdaFile() {
 let textbox
 
 let textboxContent = $state('WIP')
+let selectedExampleId = $state('cubical-prelude')
+let selectedScratchpadExample = $derived(scratchpadExamples.find(example => example.id === selectedExampleId))
 let goalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
 let panelGoalInfos = $state(/** @type {{id: number | string, range?: string, type?: string, context?: string}[]} */([]))
 let activeGoalId = $state(/** @type {number | string | null} */(null))
@@ -807,6 +920,7 @@ $effect(() => {
   {:else if agdaController.alsWorkerStatus === 'initial'}
     <div><strong>Startup config</strong></div>
     {@render runtimeSummaryPanel()}
+    {@render examplePickerPanel()}
   {:else}
     Status: <strong>{agdaController.alsWorkerStatus}</strong>
     <ul>
@@ -815,6 +929,7 @@ $effect(() => {
       <li>IOTCM status: {agdaController.iotcmStatus}</li>
     </ul>
     {@render runtimeSummaryPanel()}
+    {@render examplePickerPanel()}
     <div class="flex">
       <quiet-button variant="primary" onclick={() => loadAgdaFile()}>Load</quiet-button>
       <quiet-button onclick={() => sendAbort()}>Abort</quiet-button>
@@ -859,6 +974,25 @@ $effect(() => {
         </div>
       {/each}
     </dl>
+  </section>
+{/snippet}
+
+{#snippet examplePickerPanel()}
+  <section class="example-picker" aria-label="Example picker">
+    <header class="example-picker-title">Examples</header>
+    <label for="scratchpad-example">Single-file example</label>
+    <div class="example-picker-row">
+      <select id="scratchpad-example" bind:value={selectedExampleId}>
+        {#each scratchpadExamples as example}
+          <option value={example.id}>{example.label}</option>
+        {/each}
+      </select>
+      <button type="button" onclick={applySelectedExample}>Load example</button>
+    </div>
+    {#if selectedScratchpadExample}
+      <p>{selectedScratchpadExample.description}</p>
+    {/if}
+    <button class="example-reset" type="button" onclick={resetDefaultExample}>Reset to default Cubical example</button>
   </section>
 {/snippet}
 
@@ -949,6 +1083,72 @@ quiet-splitter {
 .runtime-summary dd {
   margin: 0;
   font-family: JuliaMono, monospace;
+}
+
+.example-picker {
+  margin: 8px 0 12px;
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 60%, transparent);
+  padding: 8px;
+}
+
+.example-picker-title {
+  margin-bottom: 6px;
+  color: #777;
+  font-family: monospace;
+  font-size: .75rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.example-picker label {
+  display: block;
+  margin-bottom: 4px;
+  color: #666;
+  font-size: .8rem;
+  font-weight: 700;
+}
+
+.example-picker-row {
+  display: flex;
+  gap: 6px;
+}
+
+.example-picker select {
+  min-width: 0;
+  flex: 1 1;
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 4px;
+  padding: 4px 6px;
+  background: var(--quiet-neutral-fill-softer);
+  color: inherit;
+}
+
+.example-picker button {
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 4px;
+  padding: 4px 8px;
+  background: var(--quiet-neutral-fill-softer);
+  color: inherit;
+  cursor: pointer;
+}
+
+.example-picker button:hover,
+.example-picker button:focus-visible,
+.example-picker select:focus-visible {
+  border-color: var(--quiet-primary-stroke-soft);
+  outline: none;
+}
+
+.example-picker p {
+  margin: 6px 0;
+  color: #666;
+  font-size: .8rem;
+}
+
+.example-reset {
+  margin-top: 2px;
 }
 
 .container > :global(*) {

@@ -101,6 +101,7 @@ Prefer the npm regression entry points first:
 
 ```sh
 npm run test:browser
+npm run test:browser:core-commands
 npm run test:browser:goal-lifecycle
 npm run test:browser:auto
 npm run test:browser:queries
@@ -108,6 +109,7 @@ npm run test:browser:command-input
 npm run test:browser:goal-details
 npm run test:browser:libraries
 npm run test:browser:errors
+npm run test:browser:examples
 ```
 
 Run browser regressions with a dev server already running:

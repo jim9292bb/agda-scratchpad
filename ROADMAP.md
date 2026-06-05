@@ -72,7 +72,7 @@ Agda shortcuts.
 - [x] Show a clear error when a command requires content but the current goal is empty.
 - [x] Show a clear error when the cursor is not inside a goal.
 - [x] Extract core command construction into `src/lib/agda/commands.js`.
-- [ ] Browser-test Load, Give, Case split, Refine, Auto, Elaborate and give, and Helper function type with `agent-browser` scripts.
+- [x] Browser-test Load, Give, Case split, Refine, Auto, Elaborate and give, and Helper function type with `agent-browser` scripts.
 
 ## Goal Queries and Exploration
 
@@ -181,10 +181,10 @@ single-file exercises.
 
 Goal: the default experience should support demos and short practice sessions.
 
-- [ ] Add a small example picker for built-in single-file examples.
-- [ ] Include examples for natural numbers, case split, auto, refine, queries, Cubical import, and standard-library import.
-- [ ] Keep examples as single buffers, not as multi-file projects.
-- [ ] Add a reset-to-default-example action.
+- [x] Add a small example picker for built-in single-file examples.
+- [x] Include examples for natural numbers, case split, auto, refine, queries, Cubical import, and standard-library import.
+- [x] Keep examples as single buffers, not as multi-file projects.
+- [x] Add a reset-to-default-example action.
 - [ ] Keep debug output hidden by default.
 - [ ] Make shortcut help easier to scan for beginners.
 
