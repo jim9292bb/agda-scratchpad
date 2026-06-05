@@ -752,6 +752,7 @@ let activeGoalId = $state(/** @type {number | string | null} */(null))
 let activeGoalDetailRequestKey = $state('')
 let activeGoalDetailStatus = $state(/** @type {'idle' | 'loading' | 'ready' | 'error'} */('idle'))
 let activeGoalDetailError = $state('')
+let commandsPanelVisible = $state(false)
 let commandInputPrompt = $state(/** @type {null | {
   label: string,
   value: string,
@@ -957,6 +958,34 @@ $effect(() => {
       <quiet-button variant="primary" onclick={() => loadAgdaFile()}>Load</quiet-button>
       <quiet-button onclick={() => sendAbort()}>Abort</quiet-button>
     </div>
+    <section class="commands-panel-shell">
+      <button
+        type="button"
+        class="commands-panel-toggle"
+        aria-expanded={commandsPanelVisible}
+        aria-controls="commands-panel"
+        onclick={() => { commandsPanelVisible = !commandsPanelVisible }}>
+        {commandsPanelVisible ? 'Hide commands' : 'Show commands'}
+      </button>
+      {#if commandsPanelVisible}
+        <div id="commands-panel" class="commands-panel" aria-label="Agda commands">
+          {#each agdaShortcutRegistry as shortcut}
+            <button
+              type="button"
+              class="command-button"
+              onclick={() => {
+                if (agdaController.editorView) {
+                  runAgdaShortcutDefinition(shortcut, agdaController.editorView)
+                  agdaController.editorView.focus()
+                }
+              }}>
+              <span class="command-button-label">{shortcut.label}</span>
+              <span class="command-button-shortcut">{formatAgdaShortcutHelpBinding(shortcut)}</span>
+            </button>
+          {/each}
+        </div>
+      {/if}
+    </section>
     <details class="shortcut-help">
       <summary>Agda shortcuts</summary>
       <dl>
@@ -1348,6 +1377,65 @@ quiet-splitter {
 .flex {
   display: flex;
   gap: 8px;
+}
+
+.commands-panel-shell {
+  margin-top: 12px;
+}
+
+.commands-panel-toggle,
+.command-button {
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 4px;
+  background: var(--quiet-neutral-fill-softer);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.commands-panel-toggle {
+  width: 100%;
+  padding: 6px 8px;
+  text-align: start;
+}
+
+.commands-panel-toggle:hover,
+.commands-panel-toggle:focus-visible,
+.command-button:hover,
+.command-button:focus-visible {
+  border-color: var(--quiet-primary-stroke-soft);
+  outline: none;
+  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill-softer));
+}
+
+.commands-panel {
+  display: grid;
+  gap: 6px;
+  max-height: 260px;
+  margin-top: 8px;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 76%, transparent);
+}
+
+.command-button {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2px;
+  padding: 7px 8px;
+  text-align: start;
+}
+
+.command-button-label {
+  font-weight: 650;
+}
+
+.command-button-shortcut {
+  color: #666;
+  font-family: JuliaMono, monospace;
+  font-size: .72rem;
 }
 
 .shortcut-help {

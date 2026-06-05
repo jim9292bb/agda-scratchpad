@@ -138,6 +138,7 @@ keyboard layout.
 - [ ] Persist shortcut overrides in browser local storage.
 - [ ] Add a reset-to-default-shortcuts action.
 - [x] Make shortcut help render from the same registry used by the dispatcher.
+- [x] Add a collapsible, scrollable Commands panel rendered from the shortcut registry.
 - [ ] Browser-test at least one overridden shortcut for Load, one goal command, and one query command.
 
 ## Diagnostics and Output Panels
@@ -212,6 +213,7 @@ Goal: common scratchpad workflows should be repeatable by Codex and humans.
 - [x] Add browser regression script for goal lifecycle basics.
 - [x] Add browser regression script for damaged or partially edited goal boundaries.
 - [x] Add browser regression script for Load state refresh across highlighting, diagnostics, warnings, and goals.
+- [x] Add browser regression script for the collapsible Commands panel.
 - [x] Add browser regression script for Auto.
 - [x] Add browser regression script for query shortcuts.
 - [x] Add browser regression script for command input panel submit, cancel, and focus restore.
