@@ -53,8 +53,8 @@ refine, auto, and asynchronous ALS responses.
 - [x] Merge existing and newly generated goals after `Give` and `Refine`.
 - [x] Remove goal boundaries after successful `Give`.
 - [x] Add defensive handling for damaged or partially edited goal boundaries.
-- [ ] Verify `Load` updates highlighting, diagnostics, warnings, and goals after the goal-state refactor.
-- [ ] Add browser regression coverage for damaged or partially edited goal boundaries.
+- [x] Verify `Load` updates highlighting, diagnostics, warnings, and goals after the goal-state refactor.
+- [x] Add browser regression coverage for damaged or partially edited goal boundaries.
 
 ## Core Practice Commands
 
@@ -210,6 +210,8 @@ Goal: common scratchpad workflows should be repeatable by Codex and humans.
 - [x] Add reusable Agda fixtures under `test-fixtures/agda/`.
 - [x] Add shared `agent-browser` helper functions.
 - [x] Add browser regression script for goal lifecycle basics.
+- [x] Add browser regression script for damaged or partially edited goal boundaries.
+- [x] Add browser regression script for Load state refresh across highlighting, diagnostics, warnings, and goals.
 - [x] Add browser regression script for Auto.
 - [x] Add browser regression script for query shortcuts.
 - [x] Add browser regression script for command input panel submit, cancel, and focus restore.
