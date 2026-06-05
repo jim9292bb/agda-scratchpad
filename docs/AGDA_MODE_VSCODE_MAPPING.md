@@ -48,7 +48,7 @@ for this browser-hosted single-file Agda scratchpad IDE. Use it before searching
 - `C-c C-o` and `C-c C-w` support top-level selected text when the cursor is not inside a goal.
 - `C-u` normalization prefix variants are not implemented yet; they are tracked in the roadmap.
 - Always keep command string construction in `src/lib/agda/commands.js`.
-- Keep shortcut/event wiring in `src/routes/+page.svelte` until a broader shortcut-controller refactor is justified.
+- Keep shortcut definitions in `src/lib/agda/shortcuts.js`; UI code should dispatch by shortcut id rather than hard-coded key branches.
 
 ## Browser Constraints
 

@@ -16,6 +16,12 @@ import { getAgdaDocumentVersion, getAgdaGoals, mergeGoalInfos } from '$lib/agda/
 import { getGoalAtPosition, getGoalRangeById } from '$lib/agda/goals'
 import { getAgdaShortcutContext } from '$lib/agda/shortcut-context'
 import {
+  agdaShortcutRegistry,
+  findAgdaChordShortcut,
+  formatAgdaShortcutHelpBinding,
+  isAgdaCtrlKey,
+} from '$lib/agda/shortcuts'
+import {
   autoOneCommand,
   contextCommand,
   computeCommand,
@@ -407,10 +413,6 @@ async function requestActiveGoalDetails(goalId, documentVersion) {
   }
 }
 
-const agdaKeymap = keymap.of([
-  { key: 'Mod-Enter', run: () => { runLoadShortcut(); return true } },
-])
-
 let agdaChordTimer = /** @type {ReturnType<typeof setTimeout> | undefined} */(undefined)
 let waitingForAgdaChord = false
 
@@ -423,23 +425,127 @@ function clearAgdaChord() {
 }
 
 /**
- * @param {KeyboardEvent} event
- * @param {string} key
+ * @param {import('$lib/agda/shortcuts').AgdaShortcutDefinition} shortcut
+ * @param {EditorView} view
  */
-function isCtrlKey(event, key) {
-  return event.ctrlKey && !event.altKey && !event.metaKey && event.key.toLowerCase() === key
+function runAgdaShortcutDefinition(shortcut, view) {
+  switch (shortcut.id) {
+    case 'load':
+      runLoadShortcut()
+      break
+    case 'next-goal':
+      focusAdjacentGoal(view, 1)
+      break
+    case 'previous-goal':
+      focusAdjacentGoal(view, -1)
+      break
+    case 'goal-type':
+      runAgdaShortcut(shortcut.label, view, context => goalTypeCommand('Simplified', requireGoal(context)))
+      break
+    case 'context':
+      runAgdaShortcut(shortcut.label, view, context => contextCommand('Simplified', requireGoal(context)))
+      break
+    case 'goal-type-context':
+      runAgdaShortcut(shortcut.label, view, context => goalTypeContextCommand('Simplified', requireGoal(context)))
+      break
+    case 'goal-type-context-infer':
+      runAgdaShortcut(shortcut.label, view, context => {
+        const goal = requireGoal(context)
+        if (!context.input.trim()) {
+          return goalTypeContextCommand('Simplified', goal)
+        }
+        return goalTypeContextInferCommand('Simplified', goal, context.input)
+      })
+      break
+    case 'goal-type-context-check':
+      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) =>
+        goalTypeContextCheckCommand('Simplified', requireGoal(context), input))
+      break
+    case 'search-about':
+      runAgdaShortcutWithInputPrompt(shortcut.label, view, (_context, input) =>
+        searchAboutToplevelCommand('Simplified', input))
+      break
+    case 'module-contents':
+      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) => {
+        const goal = context.goal
+        return goal
+          ? moduleContentsCommand('Simplified', goal, input)
+          : moduleContentsToplevelCommand('Simplified', input)
+      })
+      break
+    case 'why-in-scope':
+      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) => {
+        const goal = context.goal
+        return goal
+          ? whyInScopeCommand(goal, input)
+          : whyInScopeToplevelCommand(input)
+      })
+      break
+    case 'give':
+      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) => {
+        const goal = requireGoal(context)
+        if (agdaController.alsRouter) {
+          agdaController.alsRouter.pendingGiveGoal = goal
+        }
+        return giveCommand(goal, context.range, input)
+      })
+      break
+    case 'refine':
+      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) =>
+        refineCommand(requireGoal(context), context.range, input))
+      break
+    case 'auto':
+      runAgdaShortcut(shortcut.label, view, context => {
+        const goal = requireGoal(context)
+        if (agdaController.alsRouter) {
+          agdaController.alsRouter.pendingGiveGoal = goal
+        }
+        return autoOneCommand('AsIs', goal, context.range, context.input)
+      })
+      break
+    case 'elaborate-give':
+      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) => {
+        const goal = requireGoal(context)
+        if (agdaController.alsRouter) {
+          agdaController.alsRouter.pendingGiveGoal = goal
+        }
+        return elaborateGiveCommand('Simplified', goal, input)
+      })
+      break
+    case 'helper-function':
+      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) =>
+        helperFunctionCommand('AsIs', requireGoal(context), input))
+      break
+    case 'case-split':
+      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) => {
+        const goal = requireGoal(context)
+        if (agdaController.alsRouter) {
+          agdaController.alsRouter.pendingCaseSplitGoal = goal
+        }
+        return makeCaseCommand(goal, context.range, input)
+      })
+      break
+    case 'compute':
+      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) =>
+        computeCommand('DefaultCompute', requireGoal(context), input))
+      break
+    case 'infer':
+      runAgdaShortcutWithInputPrompt(shortcut.label, view, (context, input) =>
+        inferCommand('Normalised', requireGoal(context), input))
+      break
+  }
 }
 
-/** @param {KeyboardEvent} event */
-function isSpace(event) {
-  return !event.altKey && !event.metaKey &&
-    (event.key === ' ' || event.key === 'Spacebar' || event.code === 'Space')
-}
-
-/** @param {KeyboardEvent} event */
-function isCtrlSpace(event) {
-  return event.ctrlKey && isSpace(event)
-}
+const agdaKeymap = keymap.of(agdaShortcutRegistry.flatMap(shortcut =>
+  shortcut.bindings
+    .filter(binding => binding.kind === 'keymap')
+    .map(binding => ({
+      key: binding.key,
+      run: (/** @type {EditorView} */ view) => {
+        runAgdaShortcutDefinition(shortcut, view)
+        return true
+      },
+    }))))
 
 /**
  * Handles Agda/Emacs-style two-key chords before the browser can consume
@@ -451,7 +557,7 @@ function isCtrlSpace(event) {
 function handleAgdaChordKeydown(event, view) {
   if (event.isComposing || !view.hasFocus) return false
 
-  if (isCtrlKey(event, 'c') && !waitingForAgdaChord) {
+  if (isAgdaCtrlKey(event, 'c') && !waitingForAgdaChord) {
     event.preventDefault()
     event.stopPropagation()
     waitingForAgdaChord = true
@@ -465,91 +571,8 @@ function handleAgdaChordKeydown(event, view) {
   event.stopPropagation()
   clearAgdaChord()
 
-  if (isCtrlKey(event, 'l')) {
-    runLoadShortcut()
-  } else if (isCtrlKey(event, 'f')) {
-    focusAdjacentGoal(view, 1)
-  } else if (isCtrlKey(event, 'b')) {
-    focusAdjacentGoal(view, -1)
-  } else if (isCtrlKey(event, 't')) {
-    runAgdaShortcut('Goal type', view, context => goalTypeCommand('Simplified', requireGoal(context)))
-  } else if (isCtrlKey(event, 'e')) {
-    runAgdaShortcut('Context', view, context => contextCommand('Simplified', requireGoal(context)))
-  } else if (isCtrlKey(event, ',')) {
-    runAgdaShortcut('Goal type and context', view, context => goalTypeContextCommand('Simplified', requireGoal(context)))
-  } else if (isCtrlKey(event, '.')) {
-    runAgdaShortcut('Goal type, context and inferred type', view, context => {
-      const goal = requireGoal(context)
-      if (!context.input.trim()) {
-        return goalTypeContextCommand('Simplified', goal)
-      }
-      return goalTypeContextInferCommand('Simplified', goal, context.input)
-    })
-  } else if (isCtrlKey(event, ';')) {
-    runAgdaShortcutWithInputPrompt('Goal type, context and checked type', view, (context, input) =>
-      goalTypeContextCheckCommand('Simplified', requireGoal(context), input))
-  } else if (isCtrlKey(event, 'z')) {
-    runAgdaShortcutWithInputPrompt('Search about', view, (_context, input) =>
-      searchAboutToplevelCommand('Simplified', input))
-  } else if (isCtrlKey(event, 'o')) {
-    runAgdaShortcutWithInputPrompt('Module contents', view, (context, input) => {
-      const goal = context.goal
-      return goal
-        ? moduleContentsCommand('Simplified', goal, input)
-        : moduleContentsToplevelCommand('Simplified', input)
-    })
-  } else if (isCtrlKey(event, 'w')) {
-    runAgdaShortcutWithInputPrompt('Why in scope', view, (context, input) => {
-      const goal = context.goal
-      return goal
-        ? whyInScopeCommand(goal, input)
-        : whyInScopeToplevelCommand(input)
-    })
-  } else if (isCtrlSpace(event) || isSpace(event)) {
-    runAgdaShortcutWithInputPrompt('Give', view, (context, input) => {
-      const goal = requireGoal(context)
-      if (agdaController.alsRouter) {
-        agdaController.alsRouter.pendingGiveGoal = goal
-      }
-      return giveCommand(goal, context.range, input)
-    })
-  } else if (isCtrlKey(event, 'r')) {
-    runAgdaShortcutWithInputPrompt('Refine', view, (context, input) =>
-      refineCommand(requireGoal(context), context.range, input))
-  } else if (isCtrlKey(event, 'a')) {
-    runAgdaShortcut('Auto', view, context => {
-      const goal = requireGoal(context)
-      if (agdaController.alsRouter) {
-        agdaController.alsRouter.pendingGiveGoal = goal
-      }
-      return autoOneCommand('AsIs', goal, context.range, context.input)
-    })
-  } else if (isCtrlKey(event, 'm')) {
-    runAgdaShortcutWithInputPrompt('Elaborate and give', view, (context, input) => {
-      const goal = requireGoal(context)
-      if (agdaController.alsRouter) {
-        agdaController.alsRouter.pendingGiveGoal = goal
-      }
-      return elaborateGiveCommand('Simplified', goal, input)
-    })
-  } else if (isCtrlKey(event, 'h')) {
-    runAgdaShortcutWithInputPrompt('Helper function type', view, (context, input) =>
-      helperFunctionCommand('AsIs', requireGoal(context), input))
-  } else if (isCtrlKey(event, 'c')) {
-    runAgdaShortcutWithInputPrompt('Case split', view, (context, input) => {
-      const goal = requireGoal(context)
-      if (agdaController.alsRouter) {
-        agdaController.alsRouter.pendingCaseSplitGoal = goal
-      }
-      return makeCaseCommand(goal, context.range, input)
-    })
-  } else if (isCtrlKey(event, 'n')) {
-    runAgdaShortcutWithInputPrompt('Compute', view, (context, input) =>
-      computeCommand('DefaultCompute', requireGoal(context), input))
-  } else if (isCtrlKey(event, 'd')) {
-    runAgdaShortcutWithInputPrompt('Infer type', view, (context, input) =>
-      inferCommand('Normalised', requireGoal(context), input))
-  }
+  const shortcut = findAgdaChordShortcut(event)
+  if (shortcut) runAgdaShortcutDefinition(shortcut, view)
 
   return true
 }
@@ -937,25 +960,9 @@ $effect(() => {
     <details class="shortcut-help">
       <summary>Agda shortcuts</summary>
       <dl>
-        <div><dt>Ctrl-c Ctrl-l / Cmd-Enter</dt><dd>Load</dd></div>
-        <div><dt>Ctrl-c Ctrl-f</dt><dd>Next goal</dd></div>
-        <div><dt>Ctrl-c Ctrl-b</dt><dd>Previous goal</dd></div>
-        <div><dt>Ctrl-c Ctrl-t</dt><dd>Goal type</dd></div>
-        <div><dt>Ctrl-c Ctrl-e</dt><dd>Context</dd></div>
-        <div><dt>Ctrl-c Ctrl-,</dt><dd>Goal type and context</dd></div>
-        <div><dt>Ctrl-c Ctrl-.</dt><dd>Goal type, context and inferred type</dd></div>
-        <div><dt>Ctrl-c Ctrl-;</dt><dd>Goal type, context and checked type</dd></div>
-        <div><dt>Ctrl-c Ctrl-Space</dt><dd>Give</dd></div>
-        <div><dt>Ctrl-c Ctrl-r</dt><dd>Refine</dd></div>
-        <div><dt>Ctrl-c Ctrl-a</dt><dd>Auto</dd></div>
-        <div><dt>Ctrl-c Ctrl-m</dt><dd>Elaborate and give</dd></div>
-        <div><dt>Ctrl-c Ctrl-h</dt><dd>Helper function type</dd></div>
-        <div><dt>Ctrl-c Ctrl-c</dt><dd>Case split</dd></div>
-        <div><dt>Ctrl-c Ctrl-n</dt><dd>Compute</dd></div>
-        <div><dt>Ctrl-c Ctrl-d</dt><dd>Infer type</dd></div>
-        <div><dt>Ctrl-c Ctrl-z</dt><dd>Search about</dd></div>
-        <div><dt>Ctrl-c Ctrl-o</dt><dd>Module contents</dd></div>
-        <div><dt>Ctrl-c Ctrl-w</dt><dd>Why in scope</dd></div>
+        {#each agdaShortcutRegistry as shortcut}
+          <div><dt>{formatAgdaShortcutHelpBinding(shortcut)}</dt><dd>{shortcut.label}</dd></div>
+        {/each}
       </dl>
     </details>
   {/if}

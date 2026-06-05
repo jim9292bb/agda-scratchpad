@@ -131,13 +131,13 @@ Goal: Agda shortcuts should work for learners by default, while still allowing
 users to replace bindings that conflict with their browser, operating system, or
 keyboard layout.
 
-- [ ] Centralize shortcut definitions in a data-driven registry instead of scattering hard-coded key checks through UI event handlers.
-- [ ] Keep the default bindings aligned with familiar Agda mode shortcuts where practical.
+- [x] Centralize shortcut definitions in a data-driven registry instead of scattering hard-coded key checks through UI event handlers.
+- [x] Keep the default bindings aligned with familiar Agda mode shortcuts where practical.
 - [ ] Add a lightweight shortcut settings UI for replacing command bindings.
 - [ ] Validate replacement bindings and warn about duplicate Agda command shortcuts.
 - [ ] Persist shortcut overrides in browser local storage.
 - [ ] Add a reset-to-default-shortcuts action.
-- [ ] Make shortcut help render from the same registry used by the dispatcher.
+- [x] Make shortcut help render from the same registry used by the dispatcher.
 - [ ] Browser-test at least one overridden shortcut for Load, one goal command, and one query command.
 
 ## Diagnostics and Output Panels
