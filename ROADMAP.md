@@ -53,6 +53,7 @@ runtime architecture.
 - [x] Show collected performance timings in the runtime/info panel.
 - [x] Browser-test that startup and library preparation timings are visible.
 - [ ] Evaluate pathStat-heavy lookup optimization in the WASI drive proxy.
+- [x] Add an experiment-only `runno-proxy-current --pathstat-cache` benchmark.
 - [ ] Evaluate persistent IndexedDB caching for extracted stdlib and Cubical files.
 - [ ] Evaluate lazy library extraction instead of eager JSZip inflation.
 - [ ] Evaluate prebuilt `.agdai` interface caches for selected teaching examples.

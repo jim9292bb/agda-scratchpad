@@ -25,6 +25,7 @@ function parseArgs(argv) {
     fixture: 'cubical-prelude',
     allFixtures: false,
     debug: false,
+    pathStatCache: false,
   }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
@@ -32,8 +33,9 @@ function parseArgs(argv) {
     else if (arg === '--fixture') args.fixture = argv[++i]
     else if (arg === '--all-fixtures') args.allFixtures = true
     else if (arg === '--debug-runtime') args.debug = true
+    else if (arg === '--pathstat-cache') args.pathStatCache = true
     else if (arg === '--help' || arg === '-h') {
-      console.log('Usage: npm run benchmark -- [--runtime runno-direct-fs|runno-proxy-current] [--fixture cubical-prelude] [--all-fixtures]')
+      console.log('Usage: npm run benchmark -- [--runtime runno-direct-fs|runno-proxy-current] [--fixture cubical-prelude] [--all-fixtures] [--pathstat-cache]')
       process.exit(0)
     } else {
       throw new Error(`Unknown argument: ${arg}`)
@@ -330,6 +332,7 @@ function flattenResult({ runtime, fixture, setupMs, firstLoad, secondLoad }) {
   return {
     runtime,
     fixture,
+    pathStatCache: firstLoad.driveStats.pathStatCache ?? false,
     setupMs,
     firstLoadMs: firstLoad.durationMs,
     secondLoadMs: secondLoad.durationMs,
@@ -338,6 +341,8 @@ function flattenResult({ runtime, fixture, setupMs, firstLoad, secondLoad }) {
       methods: firstLoad.driveStats.methods,
       methodDurationsMs: firstLoad.driveStats.methodDurationsMs ?? {},
       pathStatCount: firstLoad.driveStats.pathStatCount ?? firstLoad.driveStats.methods?.pathStat ?? 0,
+      pathStatCacheHits: firstLoad.driveStats.pathStatCacheHits ?? 0,
+      pathStatCacheMisses: firstLoad.driveStats.pathStatCacheMisses ?? 0,
       agdaiRead: firstLoad.driveStats.agdaiRead ?? firstLoad.driveStats.agdai?.read ?? 0,
       agdaiWrite: firstLoad.driveStats.agdaiWrite ?? firstLoad.driveStats.agdai?.write ?? 0,
     },
@@ -346,6 +351,8 @@ function flattenResult({ runtime, fixture, setupMs, firstLoad, secondLoad }) {
       methods: secondLoad.driveStats.methods,
       methodDurationsMs: secondLoad.driveStats.methodDurationsMs ?? {},
       pathStatCount: secondLoad.driveStats.pathStatCount ?? secondLoad.driveStats.methods?.pathStat ?? 0,
+      pathStatCacheHits: secondLoad.driveStats.pathStatCacheHits ?? 0,
+      pathStatCacheMisses: secondLoad.driveStats.pathStatCacheMisses ?? 0,
       agdaiRead: secondLoad.driveStats.agdaiRead ?? secondLoad.driveStats.agdai?.read ?? 0,
       agdaiWrite: secondLoad.driveStats.agdaiWrite ?? secondLoad.driveStats.agdai?.write ?? 0,
     },
@@ -484,6 +491,7 @@ async function runRunnoProxyCurrent(fixture, options = {}) {
       stdout: driveStdout,
       stdlibZipPath: join(appRoot, 'static', 'agda-stdlib-2.3.zip'),
       cubicalZipPath: join(appRoot, 'static', 'agda-cubical-0.9.zip'),
+      pathStatCache: options.pathStatCache,
     },
   })
   const driveReady = await waitForWorkerReady(driveWorker, 'drive worker')
@@ -545,7 +553,7 @@ async function runBenchmark(runtime, fixture) {
     return runRunnoDirectFs(fixture, { debug: args.debug })
   }
   if (runtime === 'runno-proxy-current') {
-    return runRunnoProxyCurrent(fixture, { debug: args.debug })
+    return runRunnoProxyCurrent(fixture, { debug: args.debug, pathStatCache: args.pathStatCache })
   }
   throw new Error(`Runtime ${runtime} is not implemented. Available: runno-direct-fs, runno-proxy-current`)
 }

@@ -69,6 +69,9 @@ function createExtensionStats() {
 
 function createStats() {
   return {
+    pathStatCache: Boolean(workerData.pathStatCache),
+    pathStatCacheHits: 0,
+    pathStatCacheMisses: 0,
     totalCalls: 0,
     totalDurationMs: 0,
     bytesRead: 0,
@@ -87,6 +90,7 @@ function createStats() {
 
 let stats = createStats()
 const openFdPaths = new Map()
+const pathStatCache = new Map()
 
 function normalizeDuration(durationMs) {
   return Math.round(durationMs * 1000) / 1000
@@ -96,6 +100,31 @@ function snapshotAndResetStats() {
   const result = stats
   stats = createStats()
   return result
+}
+
+function pathStatCacheKey(fdDir, path) {
+  return `${fdDir}\0${path}`
+}
+
+function clearPathStatCache() {
+  if (pathStatCache.size) pathStatCache.clear()
+}
+
+function maybeInvalidatePathStatCache(method) {
+  if (!workerData.pathStatCache) return
+  if (
+    method === 'open' ||
+    method === 'write' ||
+    method === 'pwrite' ||
+    method === 'unlink' ||
+    method === 'rename' ||
+    method === 'pathCreateDir' ||
+    method === 'pathSetAccessTime' ||
+    method === 'pathSetModificationTime' ||
+    method === 'setSize'
+  ) {
+    clearPathStatCache()
+  }
 }
 
 function normalizePath(path) {
@@ -192,7 +221,22 @@ fsAssign(fs, '/home/root/.config/agda/defaults', 'standard-library\ncubical-0.9\
 const wasi = new Runno.WASI({ fs })
 const drive = wasi.drive
 const origPathStat = drive.pathStat.bind(drive)
-drive.pathStat = (fdDir, path) => origPathStat(fdDir, removeTrailingDotDots(path))
+drive.pathStat = (fdDir, path) => {
+  path = removeTrailingDotDots(path)
+  if (!workerData.pathStatCache) return origPathStat(fdDir, path)
+
+  const key = pathStatCacheKey(fdDir, path)
+  const cached = pathStatCache.get(key)
+  if (cached) {
+    stats.pathStatCacheHits++
+    return cached
+  }
+
+  stats.pathStatCacheMisses++
+  const result = origPathStat(fdDir, path)
+  pathStatCache.set(key, result)
+  return result
+}
 const origOpen = drive.open.bind(drive)
 drive.open = (fdDir, path, oflags, fdflags) => origOpen(fdDir, removeTrailingDotDots(path), oflags, fdflags)
 
@@ -258,6 +302,7 @@ while (true) {
   }
 
   trackFdPathAfterResponse(req.method, req.args, res)
+  maybeInvalidatePathStatCache(req.method)
 
   if (req.method === 'pathStat' || req.method === 'stat') {
     res = fixStatCommon(res)

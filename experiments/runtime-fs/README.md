@@ -22,6 +22,7 @@ The baseline JSON shape is:
 {
   "runtime": "runno-proxy-current",
   "fixture": "cubical-prelude",
+  "pathStatCache": false,
   "setupMs": 700,
   "firstLoadMs": 11000,
   "secondLoadMs": 3000,
@@ -30,6 +31,8 @@ The baseline JSON shape is:
     "methods": {},
     "methodDurationsMs": {},
     "pathStatCount": 0,
+    "pathStatCacheHits": 0,
+    "pathStatCacheMisses": 0,
     "agdaiRead": 0,
     "agdaiWrite": 0
   },
@@ -38,6 +41,8 @@ The baseline JSON shape is:
     "methods": {},
     "methodDurationsMs": {},
     "pathStatCount": 0,
+    "pathStatCacheHits": 0,
+    "pathStatCacheMisses": 0,
     "agdaiRead": 0,
     "agdaiWrite": 0
   }
@@ -51,7 +56,9 @@ From this directory:
 ```sh
 npm run benchmark -- --fixture cubical-prelude
 npm run benchmark -- --runtime runno-proxy-current --fixture cubical-prelude
+npm run benchmark -- --runtime runno-proxy-current --fixture cubical-prelude --pathstat-cache
 npm run benchmark:runno-proxy -- --fixture cubical-prelude
+npm run benchmark:runno-proxy:pathstat-cache -- --fixture cubical-prelude
 npm run benchmark:runno-direct -- --fixture builtin-nat
 npm run benchmark:fixtures
 ```
@@ -86,6 +93,13 @@ interaction. Treat this as a harness/runtime finding, not as a main app failure.
 - `runno-proxy-current`: implemented baseline. Reproduces the main app's ALS worker plus drive worker proxy architecture and is the primary runtime for completed first/second load measurements.
 - `runno-direct-fs`: scaffolded. Uses `@runno/wasi` with the virtual filesystem directly in the ALS worker, without the main app's cross-worker drive proxy. It currently exposes a direct raw ALS scheduling blocker before `ResponseEnd`.
 - `vscode-wasm-memfs`: planned. See `adapters/vscode-wasm-memfs/README.md`.
+
+## PathStat Cache Experiment
+
+`--pathstat-cache` enables an experiment-only cache in the `runno-proxy-current`
+drive worker. It does not change the main app runtime. Compare cache off/on for
+the same fixture and inspect `pathStatCacheHits`, `pathStatCacheMisses`,
+`pathStatCount`, and `methodDurationsMs.pathStat`.
 
 ## Reading Results
 
