@@ -43,6 +43,8 @@ ab eval "(() => {
   if (!text.includes('calls')) throw new Error('Drive proxy call count missing: ' + text)
   if (!text.includes('read')) throw new Error('Drive proxy bytes read missing: ' + text)
   if (!text.match(/pathStat\\s+\\d+\\s+\\/\\s+(?:\\d+ms|\\d+\\.\\d+s)/)) throw new Error('Drive proxy method timing missing: ' + text)
+  if (!text.includes('unique pathStat paths')) throw new Error('Drive proxy unique pathStat summary missing: ' + text)
+  if (!text.includes('pathStat ok')) throw new Error('Drive proxy pathStat success/failure summary missing: ' + text)
   if (!text.includes('top pathStat:')) throw new Error('Drive proxy top pathStat summary missing: ' + text)
   if (!text.includes('top open:')) throw new Error('Drive proxy top open summary missing: ' + text)
   if (!text.includes('.agda pathStat')) throw new Error('.agda drive proxy stats missing: ' + text)

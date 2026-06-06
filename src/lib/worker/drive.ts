@@ -131,8 +131,29 @@ function removeTrailingDotDots(path: string) {
 }
 
 const origPathStat = drive.pathStat.bind(drive)
-drive.pathStat = (fdDir: number, path: string) =>
-  origPathStat(fdDir, removeTrailingDotDots(path))
+const ENABLE_DRIVE_PATH_STAT_CACHE = import.meta.env.VITE_ENABLE_DRIVE_PATH_STAT_CACHE === 'true'
+const pathStatCache = new Map<string, ReturnType<typeof origPathStat>>()
+
+function pathStatCacheKey(fdDir: number, path: string) {
+  return `${fdDir}\0${path}`
+}
+
+function clearPathStatCache() {
+  if (pathStatCache.size) pathStatCache.clear()
+}
+
+drive.pathStat = (fdDir: number, path: string) => {
+  path = removeTrailingDotDots(path)
+  if (!ENABLE_DRIVE_PATH_STAT_CACHE) return origPathStat(fdDir, path)
+
+  const key = pathStatCacheKey(fdDir, path)
+  const cached = pathStatCache.get(key)
+  if (cached) return cached
+
+  const result = origPathStat(fdDir, path)
+  pathStatCache.set(key, result)
+  return result
+}
 
 const origDriveOpen = drive.open.bind(drive)
 drive.open = (fdDir: number, path: string, oflags: number, fdflags: number) =>
@@ -165,6 +186,9 @@ function createDriveProxyStats(): DriveProxyStats {
     methodDurationsMs: {},
     pathStatPaths: {},
     openPaths: {},
+    uniquePathStatPaths: 0,
+    pathStatSuccesses: 0,
+    pathStatFailures: 0,
     agda: createDriveProxyExtensionStats(),
     agdai: createDriveProxyExtensionStats(),
   }
@@ -198,6 +222,16 @@ function recordPathStats(stats: Record<string, DriveProxyPathStats>, path: strin
   current.count++
   current.durationMs = normalizeDuration(current.durationMs + durationMs)
   stats[path] = current
+}
+
+function recordPathStatResult(path: string | null, res: any) {
+  if (!path) return
+  driveProxyStats.uniquePathStatPaths = Object.keys(driveProxyStats.pathStatPaths).length
+  if (Array.isArray(res) && res[0] === 0) {
+    driveProxyStats.pathStatSuccesses++
+  } else {
+    driveProxyStats.pathStatFailures++
+  }
 }
 
 function recordExtensionPathOperation(path: string | null, operation: keyof DriveProxyExtensionStats) {
@@ -252,6 +286,23 @@ function trackFdPathAfterResponse(method: string, args: any[], res: any) {
   }
 }
 
+function maybeInvalidatePathStatCache(method: string) {
+  if (!ENABLE_DRIVE_PATH_STAT_CACHE) return
+  if (
+    method === 'open' ||
+    method === 'write' ||
+    method === 'pwrite' ||
+    method === 'unlink' ||
+    method === 'rename' ||
+    method === 'pathCreateDir' ||
+    method === 'pathSetAccessTime' ||
+    method === 'pathSetModificationTime' ||
+    method === 'setSize'
+  ) {
+    clearPathStatCache()
+  }
+}
+
 async function mainLoop() {
   const driveProxy = drive as unknown as {[k: string]: (...args: any[]) => any}
   while (true) {
@@ -295,12 +346,14 @@ async function mainLoop() {
     recordDriveProxyMethod(req.method, durationMs)
     if (req.method === 'pathStat') {
       recordPathStats(driveProxyStats.pathStatPaths, requestPath, durationMs)
+      recordPathStatResult(requestPath, res)
       recordExtensionPathOperation(requestPath, 'pathStat')
     } else if (req.method === 'open') {
       recordPathStats(driveProxyStats.openPaths, requestPath, durationMs)
       recordExtensionPathOperation(requestPath, 'open')
     }
     trackFdPathAfterResponse(req.method, req.args, res)
+    maybeInvalidatePathStatCache(req.method)
     // console.warn('DRIVE -->', res)
     if (req.method === 'read') {
       if (res[1] != null) driveProxyStats.bytesRead += res[1].byteLength

@@ -1360,7 +1360,11 @@ $effect(() => {
 
 {#snippet performanceSummaryPanel()}
   {#if agdaController.performanceEntries.length}
-    <section class="performance-summary" aria-label="Performance timings">
+    <section
+      class="performance-summary"
+      aria-label="Performance timings"
+      data-performance-entries={JSON.stringify(agdaController.performanceEntries)}
+    >
       <header class="performance-summary-title">Performance timings</header>
       <ol>
         {#each agdaController.performanceEntries as entry}
@@ -1383,6 +1387,12 @@ $effect(() => {
             {/if}
             {#if entry.detail?.methods}
               <small>{entry.detail.methods}</small>
+            {/if}
+            {#if entry.detail?.uniquePathStatPaths != null}
+              <small>{entry.detail.uniquePathStatPaths} unique pathStat paths</small>
+            {/if}
+            {#if entry.detail?.pathStatSuccesses != null || entry.detail?.pathStatFailures != null}
+              <small>pathStat ok {entry.detail.pathStatSuccesses ?? 0}, failed {entry.detail.pathStatFailures ?? 0}</small>
             {/if}
             {#if entry.detail?.topPathStatPaths}
               <small>top pathStat: {entry.detail.topPathStatPaths}</small>

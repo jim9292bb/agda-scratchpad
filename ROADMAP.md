@@ -46,6 +46,8 @@ runtime architecture.
 - [x] Add timing instrumentation for WASM response fetch, ALS worker initialization, library zip fetch, library extraction, Agda setup, source sync, `Cmd_load`, and token highlighting.
 - [x] Add drive proxy call and byte counters around Agda load commands.
 - [x] Add drive proxy method timing, top path, and `.agda` / `.agdai` profiling around `Cmd_load`.
+- [x] Add double-load profiling for Cubical Prelude to compare first and second `Cmd_load`.
+- [x] Add a default-off `pathStat` cache experiment switch for local benchmarking.
 - [x] Show collected performance timings in the runtime/info panel.
 - [x] Browser-test that startup and library preparation timings are visible.
 - [ ] Evaluate pathStat-heavy lookup optimization in the WASI drive proxy.

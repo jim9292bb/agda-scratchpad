@@ -77,6 +77,9 @@ export interface DriveProxyStats {
   methodDurationsMs: Record<string, number>
   pathStatPaths: Record<string, DriveProxyPathStats>
   openPaths: Record<string, DriveProxyPathStats>
+  uniquePathStatPaths: number
+  pathStatSuccesses: number
+  pathStatFailures: number
   agda: DriveProxyExtensionStats
   agdai: DriveProxyExtensionStats
 }
