@@ -49,6 +49,7 @@ runtime architecture.
 - [x] Add double-load profiling for Cubical Prelude to compare first and second `Cmd_load`.
 - [x] Add a default-off `pathStat` cache experiment switch for local benchmarking.
 - [x] Add an isolated runtime/filesystem benchmark harness with a `runno-direct-fs` adapter scaffold.
+- [x] Add a `runno-proxy-current` runtime/filesystem baseline that matches the main app drive proxy architecture.
 - [x] Show collected performance timings in the runtime/info panel.
 - [x] Browser-test that startup and library preparation timings are visible.
 - [ ] Evaluate pathStat-heavy lookup optimization in the WASI drive proxy.
