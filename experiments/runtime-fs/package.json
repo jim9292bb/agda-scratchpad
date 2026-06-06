@@ -1,0 +1,19 @@
+{
+  "name": "agda-runtime-fs-experiments",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Isolated ALS WASM runtime/filesystem benchmark harness for Agda Scratchpad IDE.",
+  "scripts": {
+    "benchmark": "node src/benchmark.js",
+    "benchmark:runno-direct": "node src/benchmark.js --runtime runno-direct-fs",
+    "benchmark:fixtures": "node src/benchmark.js --runtime runno-direct-fs --all-fixtures"
+  },
+  "dependencies": {
+    "@runno/wasi": "^0.10.0",
+    "jszip": "^3.10.1"
+  },
+  "engines": {
+    "node": ">=20 <25"
+  }
+}

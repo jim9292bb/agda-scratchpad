@@ -48,13 +48,16 @@ runtime architecture.
 - [x] Add drive proxy method timing, top path, and `.agda` / `.agdai` profiling around `Cmd_load`.
 - [x] Add double-load profiling for Cubical Prelude to compare first and second `Cmd_load`.
 - [x] Add a default-off `pathStat` cache experiment switch for local benchmarking.
+- [x] Add an isolated runtime/filesystem benchmark harness with a `runno-direct-fs` adapter scaffold.
 - [x] Show collected performance timings in the runtime/info panel.
 - [x] Browser-test that startup and library preparation timings are visible.
 - [ ] Evaluate pathStat-heavy lookup optimization in the WASI drive proxy.
 - [ ] Evaluate persistent IndexedDB caching for extracted stdlib and Cubical files.
 - [ ] Evaluate lazy library extraction instead of eager JSZip inflation.
 - [ ] Evaluate prebuilt `.agdai` interface caches for selected teaching examples.
+- [ ] Resolve the `runno-direct-fs` raw ALS `ResponseEnd` blocker or replace it with a better direct baseline.
 - [ ] Evaluate direct in-memory FS or memfs-style architecture experiments against Runno drive proxy overhead.
+- [ ] Compare `runno-proxy-current`, `runno-direct-fs`, and `vscode-wasm-memfs` benchmark results.
 
 ## Goal Lifecycle and Editor State
 

@@ -9,6 +9,7 @@
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
+    "experiment:runtime-fs": "npm --prefix experiments/runtime-fs run benchmark --",
     "prepare": "svelte-kit sync || true",
     "svelte-kit-sync": "svelte-kit sync && rm -f node_modules/.tmp/*.tsbuildinfo",
     "tsc": "tsc -b",
