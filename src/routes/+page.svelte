@@ -44,7 +44,7 @@ import {
   whyInScopeToplevelCommand,
 } from '$lib/agda/commands'
 import { diagnosticToAgdaUtf8Position, focusAgdaUtf8Position } from '$lib/agda/diagnostics'
-import { formatPerformanceEntry } from '$lib/performance'
+import { formatDurationMs, formatPerformanceEntry } from '$lib/performance'
 
 import { clearGoals, clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo } from '$lib/agda/effects'
 
@@ -1372,6 +1372,9 @@ $effect(() => {
             {#if entry.detail?.calls != null}
               <small>{entry.detail.calls} calls</small>
             {/if}
+            {#if entry.detail?.totalMs != null}
+              <small>{formatDurationMs(Number(entry.detail.totalMs))} proxy</small>
+            {/if}
             {#if entry.detail?.readBytes != null}
               <small>{Math.round(Number(entry.detail.readBytes) / 1024)} KiB read</small>
             {/if}
@@ -1380,6 +1383,18 @@ $effect(() => {
             {/if}
             {#if entry.detail?.methods}
               <small>{entry.detail.methods}</small>
+            {/if}
+            {#if entry.detail?.topPathStatPaths}
+              <small>top pathStat: {entry.detail.topPathStatPaths}</small>
+            {/if}
+            {#if entry.detail?.topOpenPaths}
+              <small>top open: {entry.detail.topOpenPaths}</small>
+            {/if}
+            {#if entry.detail?.agdaStats}
+              <small>{entry.detail.agdaStats}</small>
+            {/if}
+            {#if entry.detail?.agdaiStats}
+              <small>{entry.detail.agdaiStats}</small>
             {/if}
           </li>
         {/each}

@@ -56,11 +56,29 @@ export interface PerformanceEntry {
   failed?: boolean
 }
 
+export interface DriveProxyPathStats {
+  count: number
+  durationMs: number
+}
+
+export interface DriveProxyExtensionStats {
+  pathStat: number
+  open: number
+  read: number
+  write: number
+}
+
 export interface DriveProxyStats {
   totalCalls: number
+  totalDurationMs: number
   bytesRead: number
   bytesWritten: number
   methods: Record<string, number>
+  methodDurationsMs: Record<string, number>
+  pathStatPaths: Record<string, DriveProxyPathStats>
+  openPaths: Record<string, DriveProxyPathStats>
+  agda: DriveProxyExtensionStats
+  agdai: DriveProxyExtensionStats
 }
 
 export type DriveWorkerReadyMessage =

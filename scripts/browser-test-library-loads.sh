@@ -42,6 +42,11 @@ ab eval "(() => {
   if (!text.includes('Drive proxy after Cmd_load')) throw new Error('Drive proxy Cmd_load stats missing: ' + text)
   if (!text.includes('calls')) throw new Error('Drive proxy call count missing: ' + text)
   if (!text.includes('read')) throw new Error('Drive proxy bytes read missing: ' + text)
+  if (!text.match(/pathStat\\s+\\d+\\s+\\/\\s+(?:\\d+ms|\\d+\\.\\d+s)/)) throw new Error('Drive proxy method timing missing: ' + text)
+  if (!text.includes('top pathStat:')) throw new Error('Drive proxy top pathStat summary missing: ' + text)
+  if (!text.includes('top open:')) throw new Error('Drive proxy top open summary missing: ' + text)
+  if (!text.includes('.agda pathStat')) throw new Error('.agda drive proxy stats missing: ' + text)
+  if (!text.includes('.agdai pathStat')) throw new Error('.agdai drive proxy stats missing: ' + text)
   return { ok: true, text }
 })()"
 echo "PASS performance timings split Agda Load and drive proxy stats"

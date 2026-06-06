@@ -7,7 +7,7 @@ import { createPerformanceTrace } from '$lib/performance'
 
 import { uint8ArrayToBase64, base64ToUint8Array } from './util-base64'
 import type { DriveWorkerInitObject } from './types'
-import type { DriveProxyStats } from './types'
+import type { DriveProxyExtensionStats, DriveProxyPathStats, DriveProxyStats } from './types'
 
 const now = new Date()
 
@@ -144,28 +144,112 @@ const writer = new SPSCWriter(stdout)
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
 
-let driveProxyStats: DriveProxyStats = {
-  totalCalls: 0,
-  bytesRead: 0,
-  bytesWritten: 0,
-  methods: {},
+const openFdPaths = new Map<number, string>()
+
+function createDriveProxyExtensionStats(): DriveProxyExtensionStats {
+  return {
+    pathStat: 0,
+    open: 0,
+    read: 0,
+    write: 0,
+  }
 }
 
-function snapshotAndResetDriveProxyStats() {
-  const stats = driveProxyStats
-  driveProxyStats = {
+function createDriveProxyStats(): DriveProxyStats {
+  return {
     totalCalls: 0,
+    totalDurationMs: 0,
     bytesRead: 0,
     bytesWritten: 0,
     methods: {},
+    methodDurationsMs: {},
+    pathStatPaths: {},
+    openPaths: {},
+    agda: createDriveProxyExtensionStats(),
+    agdai: createDriveProxyExtensionStats(),
   }
+}
+
+let driveProxyStats: DriveProxyStats = createDriveProxyStats()
+
+function snapshotAndResetDriveProxyStats() {
+  const stats = driveProxyStats
+  driveProxyStats = createDriveProxyStats()
   return stats
 }
 
-/** @param {string} method */
-function incrementDriveProxyMethod(method: string) {
+function normalizeDuration(durationMs: number) {
+  return Math.round(durationMs * 1000) / 1000
+}
+
+function normalizeProfilePath(path: unknown) {
+  return typeof path === 'string' ? removeTrailingDotDots(path) : null
+}
+
+function pathExtension(path: string) {
+  if (path.endsWith('.agdai')) return 'agdai'
+  if (path.endsWith('.agda')) return 'agda'
+  return null
+}
+
+function recordPathStats(stats: Record<string, DriveProxyPathStats>, path: string | null, durationMs: number) {
+  if (!path) return
+  const current = stats[path] ?? { count: 0, durationMs: 0 }
+  current.count++
+  current.durationMs = normalizeDuration(current.durationMs + durationMs)
+  stats[path] = current
+}
+
+function recordExtensionPathOperation(path: string | null, operation: keyof DriveProxyExtensionStats) {
+  if (!path) return
+  const extension = pathExtension(path)
+  if (!extension) return
+  driveProxyStats[extension][operation]++
+}
+
+function recordExtensionFdOperation(fd: unknown, operation: keyof DriveProxyExtensionStats) {
+  if (typeof fd !== 'number') return
+  recordExtensionPathOperation(openFdPaths.get(fd) ?? null, operation)
+}
+
+function recordDriveProxyMethod(method: string, durationMs: number) {
   driveProxyStats.totalCalls++
+  driveProxyStats.totalDurationMs = normalizeDuration(driveProxyStats.totalDurationMs + durationMs)
   driveProxyStats.methods[method] = (driveProxyStats.methods[method] ?? 0) + 1
+  driveProxyStats.methodDurationsMs[method] = normalizeDuration((driveProxyStats.methodDurationsMs[method] ?? 0) + durationMs)
+}
+
+function getRequestPath(method: string, args: any[]) {
+  if (method === 'pathStat' || method === 'open' || method === 'unlink' || method === 'pathCreateDir') {
+    return normalizeProfilePath(args[1])
+  }
+  if (method === 'rename') {
+    return normalizeProfilePath(args[1])
+  }
+  return null
+}
+
+function trackFdPathAfterResponse(method: string, args: any[], res: any) {
+  const succeeded = Array.isArray(res) && res[0] === 0
+
+  if (method === 'open') {
+    const path = normalizeProfilePath(args[1])
+    const fd = Array.isArray(res) ? res[1] : null
+    if (succeeded && path && typeof fd === 'number') openFdPaths.set(fd, path)
+    return
+  }
+
+  if (succeeded && method === 'close' && typeof args[0] === 'number') {
+    openFdPaths.delete(args[0])
+    return
+  }
+
+  if (succeeded && method === 'renumber' && typeof args[0] === 'number' && typeof args[1] === 'number') {
+    const path = openFdPaths.get(args[0])
+    if (!path) return
+    openFdPaths.delete(args[0])
+    openFdPaths.set(args[1], path)
+  }
 }
 
 async function mainLoop() {
@@ -200,18 +284,32 @@ async function mainLoop() {
       req.args[1] = base64ToUint8Array(req.args[1])
     }
     // console.warn('DRIVE <--', req)
-    incrementDriveProxyMethod(req.method)
+    const requestPath = getRequestPath(req.method, req.args)
     if ((req.method === 'write' || req.method === 'pwrite') && req.args[1] != null) {
       driveProxyStats.bytesWritten += req.args[1].byteLength
+      recordExtensionFdOperation(req.args[0], 'write')
     }
+    const methodStart = performance.now()
     let res = driveProxy[req.method](...req.args)
+    const durationMs = normalizeDuration(performance.now() - methodStart)
+    recordDriveProxyMethod(req.method, durationMs)
+    if (req.method === 'pathStat') {
+      recordPathStats(driveProxyStats.pathStatPaths, requestPath, durationMs)
+      recordExtensionPathOperation(requestPath, 'pathStat')
+    } else if (req.method === 'open') {
+      recordPathStats(driveProxyStats.openPaths, requestPath, durationMs)
+      recordExtensionPathOperation(requestPath, 'open')
+    }
+    trackFdPathAfterResponse(req.method, req.args, res)
     // console.warn('DRIVE -->', res)
     if (req.method === 'read') {
       if (res[1] != null) driveProxyStats.bytesRead += res[1].byteLength
-      res[1] = uint8ArrayToBase64(res[1])
+      recordExtensionFdOperation(req.args[0], 'read')
+      if (res[1] != null) res[1] = uint8ArrayToBase64(res[1])
     } else if (req.method === 'pread') {
       if (res[1] != null) driveProxyStats.bytesRead += res[1].byteLength
-      res[1] = uint8ArrayToBase64(res[1])
+      recordExtensionFdOperation(req.args[0], 'read')
+      if (res[1] != null) res[1] = uint8ArrayToBase64(res[1])
     }
     writeLenPrefixed(writer, encoder.encode(JSON.stringify(res)))
   }

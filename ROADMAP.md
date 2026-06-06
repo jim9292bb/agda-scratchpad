@@ -45,11 +45,14 @@ runtime architecture.
 
 - [x] Add timing instrumentation for WASM response fetch, ALS worker initialization, library zip fetch, library extraction, Agda setup, source sync, `Cmd_load`, and token highlighting.
 - [x] Add drive proxy call and byte counters around Agda load commands.
+- [x] Add drive proxy method timing, top path, and `.agda` / `.agdai` profiling around `Cmd_load`.
 - [x] Show collected performance timings in the runtime/info panel.
 - [x] Browser-test that startup and library preparation timings are visible.
+- [ ] Evaluate pathStat-heavy lookup optimization in the WASI drive proxy.
 - [ ] Evaluate persistent IndexedDB caching for extracted stdlib and Cubical files.
 - [ ] Evaluate lazy library extraction instead of eager JSZip inflation.
 - [ ] Evaluate prebuilt `.agdai` interface caches for selected teaching examples.
+- [ ] Evaluate direct in-memory FS or memfs-style architecture experiments against Runno drive proxy overhead.
 
 ## Goal Lifecycle and Editor State
 

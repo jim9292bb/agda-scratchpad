@@ -22,7 +22,7 @@ import { asset } from '$app/paths'
 import { ALSMessageRouter, makeLSPTransport, type AgdaIOTCMStatus } from './agda/transport'
 import { commit } from './codemirror/offsets'
 import { getAgdaDocumentVersion } from './agda/goal-state'
-import { createPerformanceTrace, formatPerformanceEntry } from './performance'
+import { createPerformanceTrace, formatDurationMs, formatPerformanceEntry } from './performance'
 import type { DriveProxyStats, DriveWorkerReadyMessage, PerformanceEntry } from './worker/types'
 
 const isSafari = /Apple Computer/.test((navigator as any).vendor)
@@ -107,14 +107,29 @@ function formatDriveProxyStats(stats: DriveProxyStats): Record<string, unknown> 
   const methods = Object.entries(stats.methods)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 6)
-    .map(([method, count]) => `${method} ${count}`)
+    .map(([method, count]) => `${method} ${count} / ${formatDurationMs(stats.methodDurationsMs[method] ?? 0)}`)
     .join(', ')
+
+  const formatTopPaths = (paths: DriveProxyStats['pathStatPaths']) =>
+    Object.entries(paths)
+      .sort((a, b) => b[1].count - a[1].count || b[1].durationMs - a[1].durationMs)
+      .slice(0, 4)
+      .map(([path, pathStats]) => `${path} ${pathStats.count} / ${formatDurationMs(pathStats.durationMs)}`)
+      .join('; ')
+
+  const formatExtensionStats = (label: string, extensionStats: DriveProxyStats['agda']) =>
+    `${label} pathStat ${extensionStats.pathStat}, open ${extensionStats.open}, read ${extensionStats.read}, write ${extensionStats.write}`
 
   return {
     calls: stats.totalCalls,
+    totalMs: stats.totalDurationMs,
     readBytes: stats.bytesRead,
     writtenBytes: stats.bytesWritten,
     methods,
+    topPathStatPaths: formatTopPaths(stats.pathStatPaths),
+    topOpenPaths: formatTopPaths(stats.openPaths),
+    agdaStats: formatExtensionStats('.agda', stats.agda),
+    agdaiStats: formatExtensionStats('.agdai', stats.agdai),
   }
 }
 
