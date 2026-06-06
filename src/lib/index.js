@@ -1,9 +1,9 @@
 /** @import { SPSCReader } from 'spsc/reader' */
 /** @import { SPSCWriter } from 'spsc/writer' */
-/** @import { ALSWorkerInitObject, ALSWorkerInitResultProxied } from '$lib/worker/types' */
+/** @import { ALSWorkerInitObject, ALSWorkerInitResultProxied, DriveProxyStats } from '$lib/worker/types' */
 import { SPSCError } from 'spsc'
 import * as Comlink from 'comlink'
-import { freadAsync, fwriteAsync, makeBufUint32LE, writeLenPrefixedAsync } from './stdlib'
+import { bufGetUint32LE, freadAsync, fwriteAsync, makeBufUint32LE, writeLenPrefixedAsync } from './stdlib'
 
 // feature detection, unfortunately async
 let browserSupportBYOBReadable = false
@@ -150,7 +150,11 @@ export function makeDriveHostWorker(initialMessage) {
 
     // FIXME
     /** @type {Transferable[]} */
-    const transferables = [initialMessage.agdaDataZip, initialMessage.agdaStdlibZip].filter(Boolean)
+    const transferables = [
+      initialMessage.agdaDataZip,
+      initialMessage.agdaStdlibZip,
+      initialMessage.agdaCubicalZip,
+    ].filter(Boolean)
 
     worker.postMessage(initialMessage, transferables)
   })
@@ -247,24 +251,50 @@ export function traceFetchProgress(resp, callback) {
 }
 
 /**
+ * @template T
  * @param {Int32Array<SharedArrayBuffer>} lock
- * @param {() => Promise<unknown>} callback */
+ * @param {() => Promise<T>} callback
+ * @returns {Promise<T>} */
 export async function withDriveLock(lock, callback) {
   while (Atomics.compareExchange(lock, 0, 0, 1) !== 0) {
     console.warn('drive is busy, retrying later...')
     await new Promise(r => setTimeout(r, 100))
   }
 
-  await callback()
-
-  if (Atomics.compareExchange(lock, 0, 1, 0) !== 1) {
-    throw new Error('mutex content corrupted')
+  try {
+    return await callback()
+  } finally {
+    if (Atomics.compareExchange(lock, 0, 1, 0) !== 1) {
+      throw new Error('mutex content corrupted')
+    }
+    Atomics.notify(lock, 0, 1)
   }
-
-  Atomics.notify(lock, 0, 1)
 }
 
 const encoder = new TextEncoder()
+const decoder = new TextDecoder()
+
+/**
+ * @param {import('spsc/reader').SPSCReader} reader
+ * @param {number} len
+ */
+async function readExactAsync(reader, len) {
+  const data = new Uint8Array(len)
+  let offset = 0
+  while (offset < len) {
+    const rr = reader.read(len - offset, { nonblock: true })
+    if (!rr.ok) {
+      if (rr.error === SPSCError.Again) {
+        await new Promise(r => setTimeout(r, 50))
+        continue
+      }
+      throw new Error('read failed')
+    }
+    data.set(rr.data, offset)
+    offset += rr.bytesRead
+  }
+  return data
+}
 
 /**
  * @param {import('./controller.svelte').DriveHandle} _
@@ -275,5 +305,18 @@ export function writeSourceFileToDrive({lock, stdinWriter, stdoutReader}, doc) {
     await fwriteAsync(stdinWriter, makeBufUint32LE(1))
     await writeLenPrefixedAsync(stdinWriter, encoder.encode(doc))
     await freadAsync(stdoutReader, 1)
+  })
+}
+
+/**
+ * @param {import('./controller.svelte').DriveHandle} _
+ * @returns {Promise<DriveProxyStats>}
+ */
+export function getAndResetDriveProxyStats({lock, stdinWriter, stdoutReader}) {
+  return withDriveLock(lock, async () => {
+    await fwriteAsync(stdinWriter, makeBufUint32LE(3))
+    const lenBuf = await readExactAsync(stdoutReader, 4)
+    const payload = await readExactAsync(stdoutReader, bufGetUint32LE(lenBuf))
+    return JSON.parse(decoder.decode(payload))
   })
 }

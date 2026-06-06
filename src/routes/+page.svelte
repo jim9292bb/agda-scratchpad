@@ -44,6 +44,7 @@ import {
   whyInScopeToplevelCommand,
 } from '$lib/agda/commands'
 import { diagnosticToAgdaUtf8Position, focusAgdaUtf8Position } from '$lib/agda/diagnostics'
+import { formatPerformanceEntry } from '$lib/performance'
 
 import { clearGoals, clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo } from '$lib/agda/effects'
 
@@ -1153,6 +1154,7 @@ $effect(() => {
   {:else if agdaController.alsWorkerStatus === 'initial'}
     <div><strong>Startup config</strong></div>
     {@render runtimeSummaryPanel()}
+    {@render performanceSummaryPanel()}
   {:else}
     Status: <strong>{agdaController.alsWorkerStatus}</strong>
     <ul>
@@ -1161,6 +1163,7 @@ $effect(() => {
       <li>IOTCM status: {agdaController.iotcmStatus}</li>
     </ul>
     {@render runtimeSummaryPanel()}
+    {@render performanceSummaryPanel()}
     <div class="flex">
       <quiet-button variant="primary" onclick={() => loadAgdaFile()}>Load</quiet-button>
       <quiet-button onclick={() => sendAbort()}>Abort</quiet-button>
@@ -1355,6 +1358,36 @@ $effect(() => {
   </section>
 {/snippet}
 
+{#snippet performanceSummaryPanel()}
+  {#if agdaController.performanceEntries.length}
+    <section class="performance-summary" aria-label="Performance timings">
+      <header class="performance-summary-title">Performance timings</header>
+      <ol>
+        {#each agdaController.performanceEntries as entry}
+          <li class:failed={entry.failed}>
+            <span>{formatPerformanceEntry(entry)}</span>
+            {#if entry.detail?.bytes != null}
+              <small>{Math.round(Number(entry.detail.bytes) / 1024)} KiB</small>
+            {/if}
+            {#if entry.detail?.calls != null}
+              <small>{entry.detail.calls} calls</small>
+            {/if}
+            {#if entry.detail?.readBytes != null}
+              <small>{Math.round(Number(entry.detail.readBytes) / 1024)} KiB read</small>
+            {/if}
+            {#if entry.detail?.writtenBytes != null}
+              <small>{Math.round(Number(entry.detail.writtenBytes) / 1024)} KiB written</small>
+            {/if}
+            {#if entry.detail?.methods}
+              <small>{entry.detail.methods}</small>
+            {/if}
+          </li>
+        {/each}
+      </ol>
+    </section>
+  {/if}
+{/snippet}
+
 {#snippet headerExamplePicker()}
   <label class="header-example-picker" for="scratchpad-example">
     <span>Example</span>
@@ -1453,7 +1486,8 @@ quiet-splitter {
   }
 }
 
-.runtime-summary {
+.runtime-summary,
+.performance-summary {
   margin: 8px 0 12px;
   border: 1px solid var(--quiet-neutral-stroke-softer);
   border-radius: 4px;
@@ -1461,13 +1495,36 @@ quiet-splitter {
   padding: 8px;
 }
 
-.runtime-summary-title {
+.runtime-summary-title,
+.performance-summary-title {
   margin-bottom: 6px;
   color: #777;
   font-family: monospace;
   font-size: .75rem;
   letter-spacing: .08em;
   text-transform: uppercase;
+}
+
+.performance-summary ol {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 1.4em;
+}
+
+.performance-summary li {
+  color: #555;
+  font-size: .78rem;
+}
+
+.performance-summary li.failed {
+  color: #c2410c;
+}
+
+.performance-summary small {
+  margin-inline-start: 6px;
+  color: #777;
+  font-family: JuliaMono, monospace;
 }
 
 .runtime-summary dl {

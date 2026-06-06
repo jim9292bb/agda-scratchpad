@@ -3,9 +3,11 @@ import { SPSCReader } from 'spsc/reader'
 import { SPSCWriter } from 'spsc/writer'
 import JSZip from 'jszip'
 import { fread, bufGetUint32LE, writeLenPrefixed, fwrite } from '$lib/stdlib'
+import { createPerformanceTrace } from '$lib/performance'
 
 import { uint8ArrayToBase64, base64ToUint8Array } from './util-base64'
 import type { DriveWorkerInitObject } from './types'
+import type { DriveProxyStats } from './types'
 
 const now = new Date()
 
@@ -35,9 +37,12 @@ const { stdin, stdout, agdaDataZip, agdaStdlibZip, agdaCubicalZip } = await new 
   }, { once: true })
 })
 
+const performanceTrace = createPerformanceTrace()
+
 async function extractZip(data: ArrayBuffer, prefix = '', pathResolver?: (path: string) => string | null) {
   const zip = await JSZip.loadAsync(data)
   const filePromises: Promise<void>[] = []
+  let files = 0
 
   if (prefix === '/') prefix = ''
 
@@ -45,12 +50,14 @@ async function extractZip(data: ArrayBuffer, prefix = '', pathResolver?: (path: 
     if (file.dir) return
     const path = pathResolver ? pathResolver(_path) : _path
     if (path == null) return
+    files++
     filePromises.push(file.async('uint8array').then(content => {
       fsAssign(`${prefix}/${path}`, content)
     }))
   })
 
-  return Promise.all(filePromises)
+  await Promise.all(filePromises)
+  return { files }
 }
 
 // TODO: make this changable dynamically
@@ -61,29 +68,31 @@ const fs: Record<string, Runno.WASIFile> = Object.fromEntries([
 ])
 
 if (agdaDataZip) {
-  await extractZip(agdaDataZip, '/')
+  await performanceTrace.measure('Extract Agda builtins zip', () => extractZip(agdaDataZip, '/'), {
+    bytes: agdaDataZip.byteLength,
+  })
 }
 
 const agdaLibraries: string[] = []
 const agdaDefaults: string[] = []
 
 if (agdaStdlibZip) {
-  await extractZip(agdaStdlibZip, '/stdlib', p => {
+  await performanceTrace.measure('Extract standard-library zip', () => extractZip(agdaStdlibZip, '/stdlib', p => {
     if (!p.match(/^agda-stdlib-[\.\d]+\/src/) &&
         !p.match(/^agda-stdlib-[\.\d]+\/standard-library\.agda-lib$/)) {
       return null
     }
     return p.replace(/^agda-stdlib-[\.\d]+\//, '')
-  })
+  }), { bytes: agdaStdlibZip.byteLength })
   agdaLibraries.push('/stdlib/standard-library.agda-lib')
   agdaDefaults.push('standard-library')
 }
 
 if (agdaCubicalZip) {
-  await extractZip(agdaCubicalZip, '/cubical', p => {
+  await performanceTrace.measure('Extract Cubical zip', () => extractZip(agdaCubicalZip, '/cubical', p => {
     if (!p.startsWith('cubical-0.9/')) return null
     return p.replace(/^cubical-0\.9\//, '')
-  })
+  }), { bytes: agdaCubicalZip.byteLength })
   agdaLibraries.push('/cubical/cubical.agda-lib')
   agdaDefaults.push('cubical-0.9')
 }
@@ -93,7 +102,7 @@ if (agdaLibraries.length) {
   fsAssign('/home/root/.config/agda/defaults', `${agdaDefaults.join('\n')}\n`)
 }
 
-postMessage('fs-ready')
+postMessage({ type: 'fs-ready', performanceEntries: performanceTrace.entries })
 
 const wasi = new Runno.WASI({ fs })
 const drive = wasi.drive
@@ -135,6 +144,30 @@ const writer = new SPSCWriter(stdout)
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
 
+let driveProxyStats: DriveProxyStats = {
+  totalCalls: 0,
+  bytesRead: 0,
+  bytesWritten: 0,
+  methods: {},
+}
+
+function snapshotAndResetDriveProxyStats() {
+  const stats = driveProxyStats
+  driveProxyStats = {
+    totalCalls: 0,
+    bytesRead: 0,
+    bytesWritten: 0,
+    methods: {},
+  }
+  return stats
+}
+
+/** @param {string} method */
+function incrementDriveProxyMethod(method: string) {
+  driveProxyStats.totalCalls++
+  driveProxyStats.methods[method] = (driveProxyStats.methods[method] ?? 0) + 1
+}
+
 async function mainLoop() {
   const driveProxy = drive as unknown as {[k: string]: (...args: any[]) => any}
   while (true) {
@@ -152,6 +185,9 @@ async function mainLoop() {
       console.warn('DUMP FS', drive.fs)
       fwrite(writer, new Uint8Array([0]))
       continue
+    } else if (msgType === 3) {
+      writeLenPrefixed(writer, encoder.encode(JSON.stringify(snapshotAndResetDriveProxyStats())))
+      continue
     } else if (msgType !== 0) {
       throw new Error('Invalid msg type ' + msgType)
     }
@@ -160,13 +196,21 @@ async function mainLoop() {
     const data = fread(reader, bufGetUint32LE(lenBuf))
     const req: { method: string; args: any[] } = JSON.parse(decoder.decode(data))
 
-    if (req.method === 'write') {
+    if (req.method === 'write' || req.method === 'pwrite') {
       req.args[1] = base64ToUint8Array(req.args[1])
     }
     // console.warn('DRIVE <--', req)
+    incrementDriveProxyMethod(req.method)
+    if ((req.method === 'write' || req.method === 'pwrite') && req.args[1] != null) {
+      driveProxyStats.bytesWritten += req.args[1].byteLength
+    }
     let res = driveProxy[req.method](...req.args)
     // console.warn('DRIVE -->', res)
     if (req.method === 'read') {
+      if (res[1] != null) driveProxyStats.bytesRead += res[1].byteLength
+      res[1] = uint8ArrayToBase64(res[1])
+    } else if (req.method === 'pread') {
+      if (res[1] != null) driveProxyStats.bytesRead += res[1].byteLength
       res[1] = uint8ArrayToBase64(res[1])
     }
     writeLenPrefixed(writer, encoder.encode(JSON.stringify(res)))

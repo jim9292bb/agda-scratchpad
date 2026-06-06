@@ -11,6 +11,7 @@ import { hoverTooltips } from '$lib/codemirror/lsp-hover'
 import {
   createReadableByteStream,
   createWritableByteStream,
+  getAndResetDriveProxyStats,
   makeDriveHostWorker,
   makeLspWorker,
   traceFetchProgress,
@@ -21,6 +22,8 @@ import { asset } from '$app/paths'
 import { ALSMessageRouter, makeLSPTransport, type AgdaIOTCMStatus } from './agda/transport'
 import { commit } from './codemirror/offsets'
 import { getAgdaDocumentVersion } from './agda/goal-state'
+import { createPerformanceTrace, formatPerformanceEntry } from './performance'
+import type { DriveProxyStats, DriveWorkerReadyMessage, PerformanceEntry } from './worker/types'
 
 const isSafari = /Apple Computer/.test((navigator as any).vendor)
 
@@ -100,6 +103,21 @@ function makeLspClient(rootUri: string = '/') {
   })
 }
 
+function formatDriveProxyStats(stats: DriveProxyStats): Record<string, unknown> {
+  const methods = Object.entries(stats.methods)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([method, count]) => `${method} ${count}`)
+    .join(', ')
+
+  return {
+    calls: stats.totalCalls,
+    readBytes: stats.bytesRead,
+    writtenBytes: stats.bytesWritten,
+    methods,
+  }
+}
+
 export class AgdaController {
   agdaStdinWriter: SPSCWriter
   agdaStdoutReader: SPSCReader
@@ -120,6 +138,7 @@ export class AgdaController {
   driveIsCreated = $state(false)
   currentFilePath = $state('/source.agda')
   iotcmStatus = $state<AgdaIOTCMStatus>('init')
+  performanceEntries = $state<PerformanceEntry[]>([])
 
   _lspWorker: Worker | undefined
   _driveHostWorker: Worker | undefined
@@ -151,6 +170,42 @@ export class AgdaController {
     this.editorView = view
   }
 
+  appendPerformanceEntries(entries: PerformanceEntry[]) {
+    if (!entries.length) return
+    this.performanceEntries = [...this.performanceEntries, ...entries]
+    for (const entry of entries) {
+      console.info('[perf]', formatPerformanceEntry(entry), entry.detail ?? '')
+    }
+  }
+
+  async measurePerformance<T>(
+    label: string,
+    callback: () => Promise<T>,
+    detail?: Record<string, unknown>,
+  ): Promise<T> {
+    const trace = createPerformanceTrace()
+    try {
+      return await trace.measure(label, callback, detail)
+    } finally {
+      this.appendPerformanceEntries(trace.entries)
+    }
+  }
+
+  async resetDriveProxyStats() {
+    if (!this.driveIsCreated) return
+    await getAndResetDriveProxyStats(this.driveHandle)
+  }
+
+  async appendDriveProxyStats(label: string) {
+    if (!this.driveIsCreated) return
+    const stats = await getAndResetDriveProxyStats(this.driveHandle)
+    this.appendPerformanceEntries([{
+      label,
+      durationMs: 0,
+      detail: formatDriveProxyStats(stats),
+    }])
+  }
+
   async startALSWASM() {
     if (this.runningWASM) {
       throw new Error('WASM is already running')
@@ -169,7 +224,12 @@ export class AgdaController {
     }
 
     this.alsWorkerStatus = 'loading'
-    const wasmAndData = await fetchWASMAndData(this.config.agdaVersion).catch(() => null)
+    this.performanceEntries = []
+    const wasmAndData = await this.measurePerformance(
+      'Fetch ALS WASM response',
+      () => fetchWASMAndData(this.config.agdaVersion),
+      { agdaVersion: this.config.agdaVersion },
+    ).catch(() => null)
 
     if (wasmAndData == null) {
       this.alsWorkerStatus = 'errored'
@@ -253,8 +313,12 @@ export class AgdaController {
       agdaCubicalZip: options.cubical ?? null,
     })
 
-    if (event.data !== 'fs-ready') {
+    const readyMessage = event.data as DriveWorkerReadyMessage
+    if (readyMessage !== 'fs-ready' && readyMessage.type !== 'fs-ready') {
       throw new Error('drive worker did not respond correctly')
+    }
+    if (readyMessage !== 'fs-ready') {
+      this.appendPerformanceEntries(readyMessage.performanceEntries)
     }
 
     this.driveIsCreated = true
@@ -310,28 +374,30 @@ export class AgdaController {
       })
     })
 
-    this.workerInitData = await initPromise
+    this.workerInitData = await this.measurePerformance('Initialize ALS worker', () => initPromise)
 
     const [, dataFileData, stdlibData, cubicalData] = await Promise.all([
-      this.workerInitData.getALSVersion().then(ver => this.receivedALSVersion = ver),
-      dataFile ? dataFile.arrayBuffer() : Promise.resolve(undefined),
-      fetch(asset('/agda-stdlib-2.3.zip')).then(x => x.arrayBuffer()),
-      fetch(asset('/agda-cubical-0.9.zip')).then(x => x.arrayBuffer()),
+      this.measurePerformance('Read ALS version', () => this.workerInitData!.getALSVersion().then(ver => this.receivedALSVersion = ver)),
+      dataFile
+        ? this.measurePerformance('Read Agda builtins data', () => dataFile.arrayBuffer())
+        : Promise.resolve(undefined),
+      this.measurePerformance('Fetch standard-library zip', () => fetch(asset('/agda-stdlib-2.3.zip')).then(x => x.arrayBuffer())),
+      this.measurePerformance('Fetch Cubical zip', () => fetch(asset('/agda-cubical-0.9.zip')).then(x => x.arrayBuffer())),
     ])
 
     try {
-      await this.initDriveHostWorker({
+      await this.measurePerformance('Initialize virtual filesystem', () => this.initDriveHostWorker({
         builtin: dataFileData,
         stdlib: stdlibData,
         cubical: cubicalData,
-      })
+      }))
     } catch (err) {
       return Promise.reject(new Error('Failed to setup ALS drive host worker', { cause: err }))
     }
 
     if (this.config.agdaVersion === '2.8.0') {
       try {
-        await this.workerInitData.spawn(['--setup'])
+        await this.measurePerformance('Run Agda --setup', () => this.workerInitData!.spawn(['--setup']))
       } catch (err) {
         console.warn('failed to complete the setup stage of agda', err)
         this.alsWorkerStatus = 'errored'
@@ -402,7 +468,9 @@ export class AgdaController {
 
     this.driveIsLocked = true
     try {
-      await writeSourceFileToDrive(this.driveHandle, doc)
+      await this.measurePerformance('Sync source to virtual filesystem', () => writeSourceFileToDrive(this.driveHandle, doc), {
+        bytes: new TextEncoder().encode(doc).byteLength,
+      })
     } finally {
       this.driveIsLocked = false
     }
@@ -441,23 +509,37 @@ export class AgdaController {
 
     const encodedFilePath = JSON.stringify(this.currentFilePath)
 
-    this.alsRouter!.lastAgdaInternalError = null
-    this.alsRouter!.lastAgdaError = null
-    await this.runAgdaCommand({
-      tag: 'CmdReq',
-      contents: `IOTCM ${encodedFilePath} NonInteractive Direct (Cmd_load ${encodedFilePath} ${JSON.stringify(loadArgs)})`,
-    })
-    if (this.alsRouter!.lastAgdaInternalError) {
-      throw new Error(`ALS failed to process ${this.currentFilePath}: ${this.alsRouter!.lastAgdaInternalError}`)
-    }
-    if (this.alsRouter!.lastAgdaError) {
-      throw new Error(this.alsRouter!.lastAgdaError)
+    await this.resetDriveProxyStats()
+    try {
+      await this.measurePerformance('Agda Cmd_load', async () => {
+      this.alsRouter!.lastAgdaInternalError = null
+      this.alsRouter!.lastAgdaError = null
+      await this.runAgdaCommand({
+        tag: 'CmdReq',
+        contents: `IOTCM ${encodedFilePath} NonInteractive Direct (Cmd_load ${encodedFilePath} ${JSON.stringify(loadArgs)})`,
+      })
+      if (this.alsRouter!.lastAgdaInternalError) {
+        throw new Error(`ALS failed to process ${this.currentFilePath}: ${this.alsRouter!.lastAgdaInternalError}`)
+      }
+      if (this.alsRouter!.lastAgdaError) {
+        throw new Error(this.alsRouter!.lastAgdaError)
+      }
+      }, { file: this.currentFilePath })
+    } finally {
+      await this.appendDriveProxyStats('Drive proxy after Cmd_load')
     }
 
-    await this.runAgdaCommand({
-      tag: 'CmdReq',
-      contents: `IOTCM ${encodedFilePath} NonInteractive Direct (Cmd_tokenHighlighting ${encodedFilePath} Keep)`,
-    }, { suppressAgdaInternalErrors: true })
+    await this.resetDriveProxyStats()
+    try {
+      await this.measurePerformance('Agda token highlighting', async () => {
+      await this.runAgdaCommand({
+        tag: 'CmdReq',
+        contents: `IOTCM ${encodedFilePath} NonInteractive Direct (Cmd_tokenHighlighting ${encodedFilePath} Keep)`,
+      }, { suppressAgdaInternalErrors: true })
+      }, { file: this.currentFilePath })
+    } finally {
+      await this.appendDriveProxyStats('Drive proxy after token highlighting')
+    }
   }
 
   async runAgdaCommand(

@@ -38,6 +38,19 @@ Goal: examples should load reliably in a browser without local Agda installation
 - [x] Add a scripted standard-library regression that loads `Data.Nat.Base`.
 - [x] Show a read-only runtime summary for Agda, ALS, stdlib, and Cubical versions.
 
+## Runtime and Library Performance
+
+Goal: make ALS/WASM startup and library loading measurable before changing the
+runtime architecture.
+
+- [x] Add timing instrumentation for WASM response fetch, ALS worker initialization, library zip fetch, library extraction, Agda setup, source sync, `Cmd_load`, and token highlighting.
+- [x] Add drive proxy call and byte counters around Agda load commands.
+- [x] Show collected performance timings in the runtime/info panel.
+- [x] Browser-test that startup and library preparation timings are visible.
+- [ ] Evaluate persistent IndexedDB caching for extracted stdlib and Cubical files.
+- [ ] Evaluate lazy library extraction instead of eager JSZip inflation.
+- [ ] Evaluate prebuilt `.agdai` interface caches for selected teaching examples.
+
 ## Goal Lifecycle and Editor State
 
 Goal: Agda goals should remain correct after load, edits, case split, give,

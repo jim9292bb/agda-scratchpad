@@ -48,3 +48,24 @@ export interface DriveWorkerInitObject {
   agdaStdlibZip: ArrayBuffer | null
   agdaCubicalZip: ArrayBuffer | null
 }
+
+export interface PerformanceEntry {
+  label: string
+  durationMs: number
+  detail?: Record<string, unknown>
+  failed?: boolean
+}
+
+export interface DriveProxyStats {
+  totalCalls: number
+  bytesRead: number
+  bytesWritten: number
+  methods: Record<string, number>
+}
+
+export type DriveWorkerReadyMessage =
+  | 'fs-ready'
+  | {
+      type: 'fs-ready'
+      performanceEntries: PerformanceEntry[]
+    }
