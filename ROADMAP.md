@@ -59,6 +59,7 @@ runtime architecture.
 - [ ] Evaluate prebuilt `.agdai` interface caches for selected teaching examples.
 - [ ] Resolve the `runno-direct-fs` raw ALS `ResponseEnd` blocker or replace it with a better direct baseline.
 - [ ] Evaluate direct in-memory FS or memfs-style architecture experiments against Runno drive proxy overhead.
+- [x] Add a `vscode-wasm-memfs` dependency/artifact probe and blocker report.
 - [ ] Compare `runno-proxy-current`, `runno-direct-fs`, and `vscode-wasm-memfs` benchmark results.
 
 ## Goal Lifecycle and Editor State

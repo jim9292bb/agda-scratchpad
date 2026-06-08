@@ -61,6 +61,7 @@ npm run benchmark:runno-proxy -- --fixture cubical-prelude
 npm run benchmark:runno-proxy:pathstat-cache -- --fixture cubical-prelude
 npm run benchmark:runno-direct -- --fixture builtin-nat
 npm run benchmark:fixtures
+npm run probe:vscode-wasm
 ```
 
 From the main `als-demo` directory:
@@ -93,6 +94,13 @@ interaction. Treat this as a harness/runtime finding, not as a main app failure.
 - `runno-proxy-current`: implemented baseline. Reproduces the main app's ALS worker plus drive worker proxy architecture and is the primary runtime for completed first/second load measurements.
 - `runno-direct-fs`: scaffolded. Uses `@runno/wasi` with the virtual filesystem directly in the ALS worker, without the main app's cross-worker drive proxy. It currently exposes a direct raw ALS scheduling blocker before `ResponseEnd`.
 - `vscode-wasm-memfs`: planned. See `adapters/vscode-wasm-memfs/README.md`.
+- `browser-wasi-shim-memfs`: planned later-stage comparison. See `adapters/browser-wasi-shim-memfs/README.md`.
+
+## Dependency Probes
+
+`npm run probe:vscode-wasm` checks whether the `vscode-wasm-memfs` adapter can
+be implemented from currently available dependencies and local artifacts. If it
+reports blockers, do not treat `vscode-wasm-memfs` as benchmarkable yet.
 
 ## PathStat Cache Experiment
 

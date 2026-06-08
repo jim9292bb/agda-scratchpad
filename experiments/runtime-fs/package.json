@@ -9,7 +9,8 @@
     "benchmark:runno-direct": "node src/benchmark.js --runtime runno-direct-fs",
     "benchmark:runno-proxy": "node src/benchmark.js --runtime runno-proxy-current",
     "benchmark:runno-proxy:pathstat-cache": "node src/benchmark.js --runtime runno-proxy-current --pathstat-cache",
-    "benchmark:fixtures": "node src/benchmark.js --runtime runno-proxy-current --all-fixtures"
+    "benchmark:fixtures": "node src/benchmark.js --runtime runno-proxy-current --all-fixtures",
+    "probe:vscode-wasm": "node src/probe-vscode-wasm.js"
   },
   "dependencies": {
     "@runno/wasi": "^0.10.0",
