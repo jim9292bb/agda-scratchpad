@@ -10,6 +10,7 @@
     "benchmark:runno-proxy": "node src/benchmark.js --runtime runno-proxy-current",
     "benchmark:runno-proxy:pathstat-cache": "node src/benchmark.js --runtime runno-proxy-current --pathstat-cache",
     "benchmark:browser-wasi-shim": "node src/benchmark.js --runtime browser-wasi-shim-memfs",
+    "benchmark:browser-wasi-shim-overlay-snapshot": "node src/benchmark.js --runtime browser-wasi-shim-overlay-snapshot",
     "benchmark:vscode-wasm": "node src/benchmark.js --runtime vscode-wasm-memfs",
     "benchmark:fixtures": "node src/benchmark.js --runtime runno-proxy-current --all-fixtures",
     "probe:vscode-wasm": "node src/probe-vscode-wasm.js"

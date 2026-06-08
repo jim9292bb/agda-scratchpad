@@ -36,7 +36,7 @@ function parseArgs(argv) {
     else if (arg === '--debug-runtime') args.debug = true
     else if (arg === '--pathstat-cache') args.pathStatCache = true
     else if (arg === '--help' || arg === '-h') {
-      console.log('Usage: npm run benchmark -- [--runtime runno-direct-fs|runno-proxy-current|browser-wasi-shim-memfs|vscode-wasm-memfs] [--fixture cubical-prelude] [--all-fixtures] [--pathstat-cache]')
+      console.log('Usage: npm run benchmark -- [--runtime runno-direct-fs|runno-proxy-current|browser-wasi-shim-memfs|browser-wasi-shim-overlay-snapshot|vscode-wasm-memfs] [--fixture cubical-prelude] [--all-fixtures] [--pathstat-cache]')
       process.exit(0)
     } else {
       throw new Error(`Unknown argument: ${arg}`)
@@ -537,10 +537,10 @@ function waitForWorkerReady(worker, label) {
   })
 }
 
-async function runBrowserWasiShimMemfs(fixture, options = {}) {
+async function runBrowserWasiShimWorker(fixture, options = {}, workerFile, runtimeName) {
   const source = await readFixture(experimentRoot, fixture)
   const stdinSab = createSpscBuffer()
-  const worker = new Worker(new URL('./browser-wasi-shim-runtime.js', import.meta.url), {
+  const worker = new Worker(new URL(workerFile, import.meta.url), {
     type: 'module',
     workerData: {
       stdin: stdinSab,
@@ -558,7 +558,7 @@ async function runBrowserWasiShimMemfs(fixture, options = {}) {
       await session.waitForReady()
       await session.initialize(source)
     } catch (error) {
-      throw makeStageError('initialize', `browser-wasi-shim-memfs failed during initialize: ${error.message}. stderr=${stderrTail(session.stderr)}`, error)
+      throw makeStageError('initialize', `${runtimeName} failed during initialize: ${error.message}. stderr=${stderrTail(session.stderr)}`, error)
     }
 
     let firstLoad
@@ -566,7 +566,7 @@ async function runBrowserWasiShimMemfs(fixture, options = {}) {
       firstLoad = await session.loadAgdaFile()
     } catch (error) {
       const stage = error.message.includes('ResponseEnd') ? 'ResponseEnd' : 'Cmd_load'
-      throw makeStageError(stage, `browser-wasi-shim-memfs failed during first Cmd_load: ${error.message}. stderr=${stderrTail(session.stderr)}`, error)
+      throw makeStageError(stage, `${runtimeName} failed during first Cmd_load: ${error.message}. stderr=${stderrTail(session.stderr)}`, error)
     }
 
     let secondLoad
@@ -574,13 +574,13 @@ async function runBrowserWasiShimMemfs(fixture, options = {}) {
       secondLoad = await session.loadAgdaFile()
     } catch (error) {
       const stage = error.message.includes('ResponseEnd') ? 'ResponseEnd' : 'Cmd_load'
-      throw makeStageError(stage, `browser-wasi-shim-memfs failed during second Cmd_load: ${error.message}. stderr=${stderrTail(session.stderr)}`, error)
+      throw makeStageError(stage, `${runtimeName} failed during second Cmd_load: ${error.message}. stderr=${stderrTail(session.stderr)}`, error)
     }
 
     await session.shutdown()
     await worker.terminate()
     return flattenResult({
-      runtime: 'browser-wasi-shim-memfs',
+      runtime: runtimeName,
       fixture,
       setupMs: session.setupMs,
       firstLoad,
@@ -591,6 +591,14 @@ async function runBrowserWasiShimMemfs(fixture, options = {}) {
     if (err?.stage) err.context = session.snapshotDebugContext()
     throw err
   }
+}
+
+async function runBrowserWasiShimMemfs(fixture, options = {}) {
+  return runBrowserWasiShimWorker(fixture, options, './browser-wasi-shim-runtime.js', 'browser-wasi-shim-memfs')
+}
+
+async function runBrowserWasiShimOverlaySnapshot(fixture, options = {}) {
+  return runBrowserWasiShimWorker(fixture, options, './browser-wasi-shim-overlay-snapshot-runtime.js', 'browser-wasi-shim-overlay-snapshot')
 }
 
 async function runRunnoProxyCurrent(fixture, options = {}) {
@@ -681,7 +689,10 @@ async function runBenchmark(runtime, fixture) {
   if (runtime === 'browser-wasi-shim-memfs') {
     return runBrowserWasiShimMemfs(fixture, { debug: args.debug })
   }
-  throw new Error(`Runtime ${runtime} is not implemented. Available: runno-direct-fs, runno-proxy-current, browser-wasi-shim-memfs, vscode-wasm-memfs`)
+  if (runtime === 'browser-wasi-shim-overlay-snapshot') {
+    return runBrowserWasiShimOverlaySnapshot(fixture, { debug: args.debug })
+  }
+  throw new Error(`Runtime ${runtime} is not implemented. Available: runno-direct-fs, runno-proxy-current, browser-wasi-shim-memfs, browser-wasi-shim-overlay-snapshot, vscode-wasm-memfs`)
 }
 
 const args = parseArgs(process.argv.slice(2))

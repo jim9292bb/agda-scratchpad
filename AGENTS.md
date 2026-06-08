@@ -6,6 +6,10 @@ This project is a browser-hosted single-file Agda IDE for demonstration,
 learning, and practice. Its positioning is close to the JSCoq scratchpad:
 focused interaction with one source buffer, not project-oriented development.
 
+For a new development session, read `DEVELOPMENT_HANDOFF.md` first. It records
+the current branch direction, runtime evidence, immediate next task, and later
+work.
+
 Use `PROJECT_GOAL.md` as the source of truth for product positioning.
 
 Follow `ROADMAP.md` as the source of truth for planned work and progress.
@@ -65,6 +69,7 @@ unless the user explicitly asks for that workflow.
 ## Important Files
 
 - `ROADMAP.md`: feature plan and progress.
+- `DEVELOPMENT_HANDOFF.md`: current development handoff for new Codex sessions.
 - `PROJECT_GOAL.md`: product positioning and scope boundaries.
 - `CODEX_WORKFLOWS.md`: repeatable Codex workflows and regression checklists.
 - `docs/AGDA_MODE_VSCODE_MAPPING.md`: researched shortcut and `Cmd_*` mappings from `agda-mode-vscode`.
@@ -133,10 +138,15 @@ VSCode porting checklist. Runtime support, goal lifecycle, core practice
 commands, goal queries, and Goals panel/navigation are substantially complete,
 with remaining browser regression coverage tracked in the TODO.
 
-Next priority: finish Diagnostics and Output Panel interaction, especially
-clickable errors and structured Queries/Warnings views, then continue with the
-Unicode Input Method. These improve the single-file learning workflow without
-expanding into project management.
+Current branch direction: `runtime-browser-wasi-shim`. The immediate priority
+is a behavior-preserving runtime backend abstraction, followed by a gated
+`browser-wasi-shim-memfs` backend for the main app. See
+`DEVELOPMENT_HANDOFF.md` before continuing runtime work.
+
+After the runtime backend work, return to Diagnostics and Output Panel
+interaction, structured Queries/Warnings views, and then the Unicode Input
+Method. These improve the single-file learning workflow without expanding into
+project management.
 
 For larger feature work, use the Superpowers-inspired workflows in
 `CODEX_WORKFLOWS.md`: clarify the intended learner workflow, write a concise

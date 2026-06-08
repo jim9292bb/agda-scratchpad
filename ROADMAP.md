@@ -12,6 +12,9 @@ roadmap, and this project does not aim for complete VSCode parity.
 Use `PROJECT_GOAL.md` for product scope and `docs/AGDA_MODE_VSCODE_MAPPING.md`
 for researched Agda command mappings.
 
+For the current branch handoff and next runtime migration task, read
+`DEVELOPMENT_HANDOFF.md`.
+
 ## Scope Boundaries
 
 - [x] Preserve the single-file scratchpad model backed by `/source.agda`.
@@ -60,7 +63,15 @@ runtime architecture.
 - [ ] Resolve the `runno-direct-fs` raw ALS `ResponseEnd` blocker or replace it with a better direct baseline.
 - [ ] Evaluate direct in-memory FS or memfs-style architecture experiments against Runno drive proxy overhead.
 - [x] Add a `vscode-wasm-memfs` dependency/artifact probe and blocker report.
-- [ ] Compare `runno-proxy-current`, `runno-direct-fs`, and `vscode-wasm-memfs` benchmark results.
+- [x] Add a benchmarkable `browser-wasi-shim-memfs` runtime/filesystem adapter.
+- [x] Add a benchmarkable `browser-wasi-shim-overlay-snapshot` runtime/filesystem adapter.
+- [x] Compare `runno-proxy-current`, `browser-wasi-shim-memfs`, and `browser-wasi-shim-overlay-snapshot` benchmark results.
+- [x] Document the runtime/filesystem comparison conclusion.
+- [x] Add a main-app runtime backend selector scaffold.
+- [ ] Add a behavior-preserving runtime backend abstraction around the current `runno-proxy-current` path.
+- [ ] Port `browser-wasi-shim-memfs` into the main app behind the runtime backend selector.
+- [ ] Browser-test library loading with both runtime backends.
+- [ ] Decide whether `browser-wasi-shim-overlay-snapshot` is worth porting after the simpler memfs backend works.
 
 ## Goal Lifecycle and Editor State
 

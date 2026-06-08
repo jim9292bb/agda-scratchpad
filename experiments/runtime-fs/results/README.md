@@ -38,15 +38,40 @@ Measured results:
 | --- | ---: | ---: | ---: | ---: |
 | builtin-nat | 611.774ms | 54.298ms | 18.506ms | 14.148ms |
 | stdlib-nat | 11693.622ms | 222.132ms | 260.654ms | 47.714ms |
-| cubical-prelude | 7295.579ms | 116.794ms | 65.546ms | 49.017ms |
+| cubical-prelude | 7292.786ms | 97.148ms | 101.606ms | 38.919ms |
 
 Representative `cubical-prelude` comparison against the current
 `runno-proxy-current` baseline:
 
 | Mode | First load | Second load | First pathStat duration | Second pathStat duration |
 | --- | ---: | ---: | ---: | ---: |
-| runno-proxy-current | 15597.248ms | 3963.452ms | 5399.811ms | 3595.534ms |
-| browser-wasi-shim-memfs | 7295.579ms | 116.794ms | 65.546ms | 49.017ms |
+| runno-proxy-current | 13595.696ms | 4057.193ms | 5554.035ms | 3706.902ms |
+| browser-wasi-shim-memfs | 7292.786ms | 97.148ms | 101.606ms | 38.919ms |
+
+### `browser-wasi-shim-overlay-snapshot`
+
+- Runtime: `@agda-web/browser_wasi_shim`
+- Filesystem: snapshot-like library layer with readonly stdlib/Cubical files
+  and writable `.agdai` / source overlay.
+- Status: completes first and second `Cmd_load`.
+- Fixtures measured: `builtin-nat`, `stdlib-nat`, `cubical-prelude`.
+
+Measured results:
+
+| Fixture | First load | Second load | First pathStat duration | Second pathStat duration |
+| --- | ---: | ---: | ---: | ---: |
+| builtin-nat | 601.506ms | 53.051ms | 18.297ms | 10.016ms |
+| stdlib-nat | 11618.205ms | 195.509ms | 308.389ms | 38.226ms |
+| cubical-prelude | 7461.118ms | 97.545ms | 47.732ms | 41.338ms |
+
+Representative `cubical-prelude` comparison against the current
+`runno-proxy-current` baseline and the `browser-wasi-shim-memfs` adapter:
+
+| Mode | First load | Second load | First pathStat duration | Second pathStat duration |
+| --- | ---: | ---: | ---: | ---: |
+| runno-proxy-current | 13595.696ms | 4057.193ms | 5554.035ms | 3706.902ms |
+| browser-wasi-shim-memfs | 7292.786ms | 97.148ms | 101.606ms | 38.919ms |
+| browser-wasi-shim-overlay-snapshot | 7461.118ms | 97.545ms | 47.732ms | 41.338ms |
 
 ### `runno-direct-fs`
 

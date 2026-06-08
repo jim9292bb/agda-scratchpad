@@ -34,7 +34,7 @@ function durationSince(start) {
 }
 
 function makeStageError(stage, message, cause) {
-  const error = new Error(`browser-wasi-shim-memfs blocked at ${stage}: ${message}`)
+  const error = new Error(`browser-wasi-shim-overlay-snapshot blocked at ${stage}: ${message}`)
   error.stage = stage
   error.cause = cause
   return error
@@ -136,7 +136,7 @@ function writeFile(root, relPath, bytes, readonly = false) {
   return file
 }
 
-async function extractZip(root, bytes, baseDir, stripPrefix, pathResolver) {
+async function extractZip(root, bytes, baseDir, stripPrefix, pathResolver, readonlyResolver = () => false) {
   const zip = await JSZip.loadAsync(bytes)
   const tasks = []
   zip.forEach((path, entry) => {
@@ -145,7 +145,7 @@ async function extractZip(root, bytes, baseDir, stripPrefix, pathResolver) {
     const rel = path.replace(stripPrefix, '')
     const resolved = pathResolver ? pathResolver(path, rel) : rel
     if (resolved == null) return
-    tasks.push(entry.async('uint8array').then(content => writeFile(root, `${baseDir}/${resolved}`, content)))
+    tasks.push(entry.async('uint8array').then(content => writeFile(root, `${baseDir}/${resolved}`, content, readonlyResolver(path, resolved, rel))))
   })
   await Promise.all(tasks)
   return tasks.length
@@ -319,13 +319,13 @@ async function buildFilesystem(sourceBytes, stdlibZipPath, cubicalZipPath) {
       return null
     }
     return path.replace(/^agda-stdlib-[\.\d]+\//, '')
-  })
+  }, (_path, resolved) => !resolved.endsWith('.agdai'))
 
   const cubicalZip = await readFile(cubicalZipPath)
   await extractZip(root, cubicalZip, 'cubical', '', path => {
     if (!path.startsWith('cubical-0.9/')) return null
     return path.replace(/^cubical-0\.9\//, '')
-  })
+  }, (_path, resolved) => !resolved.endsWith('.agdai'))
 
   writeFile(root, 'home/root/.config/agda/libraries', encoder.encode('stdlib/standard-library.agda-lib\ncubical/cubical.agda-lib\n'))
   writeFile(root, 'home/root/.config/agda/defaults', encoder.encode('standard-library\ncubical-0.9\n'))
@@ -460,7 +460,7 @@ function createTextSink(onText) {
   })()
 }
 
-export async function runBrowserWasiShimMemfs(fixture, options = {}) {
+export async function runBrowserWasiShimOverlaySnapshot(fixture, options = {}) {
   const source = workerData.source
   const fsRoot = await buildFilesystem(source, workerData.stdlibZipPath, workerData.cubicalZipPath)
   const wasmBytes = await readFile(workerData.wasmPath)

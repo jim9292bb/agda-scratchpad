@@ -31,6 +31,8 @@ type ALSWorkerStatus = 'initial' | 'errored' | 'loading' | 'loaded' | 'active' |
 
 const supportedAgdaVersion = ['2.6.4.3', '2.7.0.1', '2.8.0'] as const
 export type SupportedAgdaVersion = typeof supportedAgdaVersion[number]
+export const supportedRuntimeBackends = ['runno-proxy-current', 'browser-wasi-shim-memfs'] as const
+export type SupportedRuntimeBackend = typeof supportedRuntimeBackends[number]
 
 export interface DriveHandle {
   lock: Int32Array<SharedArrayBuffer>,
@@ -184,6 +186,7 @@ export class AgdaController {
       stdout: SharedArrayBuffer,
     },
     agdaVersion: SupportedAgdaVersion,
+    runtimeBackend: SupportedRuntimeBackend,
   }) {
     this.agdaStdinWriter = new SPSCWriter(config.agdaBuffers.stdin)
     this.agdaStdoutReader = new SPSCReader(config.agdaBuffers.stdout)

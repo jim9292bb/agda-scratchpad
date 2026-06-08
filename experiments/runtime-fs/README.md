@@ -61,6 +61,7 @@ npm run benchmark:runno-proxy -- --fixture cubical-prelude
 npm run benchmark:runno-proxy:pathstat-cache -- --fixture cubical-prelude
 npm run benchmark:runno-direct -- --fixture builtin-nat
 npm run benchmark:browser-wasi-shim -- --fixture builtin-nat
+npm run benchmark:browser-wasi-shim-overlay-snapshot -- --fixture builtin-nat
 npm run benchmark:vscode-wasm -- --fixture builtin-nat
 npm run benchmark:fixtures
 npm run probe:vscode-wasm
@@ -92,6 +93,7 @@ baseline to optimize.
 - `runno-direct-fs`: scaffolded. Uses `@runno/wasi` with the virtual filesystem directly in the ALS worker, without the main app's cross-worker drive proxy. It currently exposes an architecture-level raw ALS blocker before `ResponseEnd`, so it is not the next baseline.
 - `vscode-wasm-memfs`: bring-up skeleton implemented. It uses direct reference imports plus a minimal `vscode` shim to classify where the Node-hosted attempt fails. See `adapters/vscode-wasm-memfs/README.md`.
 - `browser-wasi-shim-memfs`: implemented benchmark adapter. It runs ALS through the pure-JS `@agda-web/browser_wasi_shim` memory filesystem and is the second comparison runtime. See `adapters/browser-wasi-shim-memfs/README.md`.
+- `browser-wasi-shim-overlay-snapshot`: implemented benchmark adapter. It uses the same pure-JS WASI runtime but treats the stdlib/Cubical tree as a snapshot-like readonly library layer with writable `.agdai` and source overlay. See `adapters/browser-wasi-shim-overlay-snapshot/README.md`.
 
 ## Dependency Probes
 
