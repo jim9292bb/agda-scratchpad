@@ -60,6 +60,8 @@ npm run benchmark -- --runtime runno-proxy-current --fixture cubical-prelude --p
 npm run benchmark:runno-proxy -- --fixture cubical-prelude
 npm run benchmark:runno-proxy:pathstat-cache -- --fixture cubical-prelude
 npm run benchmark:runno-direct -- --fixture builtin-nat
+npm run benchmark:browser-wasi-shim -- --fixture builtin-nat
+npm run benchmark:vscode-wasm -- --fixture builtin-nat
 npm run benchmark:fixtures
 npm run probe:vscode-wasm
 ```
@@ -72,16 +74,11 @@ npm run experiment:runtime-fs -- --fixture cubical-prelude
 
 The first adapter, `runno-direct-fs`, is intentionally close to the main app's
 ALS worker but removes the cross-worker drive proxy. It currently starts ALS,
-initializes LSP, opens `/source.agda`, and accepts `Cmd_load`, but it does not
-yet receive the Agda `ResponseEnd` request in Node's direct single-worker WASI
-loop. A timeout at:
-
-```text
-[Debug] VFS: opening file:///source.agda
-```
-
-means the adapter reached ALS load processing but did not finish the Agda
-interaction. Treat this as a harness/runtime finding, not as a main app failure.
+initializes LSP, opens `/source.agda`, accepts `Cmd_load`, and receives
+`CmdRes`, but it does not yet receive the Agda `ResponseEnd` request in Node's
+direct single-worker WASI loop. The current conclusion is that this adapter is
+an architecture-level blocker for the direct-hosted runtime path, not the next
+baseline to optimize.
 
 ## Fixtures
 
@@ -92,15 +89,21 @@ interaction. Treat this as a harness/runtime finding, not as a main app failure.
 ## Adapters
 
 - `runno-proxy-current`: implemented baseline. Reproduces the main app's ALS worker plus drive worker proxy architecture and is the primary runtime for completed first/second load measurements.
-- `runno-direct-fs`: scaffolded. Uses `@runno/wasi` with the virtual filesystem directly in the ALS worker, without the main app's cross-worker drive proxy. It currently exposes a direct raw ALS scheduling blocker before `ResponseEnd`.
-- `vscode-wasm-memfs`: planned. See `adapters/vscode-wasm-memfs/README.md`.
-- `browser-wasi-shim-memfs`: planned later-stage comparison. See `adapters/browser-wasi-shim-memfs/README.md`.
+- `runno-direct-fs`: scaffolded. Uses `@runno/wasi` with the virtual filesystem directly in the ALS worker, without the main app's cross-worker drive proxy. It currently exposes an architecture-level raw ALS blocker before `ResponseEnd`, so it is not the next baseline.
+- `vscode-wasm-memfs`: bring-up skeleton implemented. It uses direct reference imports plus a minimal `vscode` shim to classify where the Node-hosted attempt fails. See `adapters/vscode-wasm-memfs/README.md`.
+- `browser-wasi-shim-memfs`: implemented benchmark adapter. It runs ALS through the pure-JS `@agda-web/browser_wasi_shim` memory filesystem and is the second comparison runtime. See `adapters/browser-wasi-shim-memfs/README.md`.
 
 ## Dependency Probes
 
 `npm run probe:vscode-wasm` checks whether the `vscode-wasm-memfs` adapter can
-be implemented from currently available dependencies and local artifacts. If it
-reports blockers, do not treat `vscode-wasm-memfs` as benchmarkable yet.
+be implemented from currently available dependencies and local artifacts. The
+probe now reports three layers separately:
+
+- reference source presence
+- built artifact presence
+- whether `experiments/runtime-fs` can resolve/import the relevant packages
+
+If it reports blockers, do not treat `vscode-wasm-memfs` as benchmarkable yet.
 
 ## PathStat Cache Experiment
 

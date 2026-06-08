@@ -2,6 +2,8 @@ import { parentPort, workerData } from 'node:worker_threads'
 import { readFile } from 'node:fs/promises'
 import * as Runno from '@runno/wasi'
 import JSZip from 'jszip'
+import { SPSCError } from 'spsc'
+import { SPSCReader } from 'spsc/reader'
 import { LspMessageParser } from './lsp.js'
 
 const { Result } = Runno.WASISnapshotPreview1
@@ -12,6 +14,10 @@ const debugEnabled = Boolean(workerData.debug)
 
 function debug(message, detail = {}) {
   if (debugEnabled) parentPort.postMessage({ type: 'debug', message, detail })
+}
+
+function traceState(kind, value) {
+  if (debugEnabled) parentPort.postMessage({ type: 'traceState', kind, value })
 }
 
 function createFileEntry(path, content) {
@@ -27,6 +33,22 @@ function fsAssign(fs, path, content) {
   const [key, obj] = createFileEntry(path, content)
   fs[key] = obj
   return obj
+}
+
+function removeTrailingDotDots(path) {
+  if (typeof path !== 'string') return path
+  let dotdotCount = 0
+  while (path.endsWith('/..')) {
+    path = path.slice(0, -3)
+    dotdotCount++
+  }
+  if (path === '..') return '.'
+  for (let i = 0; i < dotdotCount; i++) {
+    const lastSlash = path.lastIndexOf('/', path.length - 4)
+    if (lastSlash < 0) return '.'
+    path = path.slice(0, lastSlash)
+  }
+  return path
 }
 
 async function extractZip(fs, data, prefix = '', pathResolver = path => path) {
@@ -95,6 +117,8 @@ function createStats() {
 
 let stats = createStats()
 const fdPaths = new Map()
+let emittedStalledSummary = false
+let sawCmdRes = false
 
 function wrapDriveForStats(drive) {
   const methods = [
@@ -106,8 +130,14 @@ function wrapDriveForStats(drive) {
     if (typeof drive[method] !== 'function') continue
     const orig = drive[method].bind(drive)
     drive[method] = (...args) => {
+      const startedAt = performance.now()
       stats.totalCalls++
       stats.methods[method] = (stats.methods[method] ?? 0) + 1
+      if (method === 'pathStat' || method === 'open' || method === 'unlink' || method === 'pathCreateDir') {
+        args[1] = removeTrailingDotDots(args[1])
+      } else if (method === 'rename') {
+        args[1] = removeTrailingDotDots(args[1])
+      }
       if (method === 'pathStat') stats.pathStatCount++
       if ((method === 'write' || method === 'pwrite') && fdPaths.get(args[0])?.endsWith('.agdai')) {
         stats.agdaiWrite++
@@ -126,6 +156,13 @@ function wrapDriveForStats(drive) {
           fdPaths.set(args[1], path)
         }
       }
+      traceState('fs', {
+        method,
+        durationMs: Math.round((performance.now() - startedAt) * 1000) / 1000,
+        path: typeof args[1] === 'string' ? args[1] : fdPaths.get(args[0]) ?? null,
+        fd: typeof args[0] === 'number' ? args[0] : null,
+        resultCode: Array.isArray(res) ? res[0] : null,
+      })
       return res
     }
   }
@@ -135,6 +172,10 @@ function snapshotStats() {
   const result = stats
   stats = createStats()
   return result
+}
+
+function peekStats() {
+  return stats
 }
 
 function patchImportObject(wasi, pollStdin) {
@@ -275,7 +316,8 @@ function runSetup() {
     stdout: out => stdout.push(typeof out === 'string' ? out : decoder.decode(out)),
     stderr: err => stderr.push(typeof err === 'string' ? err : decoder.decode(err)),
   })
-  const instance = new WebAssembly.Instance(module, wasi.getImportObject())
+  wrapDriveForStats(wasi.drive)
+  const instance = new WebAssembly.Instance(module, patchImportObject(wasi, () => false))
   const { exitCode } = wasi.start({ module, instance })
   const setupMs = Math.round((performance.now() - setupStart) * 1000) / 1000
   if (exitCode !== 0) {
@@ -284,50 +326,49 @@ function runSetup() {
   return setupMs
 }
 
-const stdinSab = workerData.stdinSab
-const stdinState = new Int32Array(stdinSab, 0, 2)
-const stdinBytes = new Uint8Array(stdinSab, 8)
-let stdinOffset = 0
-let stdinLength = 0
+const stdinReader = new SPSCReader(workerData.stdin)
 const incomingParser = new LspMessageParser()
 const outgoingParser = new LspMessageParser()
 
 function readStdin(len) {
-  debug('stdin-read-request', { len, available: Atomics.load(stdinState, 0), buffered: stdinLength })
-  if (stdinLength === 0) {
-    const available = Atomics.load(stdinState, 0)
-    if (available === 0) return null
-    stdinLength = available
-    stdinOffset = 0
+  const available = stdinReader.bytesAvailable()
+  debug('stdin-read-request', { len, available })
+  traceState('stdin', { kind: 'read-request', len, available })
+  const result = stdinReader.read(len, { nonblock: true })
+  if (!result.ok) {
+    if (result.error === SPSCError.Again) return null
+    throw new Error(`WASM failed to read from stdin: ${result.error}`)
   }
 
-  const bytes = Math.min(len, stdinLength - stdinOffset)
-  const result = stdinBytes.slice(stdinOffset, stdinOffset + bytes)
-  stdinOffset += bytes
-  if (stdinOffset >= stdinLength) {
-    stdinLength = 0
-    stdinOffset = 0
-    Atomics.store(stdinState, 0, 0)
-    Atomics.store(stdinState, 1, 1)
-    Atomics.notify(stdinState, 1)
-  }
-
-  for (const message of incomingParser.push(result)) {
+  for (const message of incomingParser.push(result.data)) {
     debug('stdin-message', { method: message.method, id: message.id })
     if (message.method === 'agda' && message.params?.contents?.includes('Cmd_load')) {
       snapshotStats()
     }
   }
-  return result
+  traceState('stdin', { kind: 'read-result', bytes: result.data.byteLength, remaining: stdinReader.bytesAvailable() })
+  return result.data
 }
 
 function pollStdin(timeout) {
-  debug('poll-stdin', { timeout, available: Atomics.load(stdinState, 0), buffered: stdinLength })
-  if (Atomics.load(stdinState, 0) > 0 || stdinLength > 0) return true
-  if (timeout === 0) return false
-  const waitMs = timeout < 0 ? undefined : timeout
-  Atomics.wait(stdinState, 0, 0, waitMs)
-  return Atomics.load(stdinState, 0) > 0
+  const available = stdinReader.bytesAvailable()
+  debug('poll-stdin', { timeout, available })
+  if (available > 0) {
+    traceState('poll', { timeout, waitMs: 0, ready: true, reason: 'buffered' })
+    return true
+  }
+  if (debugEnabled && sawCmdRes && !emittedStalledSummary && timeout < 0) {
+    emittedStalledSummary = true
+    traceState('fs-summary', peekStats())
+  }
+  if (timeout === 0) {
+    traceState('poll', { timeout, waitMs: 0, ready: false, reason: 'zero-timeout' })
+    return false
+  }
+  const waitMs = timeout < 0 ? Infinity : Math.max(timeout - Date.now(), 0)
+  const ready = stdinReader.pollRead(waitMs)
+  traceState('poll', { timeout, waitMs, ready, reason: ready ? 'wakeup' : 'timeout' })
+  return ready
 }
 
 const setupMs = runSetup()
@@ -342,7 +383,16 @@ const wasi = new Runno.WASI({
   stdout(out) {
     const chunk = out instanceof Uint8Array ? out : encoder.encode(out)
     for (const message of outgoingParser.push(chunk)) {
-      debug('outgoing-message', { id: message.id, method: message.method, tag: message.params?.tag })
+      debug('outgoing-message', {
+        id: message.id,
+        method: message.method,
+        paramsTag: message.params?.tag ?? null,
+        resultTag: message.result?.tag ?? message.result?.contents?.tag ?? null,
+      })
+      if (debugEnabled && (message.result?.tag === 'CmdRes' || message.result?.contents?.tag === 'CmdRes')) {
+        sawCmdRes = true
+        traceState('fs-summary', peekStats())
+      }
       if (message.method === 'agda' && message.params?.tag === 'ResponseEnd') {
         parentPort.postMessage({ type: 'driveStats', stats: snapshotStats() })
       }
@@ -359,4 +409,5 @@ const wasi = new Runno.WASI({
 wrapDriveForStats(wasi.drive)
 const instance = new WebAssembly.Instance(module, patchImportObject(wasi, pollStdin))
 const { exitCode } = wasi.start({ module, instance })
+traceState('wasi-exit', { exitCode })
 parentPort.postMessage({ type: 'exit', exitCode })

@@ -16,6 +16,11 @@ import {
 const { Result } = Runno.WASISnapshotPreview1
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
+const debugEnabled = Boolean(workerData.debug)
+
+function traceState(kind, value) {
+  if (debugEnabled) parentPort.postMessage({ type: 'traceState', kind, value })
+}
 
 const env = {
   HOME: '/home/root',
@@ -179,6 +184,7 @@ function proxyWasiDrive(drive, lock, stdin, stdout) {
 
   for (const method of methods) {
     drive[method] = (...args) => {
+      const startedAt = performance.now()
       if (method === 'setSize') {
         args[1] = args[1].toString()
       } else if ((method === 'write' || method === 'pwrite') && args[1] != null) {
@@ -208,6 +214,13 @@ function proxyWasiDrive(drive, lock, stdin, stdout) {
       } else if ((method === 'read' || method === 'pread') && result[1] != null) {
         result[1] = base64ToUint8Array(result[1])
       }
+      traceState('fs', {
+        method,
+        durationMs: Math.round((performance.now() - startedAt) * 1000) / 1000,
+        path: typeof args[1] === 'string' ? args[1] : null,
+        fd: typeof args[0] === 'number' ? args[0] : null,
+        resultCode: Array.isArray(result) ? result[0] : null,
+      })
       return result
     }
   }

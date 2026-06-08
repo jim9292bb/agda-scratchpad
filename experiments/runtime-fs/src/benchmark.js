@@ -7,6 +7,7 @@ import { SPSCWriter } from 'spsc/writer'
 import { encodeLspMessage, LspMessageParser } from './lsp.js'
 import { fixtureNames, readFixture } from './fixtures.js'
 import { durationSince, nowMs } from './timing.js'
+import { runVscodeWasmMemfs } from './vscode-wasm-memfs-runtime.js'
 import {
   freadAsync,
   makeBufUint32LE,
@@ -35,51 +36,13 @@ function parseArgs(argv) {
     else if (arg === '--debug-runtime') args.debug = true
     else if (arg === '--pathstat-cache') args.pathStatCache = true
     else if (arg === '--help' || arg === '-h') {
-      console.log('Usage: npm run benchmark -- [--runtime runno-direct-fs|runno-proxy-current] [--fixture cubical-prelude] [--all-fixtures] [--pathstat-cache]')
+      console.log('Usage: npm run benchmark -- [--runtime runno-direct-fs|runno-proxy-current|browser-wasi-shim-memfs|vscode-wasm-memfs] [--fixture cubical-prelude] [--all-fixtures] [--pathstat-cache]')
       process.exit(0)
     } else {
       throw new Error(`Unknown argument: ${arg}`)
     }
   }
   return args
-}
-
-class DirectStdinWriter {
-  constructor(sharedBuffer) {
-    this.state = new Int32Array(sharedBuffer, 0, 2)
-    this.bytes = new Uint8Array(sharedBuffer, 8)
-    this.queue = []
-    this.flushScheduled = false
-  }
-
-  write(payload) {
-    if (payload.byteLength > this.bytes.byteLength) {
-      throw new Error(`Payload too large for stdin buffer: ${payload.byteLength}`)
-    }
-    this.queue.push(payload)
-    this.scheduleFlush()
-  }
-
-  scheduleFlush() {
-    if (this.flushScheduled) return
-    this.flushScheduled = true
-    setTimeout(() => this.flush(), 0)
-  }
-
-  flush() {
-    this.flushScheduled = false
-    if (!this.queue.length) return
-    if (Atomics.load(this.state, 0) !== 0) {
-      this.scheduleFlush()
-      return
-    }
-    const payload = this.queue.shift()
-    this.bytes.set(payload, 0)
-    Atomics.store(this.state, 1, 0)
-    Atomics.store(this.state, 0, payload.byteLength)
-    Atomics.notify(this.state, 0)
-    if (this.queue.length) this.scheduleFlush()
-  }
 }
 
 class SpscStdinWriter {
@@ -112,6 +75,18 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+function makeStageError(stage, message, cause) {
+  const error = new Error(message)
+  error.stage = stage
+  error.cause = cause
+  return error
+}
+
+function stderrTail(stderr, limit = 12) {
+  if (!stderr.length) return ''
+  return stderr.slice(-limit).join('')
+}
+
 class LspSession {
   constructor(worker, stdinWriter, options = {}) {
     this.worker = worker
@@ -125,6 +100,16 @@ class LspSession {
     this.setupMs = 0
     this.stderr = []
     this.isReady = false
+    this.lastLspMessage = null
+    this.lastAgdaMessage = null
+    this.lastFsOperation = null
+    this.lastPollEvent = null
+    this.lastStdinEvent = null
+    this.lastWasiExit = null
+    this.lastStdoutChunkBytes = 0
+    this.stdoutBufferedBytes = 0
+    this.fsTail = []
+    this.lastFsSummary = null
 
     worker.on('message', message => this.handleWorkerMessage(message))
     worker.on('error', err => {
@@ -166,6 +151,20 @@ class LspSession {
     }
     if (message.type === 'debug') {
       this.stderr.push(`[debug:${message.message}] ${JSON.stringify(message.detail)}\n`)
+      if (message.message.startsWith('poll-')) this.lastPollEvent = { message: message.message, detail: message.detail }
+      if (message.message.startsWith('stdin-')) this.lastStdinEvent = { message: message.message, detail: message.detail }
+      return
+    }
+    if (message.type === 'traceState') {
+      if (message.kind === 'fs') {
+        this.lastFsOperation = message.value
+        this.fsTail.push(message.value)
+        if (this.fsTail.length > 30) this.fsTail.shift()
+      }
+      if (message.kind === 'wasi-exit') this.lastWasiExit = message.value
+      if (message.kind === 'poll') this.lastPollEvent = message.value
+      if (message.kind === 'stdin') this.lastStdinEvent = message.value
+      if (message.kind === 'fs-summary') this.lastFsSummary = message.value
       return
     }
     if (message.type === 'driveStats') {
@@ -174,6 +173,7 @@ class LspSession {
       return
     }
     if (message.type === 'stdout') {
+      this.lastStdoutChunkBytes = message.chunk.byteLength
       if (this.debug) {
         this.stderr.push(`[debug:stdout-chunk] ${new TextDecoder().decode(message.chunk).replaceAll('\r', '\\\\r').replaceAll('\n', '\\\\n').slice(0, 120)}\n`)
       }
@@ -181,6 +181,7 @@ class LspSession {
         if (this.debug) this.stderr.push(`[debug:stdout-message] ${JSON.stringify({ id: payload.id, method: payload.method })}\n`)
         this.handleLspPayload(payload)
       }
+      this.stdoutBufferedBytes = this.parser.buffer.byteLength
       return
     }
     if (message.type === 'exit') {
@@ -194,7 +195,20 @@ class LspSession {
   }
 
   handleLspPayload(payload) {
+    this.lastLspMessage = {
+      id: Object.prototype.hasOwnProperty.call(payload, 'id') ? payload.id : null,
+      method: payload.method ?? null,
+      hasResult: Object.prototype.hasOwnProperty.call(payload, 'result'),
+      hasError: Object.prototype.hasOwnProperty.call(payload, 'error'),
+    }
     if (payload.method && Object.prototype.hasOwnProperty.call(payload, 'id')) {
+      if (payload.method === 'agda') {
+        this.lastAgdaMessage = {
+          id: payload.id ?? null,
+          tag: payload.params?.tag ?? null,
+          kind: 'request',
+        }
+      }
       this.send({ jsonrpc: '2.0', id: payload.id, result: null })
       if (payload.method === 'agda' && payload.params?.tag === 'ResponseEnd') {
         const pending = this.pendingResponseEnds.shift()
@@ -204,6 +218,13 @@ class LspSession {
     }
 
     if (Object.prototype.hasOwnProperty.call(payload, 'id')) {
+      if (payload.result?.tag != null || payload.result?.contents != null) {
+        this.lastAgdaMessage = {
+          id: payload.id ?? null,
+          tag: payload.result?.tag ?? payload.result?.contents?.tag ?? null,
+          kind: 'response',
+        }
+      }
       const pending = this.pendingResponses.get(payload.id)
       if (pending) {
         this.pendingResponses.delete(payload.id)
@@ -270,7 +291,11 @@ class LspSession {
     if (this.getDriveStats) return this.getDriveStats()
     return new Promise((resolve, reject) => {
       this.pendingDriveStats.push({ resolve, reject })
-      setTimeout(() => reject(new Error(`Timed out waiting for drive stats. stderr=${this.stderr.join('')}`)), 120000)
+      const timeout = setTimeout(() => reject(new Error(`Timed out waiting for drive stats. stderr=${this.stderr.join('')}`)), 120000)
+      this.pendingDriveStats[this.pendingDriveStats.length - 1].resolve = stats => {
+        clearTimeout(timeout)
+        resolve(stats)
+      }
     })
   }
 
@@ -302,8 +327,8 @@ class LspSession {
   async loadAgdaFile() {
     const loadCommand = 'IOTCM "/source.agda" NonInteractive Direct (Cmd_load "/source.agda" [])'
     const responseEnd = this.waitForResponseEnd()
+    const driveStatsPromise = this.getDriveStats ? null : this.waitForDriveStats()
     if (this.getDriveStats) await this.getDriveStats()
-    const driveStats = this.getDriveStats ? null : this.waitForDriveStats()
     const start = nowMs()
     const request = this.createRequestPayload('agda', { tag: 'CmdReq', contents: loadCommand })
     this.stdinWriter.write(request.bytes)
@@ -312,9 +337,11 @@ class LspSession {
       throw new Error(`Cmd_load request failed: ${JSON.stringify(response.result)}`)
     }
     await responseEnd
+    const driveStats = this.getDriveStats ? null : await driveStatsPromise
     return {
       durationMs: durationSince(start),
-      driveStats: this.getDriveStats ? await this.getDriveStats() : await driveStats,
+      driveStats: this.getDriveStats ? await this.getDriveStats() : driveStats,
+      fsTail: this.fsTail.slice(),
     }
   }
 
@@ -324,6 +351,22 @@ class LspSession {
       this.notify('exit', {})
     } catch {
       // The worker may already be terminating after exit; benchmark data is already collected.
+    }
+  }
+
+  snapshotDebugContext() {
+    return {
+      lastLspMessage: this.lastLspMessage,
+      lastAgdaMessage: this.lastAgdaMessage,
+      lastFsOperation: this.lastFsOperation,
+      lastPollEvent: this.lastPollEvent,
+      lastStdinEvent: this.lastStdinEvent,
+      lastWasiExit: this.lastWasiExit,
+      lastStdoutChunkBytes: this.lastStdoutChunkBytes,
+      stdoutBufferedBytes: this.stdoutBufferedBytes,
+      fsTail: this.fsTail,
+      lastFsSummary: this.lastFsSummary,
+      stderrTail: stderrTail(this.stderr),
     }
   }
 }
@@ -345,6 +388,7 @@ function flattenResult({ runtime, fixture, setupMs, firstLoad, secondLoad }) {
       pathStatCacheMisses: firstLoad.driveStats.pathStatCacheMisses ?? 0,
       agdaiRead: firstLoad.driveStats.agdaiRead ?? firstLoad.driveStats.agdai?.read ?? 0,
       agdaiWrite: firstLoad.driveStats.agdaiWrite ?? firstLoad.driveStats.agdai?.write ?? 0,
+      fsTail: firstLoad.fsTail ?? [],
     },
     secondLoad: {
       totalFsCalls: secondLoad.driveStats.totalCalls,
@@ -355,17 +399,18 @@ function flattenResult({ runtime, fixture, setupMs, firstLoad, secondLoad }) {
       pathStatCacheMisses: secondLoad.driveStats.pathStatCacheMisses ?? 0,
       agdaiRead: secondLoad.driveStats.agdaiRead ?? secondLoad.driveStats.agdai?.read ?? 0,
       agdaiWrite: secondLoad.driveStats.agdaiWrite ?? secondLoad.driveStats.agdai?.write ?? 0,
+      fsTail: secondLoad.fsTail ?? [],
     },
   }
 }
 
 async function runRunnoDirectFs(fixture, options = {}) {
   const source = await readFixture(experimentRoot, fixture)
-  const stdinSab = new SharedArrayBuffer(1024 * 1024 + 8)
+  const stdinSab = createSpscBuffer()
   const worker = new Worker(new URL('./runno-direct-worker.js', import.meta.url), {
     type: 'module',
     workerData: {
-      stdinSab,
+      stdin: stdinSab,
       source,
       wasmPath: join(appRoot, 'static', 'als-2.8ext.wasm'),
       stdlibZipPath: join(appRoot, 'static', 'agda-stdlib-2.3.zip'),
@@ -373,16 +418,33 @@ async function runRunnoDirectFs(fixture, options = {}) {
       debug: options.debug,
     },
   })
-  const session = new LspSession(worker, new DirectStdinWriter(stdinSab))
+  const session = new LspSession(worker, new SpscStdinWriter(new SPSCWriter(stdinSab)))
   session.debug = options.debug
   try {
-    await session.initialize(source)
-    const firstLoad = await session.loadAgdaFile()
-    const secondLoad = await session.loadAgdaFile()
+    try {
+      await session.initialize(source)
+    } catch (error) {
+      throw makeStageError('initialize', `runno-direct-fs failed during initialize: ${error.message}. stderr=${stderrTail(session.stderr)}`, error)
+    }
+    let firstLoad
+    try {
+      firstLoad = await session.loadAgdaFile()
+    } catch (error) {
+      const stage = error.message.includes('ResponseEnd') ? 'ResponseEnd' : 'Cmd_load'
+      throw makeStageError(stage, `runno-direct-fs failed during first Cmd_load: ${error.message}. stderr=${stderrTail(session.stderr)}`, error)
+    }
+    let secondLoad
+    try {
+      secondLoad = await session.loadAgdaFile()
+    } catch (error) {
+      const stage = error.message.includes('ResponseEnd') ? 'ResponseEnd' : 'Cmd_load'
+      throw makeStageError(stage, `runno-direct-fs failed during second Cmd_load: ${error.message}. stderr=${stderrTail(session.stderr)}`, error)
+    }
     await session.shutdown()
     await worker.terminate()
     return flattenResult({ runtime: 'runno-direct-fs', fixture, setupMs: session.setupMs, firstLoad, secondLoad })
   } catch (err) {
+    if (err?.stage) err.context = session.snapshotDebugContext()
     await worker.terminate()
     throw err
   }
@@ -475,6 +537,62 @@ function waitForWorkerReady(worker, label) {
   })
 }
 
+async function runBrowserWasiShimMemfs(fixture, options = {}) {
+  const source = await readFixture(experimentRoot, fixture)
+  const stdinSab = createSpscBuffer()
+  const worker = new Worker(new URL('./browser-wasi-shim-runtime.js', import.meta.url), {
+    type: 'module',
+    workerData: {
+      stdin: stdinSab,
+      source,
+      wasmPath: join(appRoot, 'static', 'als-2.8ext.wasm'),
+      stdlibZipPath: join(appRoot, 'static', 'agda-stdlib-2.3.zip'),
+      cubicalZipPath: join(appRoot, 'static', 'agda-cubical-0.9.zip'),
+      debug: options.debug,
+    },
+  })
+  const session = new LspSession(worker, new SpscStdinWriter(new SPSCWriter(stdinSab)))
+  session.debug = options.debug
+  try {
+    try {
+      await session.waitForReady()
+      await session.initialize(source)
+    } catch (error) {
+      throw makeStageError('initialize', `browser-wasi-shim-memfs failed during initialize: ${error.message}. stderr=${stderrTail(session.stderr)}`, error)
+    }
+
+    let firstLoad
+    try {
+      firstLoad = await session.loadAgdaFile()
+    } catch (error) {
+      const stage = error.message.includes('ResponseEnd') ? 'ResponseEnd' : 'Cmd_load'
+      throw makeStageError(stage, `browser-wasi-shim-memfs failed during first Cmd_load: ${error.message}. stderr=${stderrTail(session.stderr)}`, error)
+    }
+
+    let secondLoad
+    try {
+      secondLoad = await session.loadAgdaFile()
+    } catch (error) {
+      const stage = error.message.includes('ResponseEnd') ? 'ResponseEnd' : 'Cmd_load'
+      throw makeStageError(stage, `browser-wasi-shim-memfs failed during second Cmd_load: ${error.message}. stderr=${stderrTail(session.stderr)}`, error)
+    }
+
+    await session.shutdown()
+    await worker.terminate()
+    return flattenResult({
+      runtime: 'browser-wasi-shim-memfs',
+      fixture,
+      setupMs: session.setupMs,
+      firstLoad,
+      secondLoad,
+    })
+  } catch (err) {
+    await worker.terminate().catch(() => {})
+    if (err?.stage) err.context = session.snapshotDebugContext()
+    throw err
+  }
+}
+
 async function runRunnoProxyCurrent(fixture, options = {}) {
   const source = await readFixture(experimentRoot, fixture)
   const driveLock = new SharedArrayBuffer(4)
@@ -492,6 +610,7 @@ async function runRunnoProxyCurrent(fixture, options = {}) {
       stdlibZipPath: join(appRoot, 'static', 'agda-stdlib-2.3.zip'),
       cubicalZipPath: join(appRoot, 'static', 'agda-cubical-0.9.zip'),
       pathStatCache: options.pathStatCache,
+      debug: options.debug,
     },
   })
   const driveReady = await waitForWorkerReady(driveWorker, 'drive worker')
@@ -506,6 +625,7 @@ async function runRunnoProxyCurrent(fixture, options = {}) {
       stdin: agdaStdin,
       stdout: agdaStdout,
       wasmPath: join(appRoot, 'static', 'als-2.8ext.wasm'),
+      debug: options.debug,
       drive: {
         lock: driveLock,
         stdin: driveStdout,
@@ -555,13 +675,43 @@ async function runBenchmark(runtime, fixture) {
   if (runtime === 'runno-proxy-current') {
     return runRunnoProxyCurrent(fixture, { debug: args.debug, pathStatCache: args.pathStatCache })
   }
-  throw new Error(`Runtime ${runtime} is not implemented. Available: runno-direct-fs, runno-proxy-current`)
+  if (runtime === 'vscode-wasm-memfs') {
+    return runVscodeWasmMemfs(fixture, { debug: args.debug })
+  }
+  if (runtime === 'browser-wasi-shim-memfs') {
+    return runBrowserWasiShimMemfs(fixture, { debug: args.debug })
+  }
+  throw new Error(`Runtime ${runtime} is not implemented. Available: runno-direct-fs, runno-proxy-current, browser-wasi-shim-memfs, vscode-wasm-memfs`)
 }
 
 const args = parseArgs(process.argv.slice(2))
 const fixtures = args.allFixtures ? fixtureNames : [args.fixture]
 const results = []
-for (const fixture of fixtures) {
-  results.push(await runBenchmark(args.runtime, fixture))
+try {
+  for (const fixture of fixtures) {
+    results.push(await runBenchmark(args.runtime, fixture))
+  }
+  console.log(JSON.stringify(args.allFixtures ? results : results[0], null, 2))
+} catch (error) {
+  if (error?.stage) {
+    console.log(JSON.stringify({
+      runtime: args.runtime,
+      fixture: args.allFixtures ? fixtures : fixtures[0],
+      blocked: true,
+      stage: error.stage,
+      message: error.message,
+      cause: error.cause?.message ?? null,
+      lastLspMessage: error.context?.lastLspMessage ?? null,
+      lastAgdaMessage: error.context?.lastAgdaMessage ?? null,
+      lastFsOperation: error.context?.lastFsOperation ?? null,
+      lastStdoutChunkBytes: error.context?.lastStdoutChunkBytes ?? 0,
+      stdoutBufferedBytes: error.context?.stdoutBufferedBytes ?? 0,
+      fsTail: error.context?.fsTail ?? [],
+      lastFsSummary: error.context?.lastFsSummary ?? null,
+      stderrTail: error.context?.stderrTail ?? null,
+    }, null, 2))
+    process.exitCode = 1
+  } else {
+    throw error
+  }
 }
-console.log(JSON.stringify(args.allFixtures ? results : results[0], null, 2))

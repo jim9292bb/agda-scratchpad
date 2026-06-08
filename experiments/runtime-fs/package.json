@@ -9,11 +9,16 @@
     "benchmark:runno-direct": "node src/benchmark.js --runtime runno-direct-fs",
     "benchmark:runno-proxy": "node src/benchmark.js --runtime runno-proxy-current",
     "benchmark:runno-proxy:pathstat-cache": "node src/benchmark.js --runtime runno-proxy-current --pathstat-cache",
+    "benchmark:browser-wasi-shim": "node src/benchmark.js --runtime browser-wasi-shim-memfs",
+    "benchmark:vscode-wasm": "node src/benchmark.js --runtime vscode-wasm-memfs",
     "benchmark:fixtures": "node src/benchmark.js --runtime runno-proxy-current --all-fixtures",
     "probe:vscode-wasm": "node src/probe-vscode-wasm.js"
   },
   "dependencies": {
+    "@agda-web/wasm-wasi-core": "file:../../../references/vscode-als-wasm-loader/vscode-wasm/wasm-wasi-core",
+    "@agda-web/wasm-wasi-lsp": "file:../../../references/vscode-als-wasm-loader/vscode-wasm/wasm-wasi-lsp",
     "@runno/wasi": "^0.10.0",
+    "@vscode/wasm-wasi": "file:../../../references/vscode-als-wasm-loader/vscode-wasm/wasm-wasi",
     "jszip": "^3.10.1",
     "spsc": "^0.0.7"
   },
