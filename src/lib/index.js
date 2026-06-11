@@ -1,9 +1,7 @@
 /** @import { SPSCReader } from 'spsc/reader' */
 /** @import { SPSCWriter } from 'spsc/writer' */
-/** @import { ALSWorkerInitObject, ALSWorkerInitResultProxied, DriveProxyStats } from '$lib/worker/types' */
 import { SPSCError } from 'spsc'
 import * as Comlink from 'comlink'
-import { bufGetUint32LE, freadAsync, fwriteAsync, makeBufUint32LE, writeLenPrefixedAsync } from './stdlib'
 
 // feature detection, unfortunately async
 let browserSupportBYOBReadable = false
@@ -127,66 +125,6 @@ export function createWritableByteStream(writer) {
 }
 
 /**
- * @param {any} initialMessage
- * @returns {Promise<{ worker: Worker, event: MessageEvent }>} */
-export function makeDriveHostWorker(initialMessage) {
-  const worker = new Worker(
-    new URL('$lib/worker/drive.js?worker&inline', import.meta.url), {
-      name: 'Runno drive host',
-      type: 'module',
-    })
-
-  return new Promise((_res, _rej) => {
-    let done = false
-    const res = (/** @type {MessageEvent} */ evt) => !done && (cleanup(), _res({ worker, event: evt }))
-    const rej = (/** @type {unknown} */ err) => !done && (cleanup(), _rej(err))
-    function cleanup() {
-      done = true
-      worker.removeEventListener('message', res)
-      worker.removeEventListener('error', rej)
-    }
-    worker.addEventListener('message', res)
-    worker.addEventListener('error', rej)
-
-    // FIXME
-    /** @type {Transferable[]} */
-    const transferables = [
-      initialMessage.agdaDataZip,
-      initialMessage.agdaStdlibZip,
-      initialMessage.agdaCubicalZip,
-    ].filter(Boolean)
-
-    worker.postMessage(initialMessage, transferables)
-  })
-}
-
-/**
- * @param {ALSWorkerInitObject} initObject
- * @param {(worker: Worker) => void} workerPreCallback
- */
-export function makeLspWorker(initObject, workerPreCallback) {
-  const worker = new Worker(
-    new URL('$lib/worker/als.js?worker&inline', import.meta.url),
-    { name: 'ALS LSP Worker', type: 'module' })
-
-  /**
-   * @type {Comlink.Remote<{
-   *          init: (initObj: ALSWorkerInitObject) =>
-   *            ALSWorkerInitResultProxied}>} */
-  const endpoint = Comlink.wrap(worker)
-  workerPreCallback?.(worker)
-
-  const { wasmSource, stdinWaker } = initObject
-
-  const initPromise = endpoint.init(Comlink.transfer(initObject, [
-    ...(wasmSource.type === 'stream' ? [wasmSource.stream] : []),
-    stdinWaker,
-  ]))
-
-  return { endpoint, initPromise }
-}
-
-/**
  * @typedef {{ wasmSource: import('$lib/worker/types').WASMSource, stdinWaker: MessagePort, stdin: SharedArrayBuffer, stdout: SharedArrayBuffer, sourceSab: SharedArrayBuffer, stdlibZip: ArrayBuffer, cubicalZip: ArrayBuffer, dataZip?: ArrayBuffer, agdaVersion: string }} WASIShimWorkerInitObject
  */
 
@@ -282,73 +220,3 @@ export function traceFetchProgress(resp, callback) {
   }
 }
 
-/**
- * @template T
- * @param {Int32Array<SharedArrayBuffer>} lock
- * @param {() => Promise<T>} callback
- * @returns {Promise<T>} */
-export async function withDriveLock(lock, callback) {
-  while (Atomics.compareExchange(lock, 0, 0, 1) !== 0) {
-    console.warn('drive is busy, retrying later...')
-    await new Promise(r => setTimeout(r, 100))
-  }
-
-  try {
-    return await callback()
-  } finally {
-    if (Atomics.compareExchange(lock, 0, 1, 0) !== 1) {
-      throw new Error('mutex content corrupted')
-    }
-    Atomics.notify(lock, 0, 1)
-  }
-}
-
-const encoder = new TextEncoder()
-const decoder = new TextDecoder()
-
-/**
- * @param {import('spsc/reader').SPSCReader} reader
- * @param {number} len
- */
-async function readExactAsync(reader, len) {
-  const data = new Uint8Array(len)
-  let offset = 0
-  while (offset < len) {
-    const rr = reader.read(len - offset, { nonblock: true })
-    if (!rr.ok) {
-      if (rr.error === SPSCError.Again) {
-        await new Promise(r => setTimeout(r, 50))
-        continue
-      }
-      throw new Error('read failed')
-    }
-    data.set(rr.data, offset)
-    offset += rr.bytesRead
-  }
-  return data
-}
-
-/**
- * @param {import('./controller.svelte').DriveHandle} _
- * @param {string} doc */
-export function writeSourceFileToDrive({lock, stdinWriter, stdoutReader}, doc) {
-  return withDriveLock(lock, async () => {
-    // FIXME: we should invoke Runno internal calls directly
-    await fwriteAsync(stdinWriter, makeBufUint32LE(1))
-    await writeLenPrefixedAsync(stdinWriter, encoder.encode(doc))
-    await freadAsync(stdoutReader, 1)
-  })
-}
-
-/**
- * @param {import('./controller.svelte').DriveHandle} _
- * @returns {Promise<DriveProxyStats>}
- */
-export function getAndResetDriveProxyStats({lock, stdinWriter, stdoutReader}) {
-  return withDriveLock(lock, async () => {
-    await fwriteAsync(stdinWriter, makeBufUint32LE(3))
-    const lenBuf = await readExactAsync(stdoutReader, 4)
-    const payload = await readExactAsync(stdoutReader, bufGetUint32LE(lenBuf))
-    return JSON.parse(decoder.decode(payload))
-  })
-}

@@ -5,6 +5,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/browser-common.sh
 source "$SCRIPT_DIR/browser-common.sh"
 
+# Clear any shortcut overrides left by previous tests (e.g. browser-test-shortcut-overrides.sh)
+ab eval "(() => { localStorage.removeItem('agda-scratchpad.shortcut-overrides.v1'); return {ok:true} })()" 2>/dev/null || true
 open_app
 start_als
 

@@ -13,13 +13,10 @@ import { commit } from './codemirror/offsets'
 import { getAgdaDocumentVersion } from './agda/goal-state'
 import { createPerformanceTrace, formatDurationMs, formatPerformanceEntry } from './performance'
 import type { DriveProxyStats, PerformanceEntry, WASMLoadingProgress } from './worker/types'
-import { RunnoRuntimeBackend } from './runtime/runno'
 import { BrowserWasiShimRuntimeBackend } from './runtime/browser-wasi-shim'
 import { type SupportedAgdaVersion, type DriveHandle, type RuntimeBackend } from './runtime/interface'
 
 export type { SupportedAgdaVersion, DriveHandle }
-export const supportedRuntimeBackends = ['runno-proxy-current', 'browser-wasi-shim-memfs'] as const
-export type SupportedRuntimeBackend = typeof supportedRuntimeBackends[number]
 
 export const LS_DOC_KEY = 'agda-web-ide-beta:doc'
 const loadArgs: string[] = []
@@ -101,12 +98,8 @@ export class AgdaController {
   iotcmStatus = $state<AgdaIOTCMStatus>('init')
   performanceEntries = $state<PerformanceEntry[]>([])
 
-  // Backward-compat getters for +page.svelte (dumpFS accesses these directly)
   get driveHandle(): DriveHandle {
     return this._backend.getDriveHandle()
-  }
-  get _driveHostWorker(): Worker | undefined {
-    return (this._backend as RunnoRuntimeBackend)._driveHostWorker
   }
 
   constructor(readonly config: {
@@ -120,11 +113,8 @@ export class AgdaController {
       stdout: SharedArrayBuffer,
     },
     agdaVersion: SupportedAgdaVersion,
-    runtimeBackend: SupportedRuntimeBackend,
   }) {
-    this._backend = config.runtimeBackend === 'browser-wasi-shim-memfs'
-      ? new BrowserWasiShimRuntimeBackend(config.agdaBuffers, config.driveBuffers, config.agdaVersion)
-      : new RunnoRuntimeBackend(config.agdaBuffers, config.driveBuffers, config.agdaVersion)
+    this._backend = new BrowserWasiShimRuntimeBackend(config.agdaBuffers, config.driveBuffers, config.agdaVersion)
     this.lspClient = makeLspClient()
   }
 

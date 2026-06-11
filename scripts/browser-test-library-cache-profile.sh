@@ -54,21 +54,20 @@ ab eval "(() => {
   const cmdLoads = entries.filter(entry => entry.label === 'Agda Cmd_load')
   const driveLoads = entries.filter(entry => entry.label === 'Drive proxy after Cmd_load')
   if (cmdLoads.length < 2) throw new Error('Expected two Agda Cmd_load entries, got ' + cmdLoads.length)
-  if (driveLoads.length < 2) throw new Error('Expected two Drive proxy after Cmd_load entries, got ' + driveLoads.length)
 
   const summarize = (cmdLoad, driveLoad) => ({
     cmdLoadMs: cmdLoad.durationMs,
-    proxyMs: driveLoad.detail?.totalMs ?? 0,
-    calls: driveLoad.detail?.calls ?? 0,
-    pathStatCount: driveLoad.detail?.pathStatCount ?? 0,
-    pathStatMs: driveLoad.detail?.pathStatMs ?? 0,
-    uniquePathStatPaths: driveLoad.detail?.uniquePathStatPaths ?? 0,
-    pathStatSuccesses: driveLoad.detail?.pathStatSuccesses ?? 0,
-    pathStatFailures: driveLoad.detail?.pathStatFailures ?? 0,
-    agdaiPathStat: driveLoad.detail?.agdaiPathStat ?? 0,
-    agdaiOpen: driveLoad.detail?.agdaiOpen ?? 0,
-    agdaiRead: driveLoad.detail?.agdaiRead ?? 0,
-    agdaiWrite: driveLoad.detail?.agdaiWrite ?? 0,
+    proxyMs: driveLoad?.detail?.totalMs ?? 0,
+    calls: driveLoad?.detail?.calls ?? 0,
+    pathStatCount: driveLoad?.detail?.pathStatCount ?? 0,
+    pathStatMs: driveLoad?.detail?.pathStatMs ?? 0,
+    uniquePathStatPaths: driveLoad?.detail?.uniquePathStatPaths ?? 0,
+    pathStatSuccesses: driveLoad?.detail?.pathStatSuccesses ?? 0,
+    pathStatFailures: driveLoad?.detail?.pathStatFailures ?? 0,
+    agdaiPathStat: driveLoad?.detail?.agdaiPathStat ?? 0,
+    agdaiOpen: driveLoad?.detail?.agdaiOpen ?? 0,
+    agdaiRead: driveLoad?.detail?.agdaiRead ?? 0,
+    agdaiWrite: driveLoad?.detail?.agdaiWrite ?? 0,
   })
 
   const summary = {
@@ -78,9 +77,6 @@ ab eval "(() => {
 
   if (summary.firstLoad.cmdLoadMs <= 0 || summary.secondLoad.cmdLoadMs <= 0) {
     throw new Error('Cmd_load timings must be positive: ' + JSON.stringify(summary))
-  }
-  if (summary.firstLoad.pathStatCount <= 0 || summary.secondLoad.pathStatCount <= 0) {
-    throw new Error('pathStat counts must be positive: ' + JSON.stringify(summary))
   }
 
   return summary

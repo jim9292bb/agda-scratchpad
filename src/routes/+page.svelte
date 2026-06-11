@@ -7,9 +7,7 @@ import { basicSetup } from 'codemirror'
 import { EditorView, keymap } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
 
-import { AgdaController, LS_DOC_KEY, supportedRuntimeBackends } from '$lib/controller.svelte'
-import { withDriveLock } from '$lib'
-import { makeBufUint32LE } from '$lib/stdlib'
+import { AgdaController, LS_DOC_KEY } from '$lib/controller.svelte'
 import { myCodeMirrorTheme } from '$lib/codemirror/theme'
 import { agdaSupport } from '$lib/agda'
 import { getAgdaDocumentVersion, getAgdaGoals, mergeGoalInfos } from '$lib/agda/goal-state'
@@ -48,19 +46,12 @@ import { formatDurationMs, formatPerformanceEntry } from '$lib/performance'
 
 import { clearGoals, clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo } from '$lib/agda/effects'
 
-/** @typedef {import('$lib/controller.svelte').SupportedRuntimeBackend} SupportedRuntimeBackend */
-
 const driveLockSab = new SharedArrayBuffer(4)
 const driveStdinSab = SPSC.allocateArrayBuffer(4096)
 const driveStdoutSab = SPSC.allocateArrayBuffer(4096)
 
 const agdaStdinSab = SPSC.allocateArrayBuffer(4096)
 const agdaStdoutSab = SPSC.allocateArrayBuffer(4096)
-
-const LS_RUNTIME_BACKEND_KEY = 'agda-scratchpad.runtime-backend.v1'
-
-const initialRuntimeBackend = loadRuntimeBackend()
-let runtimeBackend = $state(initialRuntimeBackend)
 
 const agdaController = new AgdaController({
   agdaBuffers: {
@@ -73,35 +64,11 @@ const agdaController = new AgdaController({
     stdout: driveStdoutSab,
   },
   agdaVersion: '2.8.0',
-  runtimeBackend: initialRuntimeBackend,
 })
-
-/** @returns {SupportedRuntimeBackend} */
-function loadRuntimeBackend() {
-  if (typeof localStorage === 'undefined') return 'runno-proxy-current'
-  const raw = localStorage.getItem(LS_RUNTIME_BACKEND_KEY)
-  if (raw && supportedRuntimeBackends.includes(/** @type {SupportedRuntimeBackend} */ (raw))) {
-    return /** @type {SupportedRuntimeBackend} */ (raw)
-  }
-  return 'runno-proxy-current'
-}
-
-/** @param {SupportedRuntimeBackend} nextBackend */
-function saveRuntimeBackend(nextBackend) {
-  runtimeBackend = nextBackend
-  localStorage.setItem(LS_RUNTIME_BACKEND_KEY, nextBackend)
-}
-
-/** @param {SupportedRuntimeBackend} backend */
-function runtimeBackendLabel(backend) {
-  return backend === 'browser-wasi-shim-memfs'
-    ? 'browser-wasi-shim-memfs (experimental)'
-    : 'runno-proxy-current (current)'
-}
 
 function runtimeSummary() {
   return [
-    { label: 'Runtime backend', value: runtimeBackendLabel(runtimeBackend) },
+    { label: 'Runtime backend', value: 'browser-wasi-shim-memfs' },
     { label: 'Agda runtime', value: 'v2.8.0' },
     { label: 'ALS WASM', value: 'als-2.8ext.wasm' },
     { label: 'standard-library', value: 'v2.3' },
@@ -812,17 +779,7 @@ function resetShortcutOverrides() {
 }
 
 async function dumpFS() {
-  if (agdaController._driveHostWorker == null) {
-    console.warn('no drive worker to dump')
-    return
-  }
-  await withDriveLock(agdaController.driveHandle.lock, async () => {
-    agdaController.driveHandle.stdinWriter.write(makeBufUint32LE(2), { nonblock: true })
-    while (!agdaController.driveHandle.stdoutReader.read(1, { nonblock: true }).ok) {
-      await new Promise(r => setTimeout(r, 100))
-    }
-  })
-  alert('Dump end. See the browser console')
+  console.warn('dumpFS not supported with browser-wasi-shim-memfs backend')
 }
 
 function sendAbort() {
@@ -1321,18 +1278,6 @@ $effect(() => {
             <div id="settings-panel-runtime" class="settings-section" role="tabpanel" aria-labelledby="runtime-settings-title">
               <h3 id="runtime-settings-title">Runtime and libraries</h3>
               <p class="settings-note">Read-only runtime assets used by the hosted Agda environment.</p>
-              <div class="settings-option-grid">
-                <label class="settings-field">
-                  <span>Backend</span>
-                  <select
-                    value={runtimeBackend}
-                    onchange={event => saveRuntimeBackend(/** @type {SupportedRuntimeBackend} */ (event.currentTarget.value))}>
-                    {#each supportedRuntimeBackends as backend}
-                      <option value={backend}>{runtimeBackendLabel(backend)}</option>
-                    {/each}
-                  </select>
-                </label>
-              </div>
               <dl class="settings-runtime-list">
                 {#each runtimeSummary() as item}
                   <div>
