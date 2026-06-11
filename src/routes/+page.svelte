@@ -56,6 +56,9 @@ const driveStdoutSab = SPSC.allocateArrayBuffer(4096)
 
 const agdaStdinSab = SPSC.allocateArrayBuffer(4096)
 const agdaStdoutSab = SPSC.allocateArrayBuffer(4096)
+
+const LS_RUNTIME_BACKEND_KEY = 'agda-scratchpad.runtime-backend.v1'
+
 const initialRuntimeBackend = loadRuntimeBackend()
 let runtimeBackend = $state(initialRuntimeBackend)
 
@@ -72,8 +75,6 @@ const agdaController = new AgdaController({
   agdaVersion: '2.8.0',
   runtimeBackend: initialRuntimeBackend,
 })
-
-const LS_RUNTIME_BACKEND_KEY = 'agda-scratchpad.runtime-backend.v1'
 
 /** @returns {SupportedRuntimeBackend} */
 function loadRuntimeBackend() {

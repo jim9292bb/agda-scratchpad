@@ -187,6 +187,38 @@ export function makeLspWorker(initObject, workerPreCallback) {
 }
 
 /**
+ * @typedef {{ wasmSource: import('$lib/worker/types').WASMSource, stdinWaker: MessagePort, stdin: SharedArrayBuffer, stdout: SharedArrayBuffer, sourceSab: SharedArrayBuffer, stdlibZip: ArrayBuffer, cubicalZip: ArrayBuffer, dataZip?: ArrayBuffer, agdaVersion: string }} WASIShimWorkerInitObject
+ */
+
+/**
+ * @param {WASIShimWorkerInitObject} initObject
+ * @param {(worker: Worker) => void} [workerPreCallback]
+ */
+export function makeWasiShimLspWorker(initObject, workerPreCallback) {
+  const worker = new Worker(
+    new URL('$lib/worker/als-wasi-shim.js?worker&inline', import.meta.url),
+    { name: 'ALS WASI Shim Worker', type: 'module' })
+
+  /** @type {Comlink.Remote<{ init: (obj: any) => any }>} */
+  const endpoint = Comlink.wrap(worker)
+  workerPreCallback?.(worker)
+
+  const { wasmSource, stdinWaker, stdlibZip, cubicalZip, dataZip } = initObject
+
+  const transferables = [
+    ...(wasmSource.type === 'stream' ? [wasmSource.stream] : []),
+    stdinWaker,
+    stdlibZip,
+    cubicalZip,
+    ...(dataZip ? [dataZip] : []),
+  ]
+
+  const initPromise = endpoint.init(Comlink.transfer(initObject, transferables))
+
+  return { endpoint, initPromise }
+}
+
+/**
  * @param {Response} resp
  * @param {(loaded: number) => void} callback */
 export function traceFetchProgress(resp, callback) {

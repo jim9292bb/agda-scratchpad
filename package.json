@@ -58,6 +58,7 @@
     "@codemirror/state": "^6.5.4",
     "@codemirror/view": "^6.39.16",
     "@quietui/quiet": "file:quietui.tar.gz",
+    "@agda-web/browser_wasi_shim": "file:../references/agda-web-browser_wasi_shim",
     "@runno/wasi": "^0.10.0",
     "@sveltejs/adapter-static": "^3.0.10",
     "codemirror": "6.0.2",
