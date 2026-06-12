@@ -29,4 +29,11 @@ echo "Downloading Agda library archives from GitHub..."
 download "https://github.com/agda/agda-stdlib/archive/refs/tags/v2.3.zip" "$STATIC_DIR/agda-stdlib-2.3.zip"
 download "https://github.com/agda/cubical/archive/refs/tags/v0.9.zip"     "$STATIC_DIR/agda-cubical-0.9.zip"
 
+if [[ -f "$STATIC_DIR/agda-data.zip" ]]; then
+  echo "  already exists: agda-data.zip"
+else
+  echo "Building agda-data.zip (requires agda 2.8.0 in PATH)..."
+  bash "$SCRIPT_DIR/build-agda-data.sh"
+fi
+
 echo "Done. Static assets are ready."
