@@ -49,7 +49,7 @@
     "node": ">=18.0.0 <25.0.0"
   },
   "dependencies": {
-    "@agda-web/browser_wasi_shim": "file:../references/agda-web-browser_wasi_shim",
+    "@agda-web/browser_wasi_shim": "git+https://github.com/agda-web/browser_wasi_shim.git#977c156",
     "@andy0130tw/vscode-jsonrpc-esm": "^9.0.0-next-esm.9",
     "@codemirror/autocomplete": "^6.20.1",
     "@codemirror/commands": "^6.10.2",

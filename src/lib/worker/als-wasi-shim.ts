@@ -11,7 +11,7 @@ import {
   Directory,
   PreopenDirectory,
   ConsoleStdout,
-  StdinBuffer,
+  ReadablePipe,
   wasi as wasiDefs,
 } from '@agda-web/browser_wasi_shim'
 import { SPSC } from 'spsc'
@@ -284,7 +284,7 @@ function makeMainWasi(
   stdoutSab: SharedArrayBuffer,
   stdinWaker: MessagePort,
 ) {
-  const stdinFd = new StdinBuffer(stdinSab)
+  const stdinFd = new ReadablePipe(stdinSab)
   const stdoutFd = new SPSCStdoutFd(stdoutSab, stdinWaker)
   const stderrFd = ConsoleStdout.lineBuffered(msg => console.warn('ALS:', msg))
   const rootFd = new LiveSourcePreopenDirectory('/', root.contents, sourceFile, sourceSab)
@@ -294,7 +294,7 @@ function makeMainWasi(
 function makeSpawnWasi(root: Directory, args: string[]) {
   const captured: string[] = []
   const spawnStdin = SPSC.allocateArrayBuffer(4096)
-  const stdinFd = new StdinBuffer(spawnStdin)
+  const stdinFd = new ReadablePipe(spawnStdin)
   const stdoutFd = ConsoleStdout.lineBuffered(line => captured.push(line + '\n'))
   const stderrFd = ConsoleStdout.lineBuffered(msg => console.warn('ALS spawn:', msg))
   const rootFd = new PreopenDirectory('/', root.contents)
