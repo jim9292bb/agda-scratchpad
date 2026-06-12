@@ -4,7 +4,6 @@
 /// <reference lib="webworker" />
 
 import * as Comlink from 'comlink'
-import JSZip from 'jszip'
 import {
   WASI,
   Fd,
@@ -83,24 +82,81 @@ function writeFileTo(root: Directory, relPath: string, bytes: Uint8Array, readon
   return file
 }
 
-async function extractZip(
+async function extractZipFast(
   root: Directory,
-  bytes: ArrayBuffer,
+  buf: ArrayBuffer,
   baseDir: string,
   pathResolver: (path: string) => string | null,
 ): Promise<void> {
-  const zip = await JSZip.loadAsync(bytes)
+  const bytes = new Uint8Array(buf)
+  const view = new DataView(buf)
+  const dec = new TextDecoder()
+
+  // Scan backwards for EOCD signature (0x06054b50); ZIP comment can be up to 65535 bytes
+  let eocdOffset = -1
+  for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 22 - 65535); i--) {
+    if (view.getUint32(i, true) === 0x06054b50) { eocdOffset = i; break }
+  }
+  if (eocdOffset < 0) throw new Error('ZIP: EOCD not found')
+
+  const cdOffset = view.getUint32(eocdOffset + 16, true)
+  const cdSize = view.getUint32(eocdOffset + 12, true)
+
   const tasks: Promise<void>[] = []
-  zip.forEach((path, entry) => {
-    if (entry.dir) return
-    const resolved = pathResolver(path)
-    if (resolved == null) return
-    tasks.push(
-      entry.async('uint8array').then(content => {
-        writeFileTo(root, `${baseDir}/${resolved}`, content)
-      }),
-    )
-  })
+  let pos = cdOffset
+
+  while (pos < cdOffset + cdSize) {
+    if (view.getUint32(pos, true) !== 0x02014b50) break // central dir file header
+
+    const method = view.getUint16(pos + 10, true)
+    const compSize = view.getUint32(pos + 20, true)
+    const fnLen = view.getUint16(pos + 28, true)
+    const extraLen = view.getUint16(pos + 30, true)
+    const commentLen = view.getUint16(pos + 32, true)
+    const localOffset = view.getUint32(pos + 42, true)
+    const name = dec.decode(bytes.subarray(pos + 46, pos + 46 + fnLen))
+    pos += 46 + fnLen + extraLen + commentLen
+
+    if (name.endsWith('/')) continue
+    const resolved = pathResolver(name)
+    if (resolved == null) continue
+
+    const fullPath = baseDir ? `${baseDir}/${resolved}` : resolved
+    const lOff = localOffset, cSize = compSize, meth = method
+
+    tasks.push((async () => {
+      // Read local file header to find actual data start
+      const localFnLen = view.getUint16(lOff + 26, true)
+      const localExtraLen = view.getUint16(lOff + 28, true)
+      const dataStart = lOff + 30 + localFnLen + localExtraLen
+      const compData = bytes.subarray(dataStart, dataStart + cSize)
+
+      let content: Uint8Array
+      if (meth === 0) {
+        content = compData.slice() // STORE
+      } else {
+        // DEFLATE — use native DecompressionStream (C++ speed, no JS decompressor)
+        const ds = new DecompressionStream('deflate-raw')
+        const writer = ds.writable.getWriter()
+        const reader = ds.readable.getReader()
+        writer.write(compData)
+        writer.close()
+        const chunks: Uint8Array[] = []
+        let totalLen = 0
+        for (;;) {
+          const { done, value } = await reader.read()
+          if (done) break
+          chunks.push(value)
+          totalLen += value.byteLength
+        }
+        content = new Uint8Array(totalLen)
+        let off = 0
+        for (const c of chunks) { content.set(c, off); off += c.byteLength }
+      }
+      writeFileTo(root, fullPath, content)
+    })())
+  }
+
   await Promise.all(tasks)
 }
 
@@ -115,33 +171,27 @@ async function buildFilesystem(opts: {
 
   const sourceFile = writeFileTo(root, 'source.agda', enc.encode(''))
 
-  // stdlib
-  await extractZip(root, opts.stdlibZip, 'stdlib', path => {
-    if (!path.match(/^agda-stdlib-[\d.]+\/src/) &&
-        !path.match(/^agda-stdlib-[\d.]+\/standard-library\.agda-lib$/)) return null
-    return path.replace(/^agda-stdlib-[\d.]+\//, '')
-  })
-
-  // pre-built stdlib .agdai cache (paths already relative to stdlib root)
-  if (opts.stdlibAgdaiZip) {
-    await extractZip(root, opts.stdlibAgdaiZip, 'stdlib', path => path)
-  }
-
-  // cubical
-  await extractZip(root, opts.cubicalZip, 'cubical', path => {
-    if (!path.match(/^cubical-[\d.]+\//)) return null
-    return path.replace(/^cubical-[\d.]+\//, '')
-  })
-
-  // pre-built cubical .agdai cache (paths already relative to cubical root)
-  if (opts.cubicalAgdaiZip) {
-    await extractZip(root, opts.cubicalAgdaiZip, 'cubical', path => path)
-  }
-
-  // builtin data (old Agda versions)
-  if (opts.dataZip) {
-    await extractZip(root, opts.dataZip, '', path => path)
-  }
+  // All extractions are independent (different VFS dirs) — run in parallel
+  await Promise.all([
+    extractZipFast(root, opts.stdlibZip, 'stdlib', path => {
+      if (!path.match(/^agda-stdlib-[\d.]+\/src/) &&
+          !path.match(/^agda-stdlib-[\d.]+\/standard-library\.agda-lib$/)) return null
+      return path.replace(/^agda-stdlib-[\d.]+\//, '')
+    }),
+    opts.stdlibAgdaiZip
+      ? extractZipFast(root, opts.stdlibAgdaiZip, 'stdlib', path => path)
+      : Promise.resolve(),
+    extractZipFast(root, opts.cubicalZip, 'cubical', path => {
+      if (!path.match(/^cubical-[\d.]+\//)) return null
+      return path.replace(/^cubical-[\d.]+\//, '')
+    }),
+    opts.cubicalAgdaiZip
+      ? extractZipFast(root, opts.cubicalAgdaiZip, 'cubical', path => path)
+      : Promise.resolve(),
+    opts.dataZip
+      ? extractZipFast(root, opts.dataZip, '', path => path)
+      : Promise.resolve(),
+  ])
 
   // library config files (for versions using --setup, these get overwritten by --setup)
   writeFileTo(root, 'home/root/.config/agda/libraries',

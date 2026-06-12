@@ -141,7 +141,7 @@ export function makeWasiShimLspWorker(initObject, workerPreCallback) {
   const endpoint = Comlink.wrap(worker)
   workerPreCallback?.(worker)
 
-  const { wasmSource, stdinWaker, stdlibZip, cubicalZip, dataZip } = initObject
+  const { wasmSource, stdinWaker, stdlibZip, cubicalZip, dataZip, stdlibAgdaiZip, cubicalAgdaiZip } = initObject
 
   const transferables = [
     ...(wasmSource.type === 'stream' ? [wasmSource.stream] : []),
@@ -149,6 +149,8 @@ export function makeWasiShimLspWorker(initObject, workerPreCallback) {
     stdlibZip,
     cubicalZip,
     ...(dataZip ? [dataZip] : []),
+    ...(stdlibAgdaiZip ? [stdlibAgdaiZip] : []),
+    ...(cubicalAgdaiZip ? [cubicalAgdaiZip] : []),
   ]
 
   const initPromise = endpoint.init(Comlink.transfer(initObject, transferables))
