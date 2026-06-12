@@ -1,0 +1,9 @@
+[submodule "examples/wasm-rustc"]
+	update = none
+	active = false
+[submodule "test/wasi-testsuite"]
+	update = none
+	active = false
+[submodule "threads/examples/wasi_multi_threads_rustc/rust_wasm"]
+	update = none
+	active = false
