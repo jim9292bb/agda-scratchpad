@@ -47,13 +47,13 @@ import zipfile, os
 prim_dir = "$PRIM_DIR"
 dest = "$DEST"
 
+base_dir = os.path.dirname(os.path.dirname(prim_dir))  # $TMPDIR, so paths are lib/prim/...
+
 with zipfile.ZipFile(dest, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
     for root, dirs, files in os.walk(prim_dir):
-        # skip top-level _build except for the 2.8.0/agda cache
-        rel_root = os.path.relpath(root, os.path.dirname(prim_dir))
         for f in sorted(files):
             full = os.path.join(root, f)
-            rel = os.path.relpath(full, os.path.dirname(prim_dir))
+            rel = os.path.relpath(full, base_dir)
             zf.write(full, rel)
 
 print(f"  wrote {dest}")
