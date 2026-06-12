@@ -49,7 +49,7 @@
     "node": ">=18.0.0 <25.0.0"
   },
   "dependencies": {
-    "@agda-web/browser_wasi_shim": "https://github.com/agda-web/browser_wasi_shim/archive/63d2338.tar.gz",
+    "@agda-web/browser_wasi_shim": "file:../references/agda-web-browser_wasi_shim",
     "@andy0130tw/vscode-jsonrpc-esm": "^9.0.0-next-esm.9",
     "@codemirror/autocomplete": "^6.20.1",
     "@codemirror/commands": "^6.10.2",
@@ -58,11 +58,9 @@
     "@codemirror/lsp-client": "^6.2.2",
     "@codemirror/state": "^6.5.4",
     "@codemirror/view": "^6.39.16",
-    "@runno/wasi": "^0.10.0",
     "@sveltejs/adapter-static": "^3.0.10",
     "codemirror": "6.0.2",
     "comlink": "^4.4.2",
-    "jszip": "^3.10.1",
     "spsc": "^0.0.7",
     "zod": "^4.3.6"
   }
