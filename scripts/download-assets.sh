@@ -25,4 +25,8 @@ download "$NIGHTLY/als-2.6.4.3.wasm" "$STATIC_DIR/als-2.6.wasm"
 download "$NIGHTLY/als-2.7.0.1.wasm" "$STATIC_DIR/als-2.7ext.wasm"
 download "$NIGHTLY/als-2.8.0.wasm"   "$STATIC_DIR/als-2.8ext.wasm"
 
+echo "Downloading Agda library archives from GitHub..."
+download "https://github.com/agda/agda-stdlib/archive/refs/tags/v2.3.zip" "$STATIC_DIR/agda-stdlib-2.3.zip"
+download "https://github.com/agda/cubical/archive/refs/tags/v0.9.zip"     "$STATIC_DIR/agda-cubical-0.9.zip"
+
 echo "Done. Static assets are ready."
