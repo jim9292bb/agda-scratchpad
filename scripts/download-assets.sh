@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATIC_DIR="$SCRIPT_DIR/../static"
 
 NIGHTLY="https://github.com/agda-web/agda-language-server/releases/download/nightly-20260407"
-CACHE="https://github.com/agda-web/als-demo/releases/download/cache-2.8.0"
+CACHE="https://github.com/jim9292bb/als-demo/releases/download/cache-2.8.0"
 
 download() {
   local url="$1"
