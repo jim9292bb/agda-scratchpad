@@ -1,0 +1,17 @@
+{
+  "name": "agda-build-library-experiment",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node src/build-agdai.mjs",
+    "build:stdlib": "node src/build-agdai.mjs --stdlib-only",
+    "build:cubical": "node src/build-agdai.mjs --cubical-only"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1"
+  },
+  "engines": {
+    "node": ">=20 <25"
+  }
+}

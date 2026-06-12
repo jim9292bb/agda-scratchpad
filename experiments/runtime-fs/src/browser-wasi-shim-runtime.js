@@ -249,6 +249,12 @@ function createInstrumentedImport(wasiInstance, stats) {
         fdPaths.set(openedFd, openedPath)
         stats.openPaths[openedPath ?? ''] = (stats.openPaths[openedPath ?? ''] ?? 0) + 1
         incrementExtension(stats, openedPath, 'open')
+        // oflags is args[4]; O_CREAT = 0x1
+        const oflags = args[4] ?? 0
+        if ((oflags & 0x1) && openedPath?.endsWith('.agdai')) {
+          stats.agdaiCreatePaths = stats.agdaiCreatePaths ?? []
+          stats.agdaiCreatePaths.push(openedPath)
+        }
       }
 
       if (methodName === 'fd_close' && result === 0) {
@@ -307,8 +313,13 @@ function createInstrumentedImport(wasiInstance, stats) {
   return wrapped
 }
 
-async function buildFilesystem(sourceBytes, stdlibZipPath, cubicalZipPath) {
+async function buildFilesystem(sourceBytes, stdlibZipPath, cubicalZipPath, stdlibAgdaiZipPath = null, dataZipPath = null) {
   const root = createRootFs(sourceBytes)
+
+  if (dataZipPath) {
+    const dataZip = await readFile(dataZipPath)
+    await extractZip(root, dataZip, '', '', path => path)
+  }
 
   const stdlibZip = await readFile(stdlibZipPath)
   await extractZip(root, stdlibZip, 'stdlib', '', path => {
@@ -320,6 +331,12 @@ async function buildFilesystem(sourceBytes, stdlibZipPath, cubicalZipPath) {
     }
     return path.replace(/^agda-stdlib-[\.\d]+\//, '')
   })
+
+  if (stdlibAgdaiZipPath) {
+    const agdaiZip = await readFile(stdlibAgdaiZipPath)
+    await extractZip(root, agdaiZip, 'stdlib', '', path => path)
+    debug('loaded pre-built stdlib .agdai files')
+  }
 
   const cubicalZip = await readFile(cubicalZipPath)
   await extractZip(root, cubicalZip, 'cubical', '', path => {
@@ -462,7 +479,7 @@ function createTextSink(onText) {
 
 export async function runBrowserWasiShimMemfs(fixture, options = {}) {
   const source = workerData.source
-  const fsRoot = await buildFilesystem(source, workerData.stdlibZipPath, workerData.cubicalZipPath)
+  const fsRoot = await buildFilesystem(source, workerData.stdlibZipPath, workerData.cubicalZipPath, workerData.stdlibAgdaiZipPath ?? null, workerData.dataZipPath ?? null)
   const wasmBytes = await readFile(workerData.wasmPath)
   const module = await WebAssembly.compile(wasmBytes)
 
@@ -478,7 +495,7 @@ if (parentPort) {
   const main = async () => {
     try {
       const source = workerData.source
-      const fsRoot = await buildFilesystem(source, workerData.stdlibZipPath, workerData.cubicalZipPath)
+      const fsRoot = await buildFilesystem(source, workerData.stdlibZipPath, workerData.cubicalZipPath, workerData.stdlibAgdaiZipPath ?? null, workerData.dataZipPath ?? null)
       const wasmBytes = await readFile(workerData.wasmPath)
       const module = await WebAssembly.compile(wasmBytes)
       const setupMs = await runSetup(module, fsRoot)

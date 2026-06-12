@@ -27,6 +27,7 @@ function parseArgs(argv) {
     allFixtures: false,
     debug: false,
     pathStatCache: false,
+    prebuiltAgdai: false,
   }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
@@ -35,8 +36,9 @@ function parseArgs(argv) {
     else if (arg === '--all-fixtures') args.allFixtures = true
     else if (arg === '--debug-runtime') args.debug = true
     else if (arg === '--pathstat-cache') args.pathStatCache = true
+    else if (arg === '--prebuilt-agdai') args.prebuiltAgdai = true
     else if (arg === '--help' || arg === '-h') {
-      console.log('Usage: npm run benchmark -- [--runtime runno-direct-fs|runno-proxy-current|browser-wasi-shim-memfs|browser-wasi-shim-overlay-snapshot|vscode-wasm-memfs] [--fixture cubical-prelude] [--all-fixtures] [--pathstat-cache]')
+      console.log('Usage: npm run benchmark -- [--runtime runno-direct-fs|runno-proxy-current|browser-wasi-shim-memfs|browser-wasi-shim-overlay-snapshot|vscode-wasm-memfs] [--fixture cubical-prelude] [--all-fixtures] [--pathstat-cache] [--prebuilt-agdai]')
       process.exit(0)
     } else {
       throw new Error(`Unknown argument: ${arg}`)
@@ -388,6 +390,8 @@ function flattenResult({ runtime, fixture, setupMs, firstLoad, secondLoad }) {
       pathStatCacheMisses: firstLoad.driveStats.pathStatCacheMisses ?? 0,
       agdaiRead: firstLoad.driveStats.agdaiRead ?? firstLoad.driveStats.agdai?.read ?? 0,
       agdaiWrite: firstLoad.driveStats.agdaiWrite ?? firstLoad.driveStats.agdai?.write ?? 0,
+      agdaiOpenPaths: Object.fromEntries(Object.entries(firstLoad.driveStats.openPaths ?? {}).filter(([k]) => k.endsWith('.agdai'))),
+      agdaiCreatePaths: firstLoad.driveStats.agdaiCreatePaths ?? [],
       fsTail: firstLoad.fsTail ?? [],
     },
     secondLoad: {
@@ -548,6 +552,10 @@ async function runBrowserWasiShimWorker(fixture, options = {}, workerFile, runti
       wasmPath: join(appRoot, 'static', 'als-2.8ext.wasm'),
       stdlibZipPath: join(appRoot, 'static', 'agda-stdlib-2.3.zip'),
       cubicalZipPath: join(appRoot, 'static', 'agda-cubical-0.9.zip'),
+      stdlibAgdaiZipPath: options.prebuiltAgdai
+        ? join(appRoot, 'experiments', 'build-library', 'results', 'stdlib-agdai.zip')
+        : null,
+      dataZipPath: join(appRoot, 'static', 'agda-data.zip'),
       debug: options.debug,
     },
   })
@@ -687,7 +695,7 @@ async function runBenchmark(runtime, fixture) {
     return runVscodeWasmMemfs(fixture, { debug: args.debug })
   }
   if (runtime === 'browser-wasi-shim-memfs') {
-    return runBrowserWasiShimMemfs(fixture, { debug: args.debug })
+    return runBrowserWasiShimMemfs(fixture, { debug: args.debug, prebuiltAgdai: args.prebuiltAgdai })
   }
   if (runtime === 'browser-wasi-shim-overlay-snapshot') {
     return runBrowserWasiShimOverlaySnapshot(fixture, { debug: args.debug })

@@ -36,6 +36,8 @@ export interface WASIShimWorkerInitObject {
   stdlibZip: ArrayBuffer
   cubicalZip: ArrayBuffer
   dataZip?: ArrayBuffer
+  stdlibAgdaiZip?: ArrayBuffer
+  cubicalAgdaiZip?: ArrayBuffer
   agdaVersion: string
 }
 
@@ -106,6 +108,8 @@ async function buildFilesystem(opts: {
   stdlibZip: ArrayBuffer
   cubicalZip: ArrayBuffer
   dataZip?: ArrayBuffer
+  stdlibAgdaiZip?: ArrayBuffer
+  cubicalAgdaiZip?: ArrayBuffer
 }): Promise<{ root: Directory; sourceFile: File }> {
   const root = new Directory(new Map())
 
@@ -118,11 +122,21 @@ async function buildFilesystem(opts: {
     return path.replace(/^agda-stdlib-[\d.]+\//, '')
   })
 
+  // pre-built stdlib .agdai cache (paths already relative to stdlib root)
+  if (opts.stdlibAgdaiZip) {
+    await extractZip(root, opts.stdlibAgdaiZip, 'stdlib', path => path)
+  }
+
   // cubical
   await extractZip(root, opts.cubicalZip, 'cubical', path => {
     if (!path.match(/^cubical-[\d.]+\//)) return null
     return path.replace(/^cubical-[\d.]+\//, '')
   })
+
+  // pre-built cubical .agdai cache (paths already relative to cubical root)
+  if (opts.cubicalAgdaiZip) {
+    await extractZip(root, opts.cubicalAgdaiZip, 'cubical', path => path)
+  }
 
   // builtin data (old Agda versions)
   if (opts.dataZip) {
@@ -249,11 +263,13 @@ async function init({
   stdlibZip,
   cubicalZip,
   dataZip,
+  stdlibAgdaiZip,
+  cubicalAgdaiZip,
   agdaVersion,
 }: WASIShimWorkerInitObject) {
   const [module, { root, sourceFile }] = await Promise.all([
     compileWasm(wasmSource),
-    buildFilesystem({ stdlibZip, cubicalZip, dataZip }),
+    buildFilesystem({ stdlibZip, cubicalZip, dataZip, stdlibAgdaiZip, cubicalAgdaiZip }),
   ])
 
   if (agdaVersion === '2.8.0') {

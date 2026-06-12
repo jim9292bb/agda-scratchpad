@@ -120,7 +120,10 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
 
     const wakerChannel = new MessageChannel()
 
-    const [dataZipData, stdlibData, cubicalData] = await Promise.all([
+    const fetchOptional = (url: string) =>
+      fetch(asset(url)).then(r => r.ok ? r.arrayBuffer() : undefined).catch(() => undefined)
+
+    const [dataZipData, stdlibData, cubicalData, stdlibAgdaiData, cubicalAgdaiData] = await Promise.all([
       wasmAndData.dataFile
         ? trace.measure('Read Agda builtins data', () => wasmAndData.dataFile!.arrayBuffer())
         : Promise.resolve(undefined),
@@ -128,6 +131,8 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
         fetch(asset('/agda-stdlib-2.3.zip')).then(x => x.arrayBuffer())),
       trace.measure('Fetch Cubical zip', () =>
         fetch(asset('/agda-cubical-0.9.zip')).then(x => x.arrayBuffer())),
+      trace.measure('Fetch stdlib .agdai cache', () => fetchOptional('/stdlib-agdai.zip')),
+      trace.measure('Fetch cubical .agdai cache', () => fetchOptional('/cubical-agdai.zip')),
     ])
 
     const { initPromise } = makeWasiShimLspWorker({
@@ -139,6 +144,8 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
       stdlibZip: stdlibData,
       cubicalZip: cubicalData,
       dataZip: dataZipData,
+      stdlibAgdaiZip: stdlibAgdaiData,
+      cubicalAgdaiZip: cubicalAgdaiData,
       agdaVersion,
     }, worker => {
       this._lspWorker = worker

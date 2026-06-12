@@ -30,6 +30,10 @@ export const agdaVersionMap: Record<SupportedAgdaVersion, AgdaVersionSpec> = {
   '2.8.0': {
     path: asset('/als-2.8ext.wasm'),
     stdlibCandidates: ['2.3'],
+    // agda-data.zip provides _build/2.8.0/agda/ .agdai cache for prim modules;
+    // sources are embedded in the WASM binary (written by --setup), but the
+    // .agdai cache must be supplied externally to avoid re-typechecking on every load.
+    dataPath: asset('/agda-data.zip'),
   },
 }
 
