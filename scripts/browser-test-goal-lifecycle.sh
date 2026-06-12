@@ -11,7 +11,7 @@ start_als
 set_editor_fixture "test-fixtures/agda/plus-case-split.agda" "?" 0
 load_agda
 
-assert_editor_contains "{! !}" "Load creates goal"
+assert_editor_contains "{!  !}" "Load creates goal"
 
 set_goal_content 0 "a"
 press_agda_chord "c" "KeyC"

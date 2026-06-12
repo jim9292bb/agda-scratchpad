@@ -110,7 +110,45 @@ set_editor_fixture() {
 
 load_agda() {
   click_button Load
-  ab wait 5000
+  # Wait for IOTCM to leave 'ready' (request accepted) then return to 'ready' (response complete)
+  wait_for_iotcm_cycle 20000
+}
+
+# Waits for iotcmStatus to leave 'ready', then return to 'ready'.
+# This confirms a full Load round-trip completed.
+wait_for_iotcm_cycle() {
+  local timeout_ms="${1:-20000}"
+  local elapsed=0
+  # Phase 1: wait for status to be NOT 'ready' (request in flight)
+  while (( elapsed < timeout_ms )); do
+    local status
+    status="$(ab eval "(() => {
+      const items = Array.from(document.querySelectorAll('li'))
+      const li = items.find(li => li.textContent.includes('IOTCM status:'))
+      return li?.textContent ?? ''
+    })()")"
+    if [[ "$status" != *"ready"* ]]; then
+      break
+    fi
+    ab wait 100 >/dev/null
+    elapsed=$(( elapsed + 100 ))
+  done
+  # Phase 2: wait for status to be 'ready' again (response done)
+  while (( elapsed < timeout_ms )); do
+    local status
+    status="$(ab eval "(() => {
+      const items = Array.from(document.querySelectorAll('li'))
+      const li = items.find(li => li.textContent.includes('IOTCM status:'))
+      return li?.textContent ?? ''
+    })()")"
+    if [[ "$status" == *"ready"* ]]; then
+      return 0
+    fi
+    ab wait 200 >/dev/null
+    elapsed=$(( elapsed + 200 ))
+  done
+  echo "Timed out waiting for IOTCM cycle to complete" >&2
+  return 1
 }
 
 wait_for_log_contains() {

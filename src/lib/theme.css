@@ -1,0 +1,18 @@
+:root {
+  --quiet-primary-seed: #989cff;
+  --quiet-neutral-seed: #8b8c93;
+  --quiet-destructive-seed: #ef5655;
+
+  --quiet-primary-100: color-mix(in oklab, var(--quiet-primary-seed), white 87%);
+  --quiet-primary-200: color-mix(in oklab, var(--quiet-primary-seed), white 70%);
+  --quiet-primary-300: color-mix(in oklab, var(--quiet-primary-seed), white 47%);
+  --quiet-neutral-100: color-mix(in oklab, var(--quiet-neutral-seed), white 87%);
+
+  --quiet-neutral-fill: #fff;
+  --quiet-neutral-fill-softer: var(--quiet-neutral-100);
+  --quiet-neutral-stroke-softer: color-mix(in oklab, var(--quiet-neutral-100), black 3%);
+  --quiet-primary-fill-soft: var(--quiet-primary-200);
+  --quiet-primary-stroke: var(--quiet-primary-seed);
+  --quiet-primary-stroke-soft: var(--quiet-primary-300);
+  --quiet-destructive-text: color-mix(in oklab, var(--quiet-destructive-seed), black 12.5%);
+}

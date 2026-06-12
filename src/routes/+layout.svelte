@@ -1,11 +1,5 @@
 <script>
-import '@quietui/quiet/themes/quiet.css'
-import '@quietui/quiet/themes/utilities.css'
-
-import '@quietui/quiet/components/button/button.js'
-import '@quietui/quiet/components/splitter/splitter.js'
-import '@quietui/quiet/components/select/select.js'
-import '@quietui/quiet/components/text-field/text-field.js'
+import '$lib/theme.css'
 </script>
 
 <slot></slot>
