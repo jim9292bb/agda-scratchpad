@@ -7,6 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATIC_DIR="$SCRIPT_DIR/../static"
 
 NIGHTLY="https://github.com/agda-web/agda-language-server/releases/download/nightly-20260407"
+CACHE="https://github.com/agda-web/als-demo/releases/download/cache-2.8.0"
 
 download() {
   local url="$1"
@@ -25,15 +26,13 @@ download "$NIGHTLY/als-2.6.4.3.wasm" "$STATIC_DIR/als-2.6.wasm"
 download "$NIGHTLY/als-2.7.0.1.wasm" "$STATIC_DIR/als-2.7ext.wasm"
 download "$NIGHTLY/als-2.8.0.wasm"   "$STATIC_DIR/als-2.8ext.wasm"
 
-echo "Downloading Agda library archives from GitHub..."
+echo "Downloading Agda library source archives from GitHub..."
 download "https://github.com/agda/agda-stdlib/archive/refs/tags/v2.3.zip" "$STATIC_DIR/agda-stdlib-2.3.zip"
 download "https://github.com/agda/cubical/archive/refs/tags/v0.9.zip"     "$STATIC_DIR/agda-cubical-0.9.zip"
 
-if [[ -f "$STATIC_DIR/agda-data.zip" ]]; then
-  echo "  already exists: agda-data.zip"
-else
-  echo "Building agda-data.zip (requires agda 2.8.0 in PATH)..."
-  bash "$SCRIPT_DIR/build-agda-data.sh"
-fi
+echo "Downloading pre-built Agda 2.8.0 cache from agda-web/als-demo cache-2.8.0..."
+download "$CACHE/agda-data.zip"      "$STATIC_DIR/agda-data.zip"
+download "$CACHE/stdlib-agdai.zip"   "$STATIC_DIR/stdlib-agdai.zip"
+download "$CACHE/cubical-agdai.zip"  "$STATIC_DIR/cubical-agdai.zip"
 
 echo "Done. Static assets are ready."
