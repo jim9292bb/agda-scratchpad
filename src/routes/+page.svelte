@@ -894,8 +894,13 @@ let activeGoalDetailError = $state('')
 let selectedMessageTab = $state(/** @type {'log' | 'errors'} */('log'))
 let commandsPanelVisible = $state(false)
 let editorGoalsSplit = $state(0.78)
+let editorGoalsContainerHeight = $state(0)
+let commandsPanelContentHeight = $state(0)
 $effect(() => {
-  editorGoalsSplit = commandsPanelVisible ? 0.55 : 0.78
+  const cmdH = commandsPanelVisible ? commandsPanelContentHeight : 0
+  const totalH = editorGoalsContainerHeight
+  if (totalH === 0) return
+  editorGoalsSplit = Math.max(0.35, Math.min(0.92, (totalH * 0.78 - cmdH) / totalH))
 })
 let settingsPanelVisible = $state(false)
 let selectedSettingsSegment = $state('general')
@@ -971,6 +976,7 @@ $effect(() => {
       </div>
       {@render headerExamplePicker()}
     </header>
+    <div bind:clientHeight={editorGoalsContainerHeight} style="height:100%">
     <SplitPane class="editor-goals-splitter" orientation="vertical" bind:ratio={editorGoalsSplit} style="--divider-min-position: 35%; --divider-max-position: 92%;">
       {#snippet start()}
       <section class="editor-pane">
@@ -990,7 +996,7 @@ $effect(() => {
             Commands
           </button>
           {#if commandsPanelVisible}
-            <div id="commands-panel" class="commands-panel" aria-label="Agda commands">
+            <div id="commands-panel" class="commands-panel" aria-label="Agda commands" bind:clientHeight={commandsPanelContentHeight}>
               {#each activeAgdaShortcutRegistry as shortcut}
                 <button
                   type="button"
@@ -1078,6 +1084,7 @@ $effect(() => {
       </section>
       {/snippet}
     </SplitPane>
+    </div>
   </section>
   {/snippet}
   {#snippet end()}
