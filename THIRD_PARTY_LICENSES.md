@@ -4,6 +4,25 @@ This file documents third-party code included or derived from in this project.
 
 ---
 
+## TC39 proposal-arraybuffer-base64 playground polyfill
+
+**File:** `src/lib/worker/util-base64.js`
+
+**Source:** [`tc39/proposal-arraybuffer-base64`](https://github.com/tc39/proposal-arraybuffer-base64),
+file [`playground/polyfill-core.mjs`](https://github.com/tc39/proposal-arraybuffer-base64/blob/main/playground/polyfill-core.mjs)
+
+**Modification:** Converted from ES module playground format to a CommonJS-compatible
+export style and adapted for use in the ALS worker environment. The file already
+carries a `// modified from` comment linking to the original.
+
+**License:** The TC39 proposal repository uses the Ecma International Software
+License (a permissive license allowing use, reproduction, and distribution with
+attribution). See
+[`https://github.com/tc39/proposal-arraybuffer-base64/blob/main/LICENSE`](https://github.com/tc39/proposal-arraybuffer-base64/blob/main/LICENSE)
+for the authoritative text.
+
+---
+
 ## agda-mode-vscode keymap
 
 **File:** `src/lib/agda/input-keymap.js`
