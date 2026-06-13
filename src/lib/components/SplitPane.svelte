@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { untrack } from 'svelte'
   import type { Snippet } from 'svelte'
 
   let {
     orientation = 'horizontal' as 'horizontal' | 'vertical',
     position = 0.5,
+    ratio = $bindable(position),
     class: className = '',
     style = '',
     start,
@@ -12,14 +12,13 @@
   }: {
     orientation?: 'horizontal' | 'vertical'
     position?: number
+    ratio?: number
     class?: string
     style?: string
     start?: Snippet
     end?: Snippet
   } = $props()
 
-  // Intentional one-time capture: ratio is draggable state, position is just initial value
-  let ratio = $state(untrack(() => position))
   let dragging = false
   let containerEl: HTMLElement
 

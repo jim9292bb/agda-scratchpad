@@ -893,6 +893,10 @@ let activeGoalDetailStatus = $state(/** @type {'idle' | 'loading' | 'ready' | 'e
 let activeGoalDetailError = $state('')
 let selectedMessageTab = $state(/** @type {'log' | 'errors'} */('log'))
 let commandsPanelVisible = $state(false)
+let editorGoalsSplit = $state(0.78)
+$effect(() => {
+  editorGoalsSplit = commandsPanelVisible ? 0.55 : 0.78
+})
 let settingsPanelVisible = $state(false)
 let selectedSettingsSegment = $state('general')
 let shortcutOverrides = $state(initialShortcutOverrides)
@@ -967,7 +971,7 @@ $effect(() => {
       </div>
       {@render headerExamplePicker()}
     </header>
-    <SplitPane class="editor-goals-splitter" orientation="vertical" position={.78} style="--divider-min-position: 35%; --divider-max-position: 92%;">
+    <SplitPane class="editor-goals-splitter" orientation="vertical" bind:ratio={editorGoalsSplit} style="--divider-min-position: 35%; --divider-max-position: 92%;">
       {#snippet start()}
       <section class="editor-pane">
         <div class="container" {@attach codeMirror}></div>
