@@ -117,12 +117,16 @@
 
   .horizontal .split-divider {
     width: var(--divider-draggable-area, 13px);
+    margin-left: calc(var(--divider-draggable-area, 13px) / -2);
+    margin-right: calc(var(--divider-draggable-area, 13px) / -2);
     height: 100%;
     cursor: col-resize;
   }
   .vertical .split-divider {
     width: 100%;
     height: var(--divider-draggable-area, 13px);
+    margin-top: calc(var(--divider-draggable-area, 13px) / -2);
+    margin-bottom: calc(var(--divider-draggable-area, 13px) / -2);
     cursor: row-resize;
   }
 
