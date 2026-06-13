@@ -1143,7 +1143,7 @@ $effect(() => {
 
   {@const bytesLoaded = agdaController.wasmLoadingProgress?.bytesLoaded ?? 0}
   {@const bytesTotal = agdaController.wasmLoadingProgress?.bytesTotal ?? 0}
-  <div>
+  <div class="als-status">
   {#if agdaController.alsWorkerStatus === 'loading'}
     ⌛ Downloading WASM: <progress max={bytesTotal} value={bytesLoaded}></progress> {bytesLoaded}/{bytesTotal}
   {:else if agdaController.alsWorkerStatus === 'loaded'}
@@ -1447,8 +1447,12 @@ $effect(() => {
 }
 
 .als-buttons {
-  padding: 1em 0;
+  padding: 1em 8px;
   border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
+}
+
+.als-status {
+  padding: 8px;
 }
 
 .btn {
@@ -1688,7 +1692,7 @@ $effect(() => {
 }
 
 .info-section {
-  padding: 8px;
+  padding: 0;
   display: flex;
   flex-direction: column;
   overflow: auto;
