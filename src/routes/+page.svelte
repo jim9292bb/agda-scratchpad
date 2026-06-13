@@ -1136,11 +1136,10 @@ $effect(() => {
 {/snippet}
 
 {#snippet alsButtons()}
-  <div class="flex" style="padding: 1em 0">
+  <div class="flex als-buttons">
     <button type="button" class="btn" onclick={() => agdaController.restartALSWASM()} disabled={agdaController.alsWorkerStatus !== 'active'}>Restart</button>
     <button type="button" class="settings-button" onclick={openSettingsPanel}>Settings</button>
   </div>
-  <hr class="als-buttons-divider">
 
   {@const bytesLoaded = agdaController.wasmLoadingProgress?.bytesLoaded ?? 0}
   {@const bytesTotal = agdaController.wasmLoadingProgress?.bytesTotal ?? 0}
@@ -1447,10 +1446,9 @@ $effect(() => {
   --divider-draggable-area: 13px;
 }
 
-.als-buttons-divider {
-  border: none;
-  border-top: 1px solid var(--quiet-neutral-stroke-softer);
-  margin: 0;
+.als-buttons {
+  padding: 1em 0;
+  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
 }
 
 .btn {
