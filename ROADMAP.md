@@ -200,13 +200,15 @@ and not buried in raw transport output.
 Goal: learners should be able to type Agda symbols in the browser without an
 external editor setup.
 
-- [ ] Add Agda input method triggered by backslash.
-- [ ] Use `../references/agda-web-agda-input` as the primary browser-compatible reference.
-- [ ] Provide CodeMirror completion candidates for Agda symbols.
-- [ ] Support selecting candidates with keyboard navigation.
-- [ ] Replace the input sequence with the chosen Unicode symbol.
+- [x] Add Agda input method triggered by backslash.
+- [x] Use `../references/agda-mode-vscode/asset/keymap.js` as the trie source.
+- [x] Show a floating two-row tooltip: Row 1 = candidate symbols, Row 2 = key suggestions for continuing input.
+- [x] Support selecting candidates with keyboard navigation (← → move one by one, ↑ ↓ page through 9 per page, 1–9 select by position).
+- [x] Replace the input sequence with the chosen Unicode symbol.
+- [x] Ensure Agda shortcuts still have priority while the editor is focused.
+- [ ] Support Agda Unicode input inside the command input prompt.
 - [ ] Add a lookup command similar to `C-x C-=`.
-- [ ] Ensure Agda shortcuts still have priority while the editor is focused.
+- [ ] Browser-test Unicode input method flows.
 
 ## Normalization and Command Variants
 

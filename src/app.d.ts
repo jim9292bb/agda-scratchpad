@@ -28,7 +28,6 @@ namespace Agda {
   }
 
   // see: instance EncodeTCM DisplayInfo where
-  // FIXME: not complete
   type _Info =
   // | CompilationOk
   // | Constraints
@@ -37,12 +36,12 @@ namespace Agda {
   | Error
   // | Intro_NotFound
   // | Intro_ConstructorUnknown
-  // | Auto
-  // | ModuleContents
-  // | SearchAbout
-  // | WhyInScope
-  // | NormalForm
-  // | InferredType
+  | Auto
+  | ModuleContents
+  | SearchAbout
+  | WhyInScope
+  | NormalForm
+  | InferredType
   // | Context
   | Version
   | GoalSpecific
@@ -68,11 +67,11 @@ namespace Agda {
   }
 
   type _GoalInfo =
-  // | HelperFunction
-  // | NormalForm
   | GoalType
-  // | CurrentGoal
-  // | InferredType
+  | GoalNormalForm
+  | GoalInferredType
+  | GoalCurrentGoal
+  | GoalHelperFunction
 
   type GoalType = {
     kind: 'GoalType',
@@ -99,6 +98,18 @@ namespace Agda {
   type GoalOnly = { kind: 'GoalOnly' }
   type GoalAndHave = { kind: 'GoalAndHave', expr: string }
   type GoalAndElaboration = { kind: 'GoalAndElaboration', term: string }
+
+  type GoalNormalForm = { kind: 'NormalForm', computeMode: unknown, expr: string }
+  type GoalInferredType = { kind: 'InferredType', expr: string }
+  type GoalCurrentGoal = { kind: 'CurrentGoal', rewrite: _Rewrite, type: string }
+  type GoalHelperFunction = { kind: 'HelperFunction', signature: string }
+
+  type Auto = { kind: 'Auto', info: string }
+  type WhyInScope = { kind: 'WhyInScope', thing: string, filepath: string | null, message: string }
+  type NormalForm = { kind: 'NormalForm', commandState: unknown, computeMode: unknown, time: unknown, expr: string }
+  type InferredType = { kind: 'InferredType', commandState: unknown, time: unknown, expr: string }
+  type SearchAbout = { kind: 'SearchAbout', results: { name: string, term: string }[], search: string }
+  type ModuleContents = { kind: 'ModuleContents', contents: { name: string, term: string }[], names: string[], telescope: unknown[] }
 
   type AllGoalsWarnings = {
     kind: 'AllGoalsWarnings',

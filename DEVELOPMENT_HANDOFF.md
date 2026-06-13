@@ -115,8 +115,8 @@ Scratchpad features (see `ROADMAP.md` for full list):
 
 - move query results from raw Log into a structured Queries view;
 - continue Diagnostics and Output Panel work;
-- implement the Agda Unicode input method using
-  `../references/agda-web-agda-input`;
+- add Unicode input support inside the command input prompt;
+- add a `C-x C-=` lookup command and browser regression tests for the Unicode input method;
 - add normalization/prefix variants when the command UI is ready;
 - add constraints/metas only where they help single-file learning workflows.
 

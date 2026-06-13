@@ -116,6 +116,11 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
     }
   }
 
+  /** @param {Array<{name: string, term: string}>} items */
+  function formatNameTermList(items) {
+    return (items ?? []).map(({ name, term }) => `${name} : ${term}`).join('\n')
+  }
+
   /** @param {Agda._Info} info */
   function formatDisplayInfo(info) {
     switch (info.kind) {
@@ -129,11 +134,32 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
         for (const goal of info.invisibleGoals ?? []) parts.push(formatConstraint(goal))
         return parts.join('\n\n')
       }
-      case 'GoalSpecific':
-        if (info.goalInfo?.kind === 'GoalType') return info.goalInfo.type
-        return JSON.stringify(info.goalInfo)
+      case 'GoalSpecific': {
+        const gi = info.goalInfo
+        if (!gi) return ''
+        switch (gi.kind) {
+          case 'GoalType':     return gi.type ?? ''
+          case 'NormalForm':   return gi.expr ?? ''
+          case 'InferredType': return gi.expr ?? ''
+          case 'CurrentGoal':  return gi.type ?? ''
+          case 'HelperFunction': return gi.signature ?? ''
+          default: return JSON.stringify(gi)
+        }
+      }
       case 'Version':
         return info.version
+      case 'WhyInScope':
+        return info.message ?? ''
+      case 'NormalForm':
+        return info.expr ?? ''
+      case 'InferredType':
+        return info.expr ?? ''
+      case 'SearchAbout':
+        return formatNameTermList(info.results)
+      case 'ModuleContents':
+        return formatNameTermList(info.contents)
+      case 'Auto':
+        return info.info ?? ''
       default:
         return JSON.stringify(info)
     }

@@ -10,6 +10,7 @@ import { EditorState } from '@codemirror/state'
 import SplitPane from '$lib/components/SplitPane.svelte'
 import { AgdaController, LS_DOC_KEY } from '$lib/controller.svelte'
 import { myCodeMirrorTheme } from '$lib/codemirror/theme'
+import { agdaInputMethod } from '$lib/codemirror/agda-input'
 import { agdaSupport } from '$lib/agda'
 import { getAgdaDocumentVersion, getAgdaGoals, mergeGoalInfos } from '$lib/agda/goal-state'
 import { getGoalAtPosition, getGoalRangeById } from '$lib/agda/goals'
@@ -658,6 +659,7 @@ function codeMirror(el) {
       myCodeMirrorTheme(),
       basicTheme,
       agdaSupport(),
+      agdaInputMethod(),
       agdaKeymap,
       agdaChordKeymap,
       EditorView.updateListener.of(update => {
@@ -1363,11 +1365,6 @@ $effect(() => {
   letter-spacing: 1px;
   font-size: 1rem;
   font-family: monospace;
-}
-
-.header-subtitle {
-  margin-inline-start: 1em;
-  font-size: .75rem;
 }
 
 .header-example-picker {

@@ -143,8 +143,9 @@ backend is fully integrated as the default. See `DEVELOPMENT_HANDOFF.md` for
 current state and next tasks.
 
 Next priorities: Diagnostics and Output Panel interaction, structured
-Queries/Warnings views, and then the Unicode Input Method. These improve the
-single-file learning workflow without expanding into project management.
+Queries/Warnings views, Unicode input method browser regressions and prompt
+integration, and then normalization variants. These improve the single-file
+learning workflow without expanding into project management.
 
 For larger feature work, use the Superpowers-inspired workflows in
 `CODEX_WORKFLOWS.md`: clarify the intended learner workflow, write a concise
