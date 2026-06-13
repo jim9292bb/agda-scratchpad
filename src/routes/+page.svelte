@@ -1155,75 +1155,34 @@ $effect(() => {
     <button type="button" class="settings-button" onclick={openSettingsPanel}>Settings</button>
   </div>
 
-  {@const bytesLoaded = agdaController.wasmLoadingProgress?.bytesLoaded ?? 0}
-  {@const bytesTotal = agdaController.wasmLoadingProgress?.bytesTotal ?? 0}
-  <div class="als-status">
-  {#if agdaController.alsWorkerStatus === 'loading'}
-    ⌛ Downloading WASM: <progress max={bytesTotal} value={bytesLoaded}></progress> {bytesLoaded}/{bytesTotal}
-  {:else if agdaController.alsWorkerStatus === 'loaded'}
-    ⚙️ WASM is downloaded. Starting up...
-  {:else if agdaController.alsWorkerStatus === 'exited'}
-    🚪 WASM has exited. Use Restart to start again.<br>
-    If this is not intended, open the console to inspect its output.
-  {:else if agdaController.alsWorkerStatus === 'errored'}
-    ⚠️ Error has occurred. Use Restart to try again.
-  {:else if agdaController.alsWorkerStatus === 'deactivating'}
-    ⚠️ Deactivating the worker...
-  {:else if agdaController.alsWorkerStatus === 'terminated'}
-    <p>🛑 WASM has been terminated.</p>
-    <button type="button" class="btn" onclick={() => { agdaController.alsWorkerStatus = 'initial' }}>Reset state to initial</button>
-  {:else if agdaController.alsWorkerStatus === 'initial'}
-    <div><strong>Startup config</strong></div>
-    {@render runtimeSummaryPanel()}
-  {:else}
-    Status: <strong>{agdaController.alsWorkerStatus}</strong>
-    <ul>
-      <li>Agda version: {agdaController.receivedALSVersion}</li>
-      <li>Load args: (empty)</li>
-      <li>IOTCM status: {agdaController.iotcmStatus}</li>
-    </ul>
-    {@render runtimeSummaryPanel()}
-    <div class="flex">
-      <button type="button" class="btn btn-primary" onclick={() => loadAgdaFile()}>Load</button>
-    </div>
-    <section class="commands-panel-shell">
-      <button
-        type="button"
-        class="commands-panel-toggle"
-        aria-expanded={commandsPanelVisible}
-        aria-controls="commands-panel"
-        onclick={() => { commandsPanelVisible = !commandsPanelVisible }}>
-        {commandsPanelVisible ? 'Hide commands' : 'Show commands'}
-      </button>
-      {#if commandsPanelVisible}
-        <div id="commands-panel" class="commands-panel" aria-label="Agda commands">
-          {#each activeAgdaShortcutRegistry as shortcut}
-            <button
-              type="button"
-              class="command-button"
-              onclick={() => {
-                if (agdaController.editorView) {
-                  runAgdaShortcutDefinition(shortcut, agdaController.editorView)
-                  agdaController.editorView.focus()
-                }
-              }}>
-              <span class="command-button-label">{shortcut.label}</span>
-              <span class="command-button-shortcut">{formatAgdaShortcutHelpBinding(shortcut)}</span>
-            </button>
-          {/each}
-        </div>
-      {/if}
-    </section>
-    <details class="shortcut-help">
-      <summary>Agda shortcuts</summary>
-      <dl>
+  <section class="commands-panel-shell">
+    <button
+      type="button"
+      class="commands-panel-toggle"
+      aria-expanded={commandsPanelVisible}
+      aria-controls="commands-panel"
+      onclick={() => { commandsPanelVisible = !commandsPanelVisible }}>
+      {commandsPanelVisible ? 'Hide commands' : 'Show commands'}
+    </button>
+    {#if commandsPanelVisible}
+      <div id="commands-panel" class="commands-panel" aria-label="Agda commands">
         {#each activeAgdaShortcutRegistry as shortcut}
-          <div><dt>{formatAgdaShortcutHelpBinding(shortcut)}</dt><dd>{shortcut.label}</dd></div>
+          <button
+            type="button"
+            class="command-button"
+            onclick={() => {
+              if (agdaController.editorView) {
+                runAgdaShortcutDefinition(shortcut, agdaController.editorView)
+                agdaController.editorView.focus()
+              }
+            }}>
+            <span class="command-button-label">{shortcut.label}</span>
+            <span class="command-button-shortcut">{formatAgdaShortcutHelpBinding(shortcut)}</span>
+          </button>
         {/each}
-      </dl>
-    </details>
-  {/if}
-  </div>
+      </div>
+    {/if}
+  </section>
 
 {/snippet}
 
@@ -1362,19 +1321,6 @@ $effect(() => {
   {/if}
 {/snippet}
 
-{#snippet runtimeSummaryPanel()}
-  <section class="runtime-summary" aria-label="Runtime summary">
-    <header class="runtime-summary-title">Runtime summary</header>
-    <dl>
-      {#each runtimeSummary() as item}
-        <div>
-          <dt>{item.label}</dt>
-          <dd>{item.value}</dd>
-        </div>
-      {/each}
-    </dl>
-  </section>
-{/snippet}
 
 
 {#snippet headerExamplePicker()}
@@ -1487,9 +1433,6 @@ $effect(() => {
   color: #666;
 }
 
-.als-status {
-  padding: 8px;
-}
 
 .btn {
   border: 1px solid var(--quiet-neutral-stroke-softer);
@@ -1511,53 +1454,7 @@ $effect(() => {
   opacity: 0.45;
   cursor: not-allowed;
 }
-.btn-primary {
-  background: var(--quiet-primary-fill-soft);
-  border-color: var(--quiet-primary-stroke-soft);
-}
-.btn-primary:hover:not(:disabled),
-.btn-primary:focus-visible:not(:disabled) {
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 75%, var(--quiet-primary-stroke-soft));
-}
 
-.runtime-summary {
-  margin: 8px 0 12px;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 68%, transparent);
-  padding: 8px;
-}
-
-.runtime-summary-title {
-  margin-bottom: 6px;
-  color: #777;
-  font-family: monospace;
-  font-size: .75rem;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-}
-
-
-.runtime-summary dl {
-  display: grid;
-  gap: 4px;
-  margin: 0;
-}
-
-.runtime-summary div {
-  display: grid;
-  grid-template-columns: minmax(9rem, max-content) 1fr;
-  gap: 8px;
-}
-
-.runtime-summary dt {
-  color: #666;
-}
-
-.runtime-summary dd {
-  margin: 0;
-  font-family: JuliaMono, monospace;
-}
 
 .container > :global(*) {
   flex: 1 1;
@@ -1934,11 +1831,6 @@ $effect(() => {
   font-size: .8rem;
 }
 
-.flex {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
 
 .settings-button,
 .settings-close-button {
@@ -2325,29 +2217,5 @@ $effect(() => {
   font-size: .72rem;
 }
 
-.shortcut-help {
-  margin-top: 12px;
-  font-size: .8rem;
-}
 
-.shortcut-help dl {
-  display: grid;
-  gap: 4px;
-  margin: 8px 0 0;
-}
-
-.shortcut-help dl > div {
-  display: grid;
-  grid-template-columns: minmax(12ch, max-content) 1fr;
-  gap: 8px;
-}
-
-.shortcut-help dt {
-  font-family: JuliaMono, monospace;
-  color: #666;
-}
-
-.shortcut-help dd {
-  margin: 0;
-}
 </style>
