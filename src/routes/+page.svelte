@@ -1136,8 +1136,22 @@ $effect(() => {
 {/snippet}
 
 {#snippet alsButtons()}
-  <div class="flex als-buttons">
-    <button type="button" class="btn" onclick={() => agdaController.restartALSWASM()} disabled={agdaController.alsWorkerStatus !== 'active'}>Restart</button>
+  {@const statusMeta = {
+    initial:      { color: '#888',    label: 'Starting...' },
+    loading:      { color: '#f59e0b', label: 'Loading...' },
+    loaded:       { color: '#f59e0b', label: 'Starting...' },
+    active:       { color: '#22c55e', label: 'Active' },
+    deactivating: { color: '#888',    label: 'Stopping...' },
+    errored:      { color: '#ef4444', label: 'Error' },
+    exited:       { color: '#888',    label: 'Exited' },
+    terminated:   { color: '#888',    label: 'Terminated' },
+  }[agdaController.alsWorkerStatus] ?? { color: '#888', label: agdaController.alsWorkerStatus }}
+  <div class="als-buttons">
+    <div class="als-toolbar-left">
+      <span class="als-status-dot" style="--dot-color: {statusMeta.color}"></span>
+      <span class="als-status-label">{statusMeta.label}</span>
+      <button type="button" class="btn" onclick={() => agdaController.restartALSWASM()} disabled={agdaController.alsWorkerStatus !== 'active'}>Restart</button>
+    </div>
     <button type="button" class="settings-button" onclick={openSettingsPanel}>Settings</button>
   </div>
 
@@ -1447,8 +1461,30 @@ $effect(() => {
 }
 
 .als-buttons {
-  padding: 1em 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px;
   border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
+}
+
+.als-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.als-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dot-color);
+  flex-shrink: 0;
+}
+
+.als-status-label {
+  font-size: .78rem;
+  color: #666;
 }
 
 .als-status {
