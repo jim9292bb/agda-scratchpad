@@ -975,6 +975,34 @@ $effect(() => {
       {/snippet}
       {#snippet end()}
       <section class="goals-section">
+        <section class="commands-panel-shell">
+          <button
+            type="button"
+            class="commands-panel-toggle"
+            aria-expanded={commandsPanelVisible}
+            aria-controls="commands-panel"
+            onclick={() => { commandsPanelVisible = !commandsPanelVisible }}>
+            <span class="commands-panel-arrow" class:open={commandsPanelVisible}>▶</span>
+            Commands
+          </button>
+          {#if commandsPanelVisible}
+            <div id="commands-panel" class="commands-panel" aria-label="Agda commands">
+              {#each activeAgdaShortcutRegistry as shortcut}
+                <button
+                  type="button"
+                  class="command-button"
+                  onclick={() => {
+                    if (agdaController.editorView) {
+                      runAgdaShortcutDefinition(shortcut, agdaController.editorView)
+                      agdaController.editorView.focus()
+                    }
+                  }}>
+                  {formatAgdaShortcutHelpBinding(shortcut)}
+                </button>
+              {/each}
+            </div>
+          {/if}
+        </section>
         <header class="panel-header">Goals</header>
         {#if commandInputPrompt}
           <form class="command-input-panel" onsubmit={(event) => { event.preventDefault(); submitCommandInputPrompt() }}>
@@ -1155,33 +1183,6 @@ $effect(() => {
     <button type="button" class="settings-button" onclick={openSettingsPanel}>Settings</button>
   </div>
 
-  <section class="commands-panel-shell">
-    <button
-      type="button"
-      class="commands-panel-toggle"
-      aria-expanded={commandsPanelVisible}
-      aria-controls="commands-panel"
-      onclick={() => { commandsPanelVisible = !commandsPanelVisible }}>
-      {commandsPanelVisible ? 'Hide commands' : 'Show commands'}
-    </button>
-    {#if commandsPanelVisible}
-      <div id="commands-panel" class="commands-panel" aria-label="Agda commands">
-        {#each activeAgdaShortcutRegistry as shortcut}
-          <button
-            type="button"
-            class="command-button"
-            onclick={() => {
-              if (agdaController.editorView) {
-                runAgdaShortcutDefinition(shortcut, agdaController.editorView)
-                agdaController.editorView.focus()
-              }
-            }}>
-            {formatAgdaShortcutHelpBinding(shortcut)}
-          </button>
-        {/each}
-      </div>
-    {/if}
-  </section>
 
 {/snippet}
 
@@ -2158,44 +2159,52 @@ $effect(() => {
 }
 
 .commands-panel-shell {
-  margin-top: 12px;
+  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
 }
 
 .commands-panel-toggle,
 .command-button {
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  background: var(--quiet-neutral-fill-softer);
+  border: none;
+  background: transparent;
   color: inherit;
   cursor: pointer;
   font: inherit;
 }
 
 .commands-panel-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   width: 100%;
   padding: 6px 8px;
   text-align: start;
+  font-size: .82rem;
+}
+
+.commands-panel-arrow {
+  display: inline-block;
+  font-size: .6rem;
+  transition: transform 0.15s;
+}
+
+.commands-panel-arrow.open {
+  transform: rotate(90deg);
 }
 
 .commands-panel-toggle:hover,
 .commands-panel-toggle:focus-visible,
 .command-button:hover,
 .command-button:focus-visible {
-  border-color: var(--quiet-primary-stroke-soft);
   outline: none;
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill-softer));
+  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, transparent);
 }
 
 .commands-panel {
   display: grid;
-  gap: 6px;
-  max-height: 260px;
-  margin-top: 8px;
+  gap: 2px;
+  max-height: 240px;
   overflow-y: auto;
-  padding: 8px;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 76%, transparent);
+  padding: 4px 0;
 }
 
 .command-button {
