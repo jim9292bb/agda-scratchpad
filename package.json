@@ -1,7 +1,7 @@
 {
-  "name": "agda-scratchpad-ide",
+  "name": "agda-scratchpad",
   "version": "0.0.1",
-  "description": "Browser-hosted single-file Agda scratchpad IDE for demonstrations, learning, and practice",
+  "description": "Browser-hosted single-file Agda scratchpad for demonstrations, learning, and practice",
   "author": "qbane",
   "type": "module",
   "private": true,

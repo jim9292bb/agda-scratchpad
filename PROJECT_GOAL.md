@@ -1,6 +1,6 @@
 # Project Goal
 
-This project is a browser-hosted single-file Agda IDE for demonstration,
+This project is a browser-hosted single-file Agda scratchpad for demonstration,
 learning, and practice.
 
 Its product positioning is close to the JSCoq scratchpad:

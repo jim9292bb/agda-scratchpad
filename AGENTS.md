@@ -2,7 +2,7 @@
 
 ## Project Goal
 
-This project is a browser-hosted single-file Agda IDE for demonstration,
+This project is a browser-hosted single-file Agda scratchpad for demonstration,
 learning, and practice. Its positioning is close to the JSCoq scratchpad:
 focused interaction with one source buffer, not project-oriented development.
 
@@ -138,15 +138,13 @@ VSCode porting checklist. Runtime support, goal lifecycle, core practice
 commands, goal queries, and Goals panel/navigation are substantially complete,
 with remaining browser regression coverage tracked in the TODO.
 
-Current branch direction: `runtime-browser-wasi-shim`. The immediate priority
-is a behavior-preserving runtime backend abstraction, followed by a gated
-`browser-wasi-shim-memfs` backend for the main app. See
-`DEVELOPMENT_HANDOFF.md` before continuing runtime work.
+Current branch: `agda-scratchpad`. The `browser-wasi-shim-memfs` runtime
+backend is fully integrated as the default. See `DEVELOPMENT_HANDOFF.md` for
+current state and next tasks.
 
-After the runtime backend work, return to Diagnostics and Output Panel
-interaction, structured Queries/Warnings views, and then the Unicode Input
-Method. These improve the single-file learning workflow without expanding into
-project management.
+Next priorities: Diagnostics and Output Panel interaction, structured
+Queries/Warnings views, and then the Unicode Input Method. These improve the
+single-file learning workflow without expanding into project management.
 
 For larger feature work, use the Superpowers-inspired workflows in
 `CODEX_WORKFLOWS.md`: clarify the intended learner workflow, write a concise

@@ -1,6 +1,6 @@
-# Agda Scratchpad IDE Roadmap
+# Agda Scratchpad Roadmap
 
-This roadmap tracks work for a browser-hosted, single-file Agda IDE for
+This roadmap tracks work for a browser-hosted, single-file Agda scratchpad for
 teaching, demonstrations, and practice. The product positioning is close to the
 JSCoq scratchpad: focused interaction with one source buffer, not development of
 a multi-file Agda project.
@@ -68,8 +68,8 @@ runtime architecture.
 - [x] Compare `runno-proxy-current`, `browser-wasi-shim-memfs`, and `browser-wasi-shim-overlay-snapshot` benchmark results.
 - [x] Document the runtime/filesystem comparison conclusion.
 - [x] Add a main-app runtime backend selector scaffold.
-- [ ] Add a behavior-preserving runtime backend abstraction around the current `runno-proxy-current` path.
-- [ ] Port `browser-wasi-shim-memfs` into the main app behind the runtime backend selector.
+- [x] Add a behavior-preserving runtime backend abstraction around the current `runno-proxy-current` path.
+- [x] Port `browser-wasi-shim-memfs` into the main app behind the runtime backend selector.
 - [ ] Browser-test library loading with both runtime backends.
 - [ ] Decide whether `browser-wasi-shim-overlay-snapshot` is worth porting after the simpler memfs backend works.
 

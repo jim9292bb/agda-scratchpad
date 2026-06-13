@@ -32,22 +32,15 @@ Primary scope documents:
 Current active branch:
 
 ```text
-runtime-browser-wasi-shim
+agda-scratchpad
 ```
 
-This branch is for investigating and gradually integrating a faster
-`browser-wasi-shim-memfs` runtime backend into the main scratchpad app.
+The `browser-wasi-shim-memfs` runtime backend is fully integrated as the
+default. The `RuntimeBackend` interface lives in `src/lib/runtime/interface.ts`
+and is implemented by `BrowserWasiShimRuntimeBackend` in
+`src/lib/runtime/browser-wasi-shim.ts`. The Runno proxy path has been removed.
 
-The current production/default runtime remains:
-
-```text
-runno-proxy-current
-```
-
-The `browser-wasi-shim-memfs` setting is only scaffolded in the main UI. It is
-not yet wired as a working app runtime backend.
-
-## Current Runtime Evidence
+## Runtime Evidence
 
 The runtime/filesystem benchmark harness lives in:
 
@@ -94,88 +87,31 @@ Interpretation:
 
 ## Main App State
 
-Runtime backend selection scaffold currently exists in:
+Runtime backend interface:
 
 ```text
-src/lib/controller.svelte.ts
-src/routes/+page.svelte
+src/lib/runtime/interface.ts    — RuntimeBackend interface
+src/lib/runtime/browser-wasi-shim.ts — BrowserWasiShimRuntimeBackend implementation
+src/lib/controller.svelte.ts    — uses RuntimeBackend; Runno path removed
 ```
 
-Current scaffold:
+The Settings panel exposes a runtime backend selector persisted in local
+storage. Currently only `browser-wasi-shim-memfs` is implemented.
 
-- defines supported runtime backend ids;
-- persists the selected runtime backend in local storage;
-- shows the selected backend in Settings and Runtime summary;
-- passes the selected backend into `AgdaController`.
-
-Current limitation:
-
-- `AgdaController` still always uses the existing Runno proxy worker path;
-- selecting `browser-wasi-shim-memfs` does not change runtime behavior yet.
-
-## Immediate Next Task
-
-Implement a runtime backend abstraction for the main app before porting the
-`browser_wasi_shim` worker.
-
-Recommended first slice:
-
-1. Add a small backend interface for the controller's runtime operations:
-   source sync, startup/setup, LSP worker access, drive stats, and shutdown if
-   needed.
-2. Move the existing `runno-proxy-current` path behind that interface without
-   changing behavior.
-3. Keep `runno-proxy-current` as the default and only active backend.
-4. Run:
-   ```sh
-   source /usr/share/nvm/init-nvm.sh && npm run check
-   source /usr/share/nvm/init-nvm.sh && npm run build
-   ```
-5. Run a browser library regression if runtime startup code changes:
-   ```sh
-   source /usr/share/nvm/init-nvm.sh && npm run test:browser:libraries
-   ```
-
-Do this as a behavior-preserving refactor. Do not add the
-`browser-wasi-shim-memfs` worker in the same commit unless the interface is
-already stable and the change remains small.
-
-## Next Runtime Integration Tasks
-
-After the backend interface exists:
-
-1. Add a main-app `browser-wasi-shim-memfs` worker based on
-   `experiments/runtime-fs/src/browser-wasi-shim-runtime.js`.
-2. Make the worker expose the same minimum operations required by the backend
-   interface.
-3. Replace the current drive-worker-only source sync with a backend-owned source
-   write operation.
-4. Keep performance stats shape compatible enough that the runtime panel does
-   not break. Missing stats can be explicit zero/empty values at first.
-5. Gate the new backend behind the existing Settings selector.
-6. Verify at minimum:
-   ```sh
-   source /usr/share/nvm/init-nvm.sh && npm run check
-   source /usr/share/nvm/init-nvm.sh && npm run build
-   source /usr/share/nvm/init-nvm.sh && npm run test:browser:libraries
-   ```
-7. Manually test both backends before making `browser-wasi-shim-memfs` a serious
-   default candidate.
-
-## Later Work
+## Next Tasks
 
 Runtime and filesystem:
 
-- compare main-app `browser-wasi-shim-memfs` behavior against experiment
-  harness timings;
-- decide whether `browser-wasi-shim-overlay-snapshot` has a real production
-  advantage after the simpler memfs backend works;
+- browser-test library loading to verify both first and second load timings
+  match experiment harness benchmarks;
+- decide whether `browser-wasi-shim-overlay-snapshot` is worth implementing
+  after verifying main-app `browser-wasi-shim-memfs` behavior;
 - investigate persistent browser-side cache for extracted library files or
-  `.agdai` files only after backend switching works;
+  `.agdai` files only after the above is verified;
 - leave `runno-direct-fs` and `vscode-wasm-memfs` as documented blockers unless
   new evidence appears.
 
-Scratchpad IDE features:
+Scratchpad features (see `ROADMAP.md` for full list):
 
 - move query results from raw Log into a structured Queries view;
 - continue Diagnostics and Output Panel work;

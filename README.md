@@ -1,6 +1,6 @@
-# Agda Scratchpad IDE
+# Agda Scratchpad
 
-A browser-hosted, single-file Agda IDE for demonstrations, learning, and
+A browser-hosted, single-file Agda scratchpad for demonstrations, learning, and
 practice.
 
 The project is positioned close to the JSCoq scratchpad: open a browser, write

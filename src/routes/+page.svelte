@@ -894,14 +894,6 @@ let activeGoalDetailError = $state('')
 let selectedMessageTab = $state(/** @type {'log' | 'errors'} */('log'))
 let commandsPanelVisible = $state(false)
 let editorGoalsSplit = $state(0.78)
-let editorGoalsContainerHeight = $state(0)
-let commandsPanelContentHeight = $state(0)
-$effect(() => {
-  const cmdH = commandsPanelVisible ? commandsPanelContentHeight : 0
-  const totalH = editorGoalsContainerHeight
-  if (totalH === 0) return
-  editorGoalsSplit = Math.max(0.35, Math.min(0.92, (totalH * 0.78 - cmdH) / totalH))
-})
 let settingsPanelVisible = $state(false)
 let selectedSettingsSegment = $state('general')
 let shortcutOverrides = $state(initialShortcutOverrides)
@@ -972,19 +964,14 @@ $effect(() => {
   <section class="editor-section">
     <header class="header">
       <div class="header-brand">
-        <span class="header-title">Agda Scratchpad IDE</span> <a target="_blank" href={APP_REPO_URL} class="header-subtitle">{APP_COMMIT_ID}</a>
+        <span class="header-title">Agda Scratchpad</span>
       </div>
       {@render headerExamplePicker()}
     </header>
-    <div bind:clientHeight={editorGoalsContainerHeight} style="height:100%">
     <SplitPane class="editor-goals-splitter" orientation="vertical" bind:ratio={editorGoalsSplit} style="--divider-min-position: 35%; --divider-max-position: 92%;">
       {#snippet start()}
       <section class="editor-pane">
         <div class="container" {@attach codeMirror}></div>
-      </section>
-      {/snippet}
-      {#snippet end()}
-      <section class="goals-section">
         <section class="commands-panel-shell">
           <button
             type="button"
@@ -996,7 +983,7 @@ $effect(() => {
             Commands
           </button>
           {#if commandsPanelVisible}
-            <div id="commands-panel" class="commands-panel" aria-label="Agda commands" bind:clientHeight={commandsPanelContentHeight}>
+            <div id="commands-panel" class="commands-panel" aria-label="Agda commands">
               {#each activeAgdaShortcutRegistry as shortcut}
                 <button
                   type="button"
@@ -1013,6 +1000,10 @@ $effect(() => {
             </div>
           {/if}
         </section>
+      </section>
+      {/snippet}
+      {#snippet end()}
+      <section class="goals-section">
         <header class="panel-header">Goals</header>
         {#if commandInputPrompt}
           <form class="command-input-panel" onsubmit={(event) => { event.preventDefault(); submitCommandInputPrompt() }}>
@@ -1084,7 +1075,6 @@ $effect(() => {
       </section>
       {/snippet}
     </SplitPane>
-    </div>
   </section>
   {/snippet}
   {#snippet end()}
@@ -1484,6 +1474,7 @@ $effect(() => {
 
 .editor-pane {
   display: flex;
+  flex-direction: column;
   min-height: 0;
 }
 
@@ -2170,12 +2161,12 @@ $effect(() => {
 }
 
 .commands-panel-shell {
+  background: var(--quiet-neutral-fill-softer);
   border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
 }
 
 .commands-panel-toggle,
 .command-button {
-  border: none;
   background: transparent;
   color: inherit;
   cursor: pointer;
@@ -2183,6 +2174,7 @@ $effect(() => {
 }
 
 .commands-panel-toggle {
+  border: none;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -2211,19 +2203,22 @@ $effect(() => {
 }
 
 .commands-panel {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
-  gap: 2px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
   max-height: 240px;
   overflow-y: auto;
-  padding: 4px 0;
+  padding: 6px 8px;
 }
 
 .command-button {
-  padding: 7px 8px;
-  text-align: start;
+  padding: 3px 8px;
+  text-align: center;
   font-family: JuliaMono, monospace;
   font-size: .82rem;
+  background: var(--quiet-neutral-fill-softer);
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 3px;
 }
 
 
