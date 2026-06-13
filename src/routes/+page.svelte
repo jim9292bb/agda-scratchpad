@@ -1176,8 +1176,7 @@ $effect(() => {
                 agdaController.editorView.focus()
               }
             }}>
-            <span class="command-button-label">{shortcut.label}</span>
-            <span class="command-button-shortcut">{formatAgdaShortcutHelpBinding(shortcut)}</span>
+            {formatAgdaShortcutHelpBinding(shortcut)}
           </button>
         {/each}
       </div>
@@ -2200,21 +2199,10 @@ $effect(() => {
 }
 
 .command-button {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 2px;
   padding: 7px 8px;
   text-align: start;
-}
-
-.command-button-label {
-  font-weight: 650;
-}
-
-.command-button-shortcut {
-  color: #666;
   font-family: JuliaMono, monospace;
-  font-size: .72rem;
+  font-size: .82rem;
 }
 
 
