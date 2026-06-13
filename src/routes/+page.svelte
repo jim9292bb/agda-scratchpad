@@ -2201,6 +2201,7 @@ $effect(() => {
 
 .commands-panel {
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
   gap: 2px;
   max-height: 240px;
   overflow-y: auto;
