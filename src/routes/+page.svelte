@@ -459,9 +459,11 @@ async function requestActiveGoalDetails(goalId, documentVersion) {
 
 let agdaChordTimer = /** @type {ReturnType<typeof setTimeout> | undefined} */(undefined)
 let waitingForAgdaChord = false
+let agdaChordSubPrefix = /** @type {string | undefined} */(undefined)
 
 function clearAgdaChord() {
   waitingForAgdaChord = false
+  agdaChordSubPrefix = undefined
   if (agdaChordTimer) {
     clearTimeout(agdaChordTimer)
     agdaChordTimer = undefined
@@ -613,7 +615,20 @@ function handleAgdaChordKeydown(event, view) {
 
   event.preventDefault()
   event.stopPropagation()
+
+  // C-c C-x is a sub-prefix for three-key chords (e.g. C-c C-x C-a = abort)
+  if (!agdaChordSubPrefix && isAgdaCtrlKey(event, 'x')) {
+    agdaChordSubPrefix = 'x'
+    return true
+  }
+
+  const subPrefix = agdaChordSubPrefix
   clearAgdaChord()
+
+  if (subPrefix === 'x') {
+    if (isAgdaCtrlKey(event, 'a')) sendAbort()
+    return true
+  }
 
   const shortcut = findAgdaChordShortcut(event, activeAgdaShortcutRegistry)
   if (shortcut) runAgdaShortcutDefinition(shortcut, view)
@@ -778,9 +793,6 @@ function resetShortcutOverrides() {
   shortcutOverrideMessage = 'Shortcut overrides reset to defaults.'
 }
 
-async function dumpFS() {
-  console.warn('dumpFS not supported with browser-wasi-shim-memfs backend')
-}
 
 function sendAbort() {
   return /** @type {any} */(agdaController.lspClient).request('agda', {
@@ -1135,8 +1147,6 @@ $effect(() => {
       {startable: 'Start', stoppable: 'Stop', '': '...'}[alsIsStartable]
     }</button>
     <button type="button" class="btn" onclick={() => agdaController.restartALSWASM()} disabled={agdaController.alsWorkerStatus !== 'active'}>Restart</button>
-    <button type="button" class="btn" onclick={() => agdaController.terminateALSWASM()} disabled={['initial', 'terminated'].includes(agdaController.alsWorkerStatus)}>Terminate</button>
-    <button type="button" class="btn" disabled={!agdaController.driveIsCreated} onclick={() => dumpFS()}>Dump FS</button>
     <button type="button" class="settings-button" onclick={openSettingsPanel}>Settings</button>
   </div>
 
@@ -1170,7 +1180,6 @@ $effect(() => {
     {@render runtimeSummaryPanel()}
     <div class="flex">
       <button type="button" class="btn btn-primary" onclick={() => loadAgdaFile()}>Load</button>
-      <button type="button" class="btn" onclick={() => sendAbort()}>Abort</button>
     </div>
     <section class="commands-panel-shell">
       <button
