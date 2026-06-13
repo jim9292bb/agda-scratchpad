@@ -66,6 +66,12 @@ const agdaController = new AgdaController({
   agdaVersion: '2.8.0',
 })
 
+$effect(() => {
+  if (agdaController.alsWorkerStatus === 'initial') {
+    untrack(() => agdaController.startALSWASM())
+  }
+})
+
 function runtimeSummary() {
   return [
     { label: 'Runtime backend', value: 'browser-wasi-shim-memfs' },
@@ -1130,22 +1136,7 @@ $effect(() => {
 {/snippet}
 
 {#snippet alsButtons()}
-  {@const alsIsStartable =
-    ['initial', 'terminated', 'exited', 'errored'].includes(agdaController.alsWorkerStatus) ?
-      'startable' : agdaController.alsWorkerStatus === 'active' ? 'stoppable' : ''}
   <div class="flex" style="padding: 1em 0">
-    <button
-      type="button"
-      class="btn"
-      class:btn-primary={agdaController.alsWorkerStatus !== 'active'}
-      class:btn-destructive={agdaController.alsWorkerStatus === 'active'}
-      onclick={{
-        startable: () => agdaController.startALSWASM(),
-        stoppable: () => agdaController.stopALSWASM(),
-        '': undefined}[alsIsStartable]}
-      disabled={!alsIsStartable}>{
-      {startable: 'Start', stoppable: 'Stop', '': '...'}[alsIsStartable]
-    }</button>
     <button type="button" class="btn" onclick={() => agdaController.restartALSWASM()} disabled={agdaController.alsWorkerStatus !== 'active'}>Restart</button>
     <button type="button" class="settings-button" onclick={openSettingsPanel}>Settings</button>
   </div>
@@ -1158,10 +1149,10 @@ $effect(() => {
   {:else if agdaController.alsWorkerStatus === 'loaded'}
     ⚙️ WASM is downloaded. Starting up...
   {:else if agdaController.alsWorkerStatus === 'exited'}
-    🚪 WASM has exited. Start again to reuse this worker.<br>
+    🚪 WASM has exited. Use Restart to start again.<br>
     If this is not intended, open the console to inspect its output.
   {:else if agdaController.alsWorkerStatus === 'errored'}
-    ⚠️ Error has occurred. Terminate and try again.
+    ⚠️ Error has occurred. Use Restart to try again.
   {:else if agdaController.alsWorkerStatus === 'deactivating'}
     ⚠️ Deactivating the worker...
   {:else if agdaController.alsWorkerStatus === 'terminated'}
@@ -1482,10 +1473,6 @@ $effect(() => {
 .btn-primary:hover:not(:disabled),
 .btn-primary:focus-visible:not(:disabled) {
   background: color-mix(in srgb, var(--quiet-primary-fill-soft) 75%, var(--quiet-primary-stroke-soft));
-}
-.btn-destructive {
-  border-color: color-mix(in srgb, var(--quiet-destructive-seed, #ef5655) 40%, transparent);
-  color: var(--quiet-destructive-text, #a33);
 }
 
 .runtime-summary {
