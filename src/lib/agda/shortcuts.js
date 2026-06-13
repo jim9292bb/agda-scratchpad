@@ -264,5 +264,6 @@ export function findAgdaChordShortcut(event, registry = agdaShortcutRegistry) {
  * @returns {string}
  */
 export function formatAgdaShortcutHelpBinding(shortcut) {
-  return shortcut.bindings.map(binding => binding.label.replace(/\bCtrl-/g, 'C-')).join(' / ')
+  const binding = shortcut.bindings.find(b => b.kind === 'chord') ?? shortcut.bindings[0]
+  return binding.label.replace(/\bCtrl-/g, 'C-')
 }
