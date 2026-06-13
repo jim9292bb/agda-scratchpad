@@ -208,7 +208,7 @@ external editor setup.
 - [x] Ensure Agda shortcuts still have priority while the editor is focused.
 - [ ] Support Agda Unicode input inside the command input prompt.
 - [ ] Add a lookup command similar to `C-x C-=`.
-- [ ] Browser-test Unicode input method flows.
+- [x] Browser-test Unicode input method flows.
 
 ## Normalization and Command Variants
 
