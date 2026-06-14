@@ -11,6 +11,7 @@ import SplitPane from '$lib/components/SplitPane.svelte'
 import { AgdaController, LS_DOC_KEY } from '$lib/controller.svelte'
 import { myCodeMirrorTheme } from '$lib/codemirror/theme'
 import { agdaInputMethod } from '$lib/codemirror/agda-input'
+import { attachAgdaIM } from '$lib/codemirror/agda-input-dom'
 import { agdaSupport } from '$lib/agda'
 import { getAgdaDocumentVersion, getAgdaGoals, mergeGoalInfos } from '$lib/agda/goal-state'
 import { getGoalAtPosition, getGoalRangeById } from '$lib/agda/goals'
@@ -914,6 +915,12 @@ let commandInputError = $state('')
 /** @type {HTMLInputElement | undefined} */
 let commandInputElement = $state(/** @type {HTMLInputElement | undefined} */(undefined))
 
+/** @param {HTMLInputElement} el */
+function agdaInputAction(el) {
+  const cleanup = attachAgdaIM(el)
+  return { destroy: cleanup }
+}
+
 /** @type {number | undefined} */
 let raf
 let needScroll = false
@@ -1013,6 +1020,7 @@ $effect(() => {
             <div class="command-input-row">
               <input
                 id="command-input"
+                use:agdaInputAction
                 bind:this={commandInputElement}
                 bind:value={commandInputPrompt.value}
                 autocomplete="off"

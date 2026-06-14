@@ -17,6 +17,56 @@ ab wait 1000
 assert_command_prompt "Input for Case split"
 assert_log_contains "Case split: enter command input in the Goals panel." "Case split opens command input panel"
 
+# ── Unicode IM inside the command input prompt ────────────────────────────────
+press_prompt_key() {
+  local key_json code_json
+  key_json="$(json_string "$1")"
+  code_json="$(json_string "${2:-}")"
+  ab eval "(() => {
+    const key = $key_json
+    const code = $code_json || ('Key' + key.toUpperCase())
+    const input = document.querySelector('#command-input')
+    if (!input) throw new Error('command input missing')
+    input.focus()
+    input.dispatchEvent(new KeyboardEvent('keydown', { key, code, bubbles: true, cancelable: true }))
+    return { ok: true, key }
+  })()"
+}
+
+press_prompt_key "\\" "Backslash"
+ab wait 300
+ab eval "(() => {
+  const tooltip = document.querySelector('.agda-im-tooltip')
+  if (!tooltip) throw new Error('IM tooltip not visible after \\\\ in prompt')
+  if (!tooltip.textContent.includes('+')) throw new Error('IM tooltip missing key-suggestions row')
+  return { ok: true, text: tooltip.textContent.trim().slice(0, 60) }
+})()"
+echo "PASS IM activates in command input prompt"
+
+press_prompt_key "t" "KeyT"
+press_prompt_key "o" "KeyO"
+ab wait 200
+ab eval "(() => {
+  const tooltip = document.querySelector('.agda-im-tooltip')
+  if (!tooltip) throw new Error('IM tooltip not visible after \\\\to')
+  const cands = [...tooltip.querySelectorAll('.agda-im-cand')].map(el => el.childNodes[0]?.textContent ?? el.textContent)
+  if (!cands.includes('→')) throw new Error('→ not in candidates: ' + JSON.stringify(cands))
+  return { ok: true, cands }
+})()"
+echo "PASS \\to shows → candidate in prompt tooltip"
+
+press_prompt_key "Tab" "Tab"
+ab wait 200
+ab eval "(() => {
+  const tooltip = document.querySelector('.agda-im-tooltip')
+  if (tooltip) throw new Error('IM tooltip still visible after Tab')
+  const input = document.querySelector('#command-input')
+  if (input.value !== '→') throw new Error('Expected → in input after Tab, got: ' + JSON.stringify(input.value))
+  return { ok: true, value: input.value }
+})()"
+echo "PASS Tab confirms → in command input prompt"
+
+# ── Now submit with 'a' for the actual case split test ───────────────────────
 submit_command_prompt "a"
 ab wait 6000
 

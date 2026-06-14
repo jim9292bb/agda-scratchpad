@@ -25,11 +25,21 @@ ab() {
 open_app() {
   ab open "$APP_URL"
   ab wait --load networkidle
+  # Force a full reload so each test starts from a clean app state,
+  # even when the dev server has hot-reloaded between test runs.
+  ab eval "location.reload()"
+  ab wait --load networkidle
 }
 
 click_button() {
+  local label="$1"
+  # "Load" is no longer a standalone button; dispatch it via keyboard shortcut.
+  if [[ "$label" == "Load" ]]; then
+    press_agda_chord "l" "KeyL"
+    return
+  fi
   local label_json
-  label_json="$(json_string "$1")"
+  label_json="$(json_string "$label")"
   ab eval "(() => {
     const label = $label_json
     const button = Array.from(document.querySelectorAll('button, quiet-button'))
@@ -62,26 +72,22 @@ wait_for_button() {
 }
 
 start_als() {
-  local started
-  started="$(ab eval "(() => {
-    const buttons = Array.from(document.querySelectorAll('button, quiet-button'))
-    const isEnabled = button => !(button.disabled ?? button.hasAttribute('disabled'))
-    const load = buttons.some(button => button.textContent.trim() === 'Load' && isEnabled(button))
-    if (load) return 'already-active'
-    const start = buttons.find(button => button.textContent.trim() === 'Start' && isEnabled(button))
-    if (!start) return 'missing-start'
-    start.click()
-    return 'started'
-  })()")"
-
-  if [[ "$started" == *"missing-start"* ]]; then
-    echo "Could not find Start or Load button." >&2
-    return 1
-  fi
-
-  if [[ "$started" == *"started"* ]]; then
-    wait_for_button Load 45000
-  fi
+  # ALS auto-starts on page load. Wait for it to become active.
+  # Signal: the Restart button transitions from disabled to enabled.
+  local timeout_ms=45000
+  local elapsed=0
+  while (( elapsed < timeout_ms )); do
+    local enabled
+    enabled="$(ab eval "(() => {
+      const btn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === 'Restart')
+      return btn ? !(btn.disabled ?? btn.hasAttribute('disabled')) : false
+    })()")"
+    if [[ "$enabled" == *"true"* ]]; then return 0; fi
+    ab wait 500 >/dev/null
+    elapsed=$(( elapsed + 500 ))
+  done
+  echo "Timed out waiting for ALS to become active (Restart button never enabled)" >&2
+  return 1
 }
 
 set_editor_fixture() {
@@ -109,46 +115,42 @@ set_editor_fixture() {
 }
 
 load_agda() {
-  click_button Load
-  # Wait for IOTCM to leave 'ready' (request accepted) then return to 'ready' (response complete)
-  wait_for_iotcm_cycle 20000
+  # Trigger Cmd_load via the C-c C-l keyboard chord.
+  # The standalone Load button was removed; load is dispatched through the shortcut.
+  # Record current log length so we detect the NEXT completion, not a previous one.
+  local before_len
+  before_len="$(ab eval "(() => (document.querySelector('.messages-panel')?.dataset.logContent ?? '').length)()")"
+  press_agda_chord "l" "KeyL"
+  _wait_for_load_completion "$before_len" 20000
 }
 
-# Waits for iotcmStatus to leave 'ready', then return to 'ready'.
-# This confirms a full Load round-trip completed.
+_wait_for_load_completion() {
+  local before_len="$1"
+  local timeout_ms="${2:-20000}"
+  local elapsed=0
+  while (( elapsed < timeout_ms )); do
+    local found
+    found="$(ab eval "(() => {
+      const log = document.querySelector('.messages-panel')?.dataset.logContent ?? ''
+      const tail = log.slice(Number($before_len))
+      return tail.includes('Load finished.') || tail.includes('Load failed.')
+    })()")"
+    if [[ "$found" == *"true"* ]]; then return 0; fi
+    ab wait 500 >/dev/null
+    elapsed=$(( elapsed + 500 ))
+  done
+  echo "Timed out waiting for Load to complete" >&2
+  return 1
+}
+
+# Waits for a Load command round-trip to complete.
+# The IOTCM status <li> was removed from the UI; this now waits for
+# "Load finished." or "Load failed." to appear in the messages log.
 wait_for_iotcm_cycle() {
   local timeout_ms="${1:-20000}"
-  local elapsed=0
-  # Phase 1: wait for status to be NOT 'ready' (request in flight)
-  while (( elapsed < timeout_ms )); do
-    local status
-    status="$(ab eval "(() => {
-      const items = Array.from(document.querySelectorAll('li'))
-      const li = items.find(li => li.textContent.includes('IOTCM status:'))
-      return li?.textContent ?? ''
-    })()")"
-    if [[ "$status" != *"ready"* ]]; then
-      break
-    fi
-    ab wait 100 >/dev/null
-    elapsed=$(( elapsed + 100 ))
-  done
-  # Phase 2: wait for status to be 'ready' again (response done)
-  while (( elapsed < timeout_ms )); do
-    local status
-    status="$(ab eval "(() => {
-      const items = Array.from(document.querySelectorAll('li'))
-      const li = items.find(li => li.textContent.includes('IOTCM status:'))
-      return li?.textContent ?? ''
-    })()")"
-    if [[ "$status" == *"ready"* ]]; then
-      return 0
-    fi
-    ab wait 200 >/dev/null
-    elapsed=$(( elapsed + 200 ))
-  done
-  echo "Timed out waiting for IOTCM cycle to complete" >&2
-  return 1
+  local before_len
+  before_len="$(ab eval "(() => (document.querySelector('.messages-panel')?.dataset.logContent ?? '').length)()")"
+  _wait_for_load_completion "$before_len" "$timeout_ms"
 }
 
 wait_for_log_contains() {

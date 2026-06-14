@@ -157,7 +157,7 @@ able to type the required content in a panel, similar to the useful parts of
 - [x] Use the prompt result as command content for Case split, Give, Refine, Elaborate and give, Helper function type, Infer, Compute, Search, Module contents, Why in scope, and checked-type queries.
 - [x] Allow cancelling the prompt without sending an Agda command.
 - [x] Restore editor focus after prompt submit or cancel.
-- [ ] Support Agda Unicode input method inside the prompt after the Unicode input method exists.
+- [x] Support Agda Unicode input method inside the prompt after the Unicode input method exists.
 - [x] Add browser regressions for prompt submit, cancel, and focus restore.
 
 ## Shortcut Configuration
@@ -206,7 +206,7 @@ external editor setup.
 - [x] Support selecting candidates with keyboard navigation (← → move one by one, ↑ ↓ page through 9 per page, 1–9 select by position).
 - [x] Replace the input sequence with the chosen Unicode symbol.
 - [x] Ensure Agda shortcuts still have priority while the editor is focused.
-- [ ] Support Agda Unicode input inside the command input prompt.
+- [x] Support Agda Unicode input inside the command input prompt.
 - [ ] Add a lookup command similar to `C-x C-=`.
 - [x] Browser-test Unicode input method flows.
 
