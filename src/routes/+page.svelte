@@ -621,6 +621,10 @@ function handleAgdaChordKeydown(event, view) {
 
   if (!waitingForAgdaChord) return false
 
+  // Modifier-only keypresses are not a second chord key; the user may release
+  // and re-press Ctrl between the two chord keys without cancelling the chord.
+  if (['Control', 'Alt', 'Shift', 'Meta'].includes(event.key)) return false
+
   event.preventDefault()
   event.stopPropagation()
 
