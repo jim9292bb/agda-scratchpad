@@ -353,6 +353,19 @@ assert_log_contains() {
   echo "PASS log contains: $label"
 }
 
+assert_queries_contains() {
+  local needle_json label
+  needle_json="$(json_string "$1")"
+  label="${2:-$1}"
+  ab eval "(() => {
+    const needle = $needle_json
+    const text = document.querySelector('.messages-panel')?.dataset.queryResults ?? ''
+    if (!text.includes(needle)) throw new Error('Queries do not contain: ' + needle)
+    return { ok: true, contains: needle }
+  })()"
+  echo "PASS queries contain: $label"
+}
+
 assert_command_prompt() {
   local label_json
   label_json="$(json_string "$1")"
@@ -415,8 +428,8 @@ assert_active_goal_contains() {
   label="${2:-$1}"
   ab eval "(() => {
     const needle = $needle_json
-    const card = document.querySelector('.goal-card.active')
-    if (!card) throw new Error('Active goal card is missing')
+    const card = document.querySelector('.goal-entry.active')
+    if (!card) throw new Error('Active goal entry is missing')
     const text = card.textContent
     if (!text.includes(needle)) throw new Error('Active goal card does not contain: ' + needle + '\\n' + text)
     return { ok: true, contains: needle, text: card.textContent.trim() }

@@ -892,7 +892,7 @@ let activeGoalId = $state(/** @type {number | string | null} */(null))
 let activeGoalDetailRequestKey = $state('')
 let activeGoalDetailStatus = $state(/** @type {'idle' | 'loading' | 'ready' | 'error'} */('idle'))
 let activeGoalDetailError = $state('')
-let selectedMessageTab = $state(/** @type {'log' | 'errors'} */('log'))
+let selectedMessageTab = $state(/** @type {'log' | 'queries' | 'errors'} */('log'))
 let commandsPanelVisible = $state(false)
 let editorGoalsSplit = $state(0.78)
 let settingsPanelVisible = $state(false)
@@ -1048,7 +1048,7 @@ $effect(() => {
                 class="goal-entry"
                 aria-label={`Focus goal ${goal.id}`}
                 onclick={() => focusGoal(goal.id)}>
-                <div class="goal-head">?{goal.id}{#if goal.type} : {goal.type}{:else if goal.id === activeGoalId && activeGoalDetailStatus === 'loading'}<span class="goal-type-muted"> : …</span>{:else}<span class="goal-type-muted"> : ?</span>{/if}</div>
+                <div class="goal-head">?{goal.id} : {#if goal.type}{goal.type}{:else if goal.id === activeGoalId && activeGoalDetailStatus === 'loading'}<span class="goal-type-muted">…</span>{:else}<span class="goal-type-muted">?</span>{/if}</div>
                 {#if goal.id === activeGoalId}
                   {#if goal.context}
                     <div class="goal-separator"></div>
@@ -1091,16 +1091,17 @@ $effect(() => {
 {/snippet}
 
 {#snippet messagesPanel()}
-  <section class="messages-panel" data-log-content={textboxContent} data-performance-entries={JSON.stringify(agdaController.performanceEntries)} aria-label="Messages">
+  <section class="messages-panel" data-log-content={textboxContent} data-performance-entries={JSON.stringify(agdaController.performanceEntries)} data-query-results={agdaController.queryResults.map(r => r.content).join('\n---\n')} aria-label="Messages">
     <header class="messages-header">
       <div>
         <strong>Messages</strong>
-        <span>{selectedMessageTab === 'log' ? 'Agda interaction log' : `${agdaDiagnostics.length} diagnostics`}</span>
+        <span>{selectedMessageTab === 'log' ? 'Agda interaction log' : selectedMessageTab === 'queries' ? `${agdaController.queryResults.length} results` : `${agdaDiagnostics.length} diagnostics`}</span>
       </div>
       <label class="messages-view-select">
         <span>View</span>
         <select bind:value={selectedMessageTab} aria-label="Message view">
           <option value="log">Log</option>
+          <option value="queries">Queries {agdaController.queryResults.length ? `(${agdaController.queryResults.length})` : ''}</option>
           <option value="errors">Errors {agdaDiagnostics.length ? `(${agdaDiagnostics.length})` : ''}</option>
         </select>
       </label>
@@ -1117,10 +1118,35 @@ $effect(() => {
             <div class="messages-log-empty">(log area is empty)</div>
           {/if}
         </div>
+      {:else if selectedMessageTab === 'queries'}
+        {@render queriesPanel()}
       {:else}
         {@render diagnosticsPanel()}
       {/if}
     </div>
+  </section>
+{/snippet}
+
+{#snippet queriesPanel()}
+  <section class="queries-panel" aria-label="Agda query results">
+    <header class="queries-panel-header">
+      <span>Query results</span>
+      {#if agdaController.queryResults.length}
+        <button type="button" class="queries-clear-btn" onclick={() => agdaController.clearQueryResults()}>Clear</button>
+      {/if}
+    </header>
+    {#if agdaController.queryResults.length}
+      <div class="queries-list">
+        {#each agdaController.queryResults as result (result.id)}
+          <div class="query-result">
+            <div class="query-result-label">{result.label}</div>
+            <pre class="query-result-content">{result.content}</pre>
+          </div>
+        {/each}
+      </div>
+    {:else}
+      <div class="queries-empty">No query results yet. Use C-c C-t, C-c C-,, C-c C-e, etc.</div>
+    {/if}
   </section>
 {/snippet}
 
@@ -1707,6 +1733,80 @@ $effect(() => {
   flex: 1 1;
   min-height: 0;
   padding: 8px;
+}
+
+.queries-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  overflow: auto;
+  gap: 0;
+}
+
+.queries-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  color: #555;
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+
+.queries-clear-btn {
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 4px;
+  padding: 1px 7px;
+  background: transparent;
+  color: #777;
+  font-size: .75rem;
+  cursor: pointer;
+}
+
+.queries-clear-btn:hover {
+  border-color: var(--quiet-primary-stroke-soft);
+  color: inherit;
+}
+
+.queries-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.queries-empty {
+  color: #777;
+  font-size: .8rem;
+}
+
+.query-result {
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 4px;
+  background: var(--quiet-neutral-fill-softer);
+  overflow: hidden;
+}
+
+.query-result-label {
+  padding: 3px 8px;
+  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 60%, transparent);
+  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
+  color: #666;
+  font-size: .75rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+
+.query-result-content {
+  margin: 0;
+  padding: 6px 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: JuliaMono, monospace;
+  font-size: 12px;
 }
 
 .diagnostics-panel {

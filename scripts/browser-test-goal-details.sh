@@ -12,10 +12,8 @@ set_editor_fixture "test-fixtures/agda/plus-case-split.agda" "?" 0
 load_agda
 ab wait 4000
 
-assert_active_goal_contains "Goal 0" "Active goal id"
-assert_active_goal_contains "Type" "Active goal type label"
-assert_active_goal_contains "N" "Active goal type"
-assert_active_goal_contains "Context" "Active goal context label"
+assert_active_goal_contains "?0" "Active goal id"
+assert_active_goal_contains "?0 : N" "Active goal type"
 assert_active_goal_contains "a : N" "Active goal context includes a"
 assert_active_goal_contains "b : N" "Active goal context includes b"
 

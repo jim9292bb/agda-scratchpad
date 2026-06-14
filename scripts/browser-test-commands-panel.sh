@@ -41,7 +41,7 @@ echo "PASS commands panel renders command buttons"
 load_agda
 
 assert_log_contains "Load finished." "Load command button runs Load"
-assert_active_goal_contains "Goal 0" "Command panel Load updates goals"
+assert_active_goal_contains "?0" "Command panel Load updates goals"
 
 # ── Collapse the commands panel ──────────────────────────────────────────────
 ab eval "(async () => {

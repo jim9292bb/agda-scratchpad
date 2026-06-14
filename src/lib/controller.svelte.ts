@@ -97,6 +97,16 @@ export class AgdaController {
   currentFilePath = $state('/source.agda')
   iotcmStatus = $state<AgdaIOTCMStatus>('init')
   performanceEntries = $state<PerformanceEntry[]>([])
+  queryResults = $state<Array<{ id: number; label: string; content: string }>>([])
+  private _nextQueryId = 0
+
+  appendQueryResult(label: string, content: string) {
+    this.queryResults = [{ id: this._nextQueryId++, label, content }, ...this.queryResults]
+  }
+
+  clearQueryResults() {
+    this.queryResults = []
+  }
 
   get driveHandle(): DriveHandle {
     return this._backend.getDriveHandle()
@@ -242,6 +252,7 @@ export class AgdaController {
     )
 
     router.intercept(lspClientReadable, lspClientWritable)
+    router.appendQueryResult = (label, content) => this.appendQueryResult(label, content)
 
     return router
   }

@@ -24,6 +24,7 @@ import { focusAgdaUtf8Position, parseAgdaDiagnostic } from './diagnostics'
  * @prop {number | null} activeDocumentVersion
  * @prop {(documentVersion: number) => boolean} acceptsDocumentVersion
  * @prop {(documentVersion: number) => void} acceptDocumentVersion
+ * @prop {(label: string, content: string) => void} appendQueryResult
  */
 
 /** @typedef {(
@@ -121,6 +122,44 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
     return (items ?? []).map(({ name, term }) => `${name} : ${term}`).join('\n')
   }
 
+  const QUERY_SEPARATOR = '────────────────────────────────────────────────────────────'
+
+  /**
+   * Returns { label, content } if this DisplayInfo is a query result,
+   * or null if it should stay in the log.
+   * @param {Agda._Info} info
+   * @returns {{ label: string, content: string } | null}
+   */
+  function getQueryResult(info) {
+    if (info.kind === 'GoalSpecific') {
+      const gi = info.goalInfo
+      if (!gi) return null
+      switch (gi.kind) {
+        case 'GoalType': {
+          const context = formatContextEntries(gi.entries ?? [])
+          const label = context ? 'Goal Type and Context' : 'Goal Type'
+          const content = context
+            ? `${gi.type ?? ''}\n${QUERY_SEPARATOR}\n${context}`
+            : (gi.type ?? '')
+          return { label, content }
+        }
+        case 'NormalForm':    return { label: 'Normal Form', content: gi.expr ?? '' }
+        case 'InferredType':  return { label: 'Inferred Type', content: gi.expr ?? '' }
+        case 'CurrentGoal':   return { label: 'Current Goal', content: gi.type ?? '' }
+        case 'HelperFunction':return { label: 'Helper Function', content: gi.signature ?? '' }
+        default: return null
+      }
+    }
+    switch (info.kind) {
+      case 'WhyInScope':     return { label: 'Why in Scope', content: info.message ?? '' }
+      case 'SearchAbout':    return { label: 'Search About', content: formatNameTermList(info.results) }
+      case 'ModuleContents': return { label: 'Module Contents', content: formatNameTermList(info.contents) }
+      case 'NormalForm':     return { label: 'Normal Form', content: info.expr ?? '' }
+      case 'InferredType':   return { label: 'Inferred Type', content: info.expr ?? '' }
+      default: return null
+    }
+  }
+
   /** @param {Agda._Info} info */
   function formatDisplayInfo(info) {
     switch (info.kind) {
@@ -134,34 +173,15 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
         for (const goal of info.invisibleGoals ?? []) parts.push(formatConstraint(goal))
         return parts.join('\n\n')
       }
-      case 'GoalSpecific': {
-        const gi = info.goalInfo
-        if (!gi) return ''
-        switch (gi.kind) {
-          case 'GoalType':     return gi.type ?? ''
-          case 'NormalForm':   return gi.expr ?? ''
-          case 'InferredType': return gi.expr ?? ''
-          case 'CurrentGoal':  return gi.type ?? ''
-          case 'HelperFunction': return gi.signature ?? ''
-          default: return JSON.stringify(gi)
-        }
-      }
       case 'Version':
         return info.version
-      case 'WhyInScope':
-        return info.message ?? ''
-      case 'NormalForm':
-        return info.expr ?? ''
-      case 'InferredType':
-        return info.expr ?? ''
-      case 'SearchAbout':
-        return formatNameTermList(info.results)
-      case 'ModuleContents':
-        return formatNameTermList(info.contents)
       case 'Auto':
         return info.info ?? ''
-      default:
+      default: {
+        const q = getQueryResult(info)
+        if (q) return q.content
         return JSON.stringify(info)
+      }
     }
   }
 
@@ -276,7 +296,14 @@ export function makeLSPResponseHandlerMap(controller, editorView) {
           .map(parseAgdaDiagnostic)
           .filter(isAgdaDiagnostic)
       }
-      if (!controller.suppressDisplayInfo) emitMessage(message)
+      if (!controller.suppressDisplayInfo) {
+        const queryResult = getQueryResult(info)
+        if (queryResult) {
+          controller.appendQueryResult(queryResult.label, queryResult.content)
+        } else {
+          emitMessage(message)
+        }
+      }
     },
     JumpToError({ filepath, position }) {
       if (!shouldAcceptEditorResponse('JumpToError')) return

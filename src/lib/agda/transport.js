@@ -50,6 +50,8 @@ export class ALSMessageRouter {
     this.pendingGiveGoal = undefined
     /** @type {number | null} */
     this.activeDocumentVersion = null
+    /** @type {(label: string, content: string) => void} */
+    this.appendQueryResult = (_label, _content) => {}
 
     this.cmEncoder = new TextEncoder()
 
