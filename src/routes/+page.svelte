@@ -465,17 +465,12 @@ async function requestActiveGoalDetails(goalId, documentVersion) {
   }
 }
 
-let agdaChordTimer = /** @type {ReturnType<typeof setTimeout> | undefined} */(undefined)
 let waitingForAgdaChord = false
 let agdaChordSubPrefix = /** @type {string | undefined} */(undefined)
 
 function clearAgdaChord() {
   waitingForAgdaChord = false
   agdaChordSubPrefix = undefined
-  if (agdaChordTimer) {
-    clearTimeout(agdaChordTimer)
-    agdaChordTimer = undefined
-  }
 }
 
 /**
@@ -615,7 +610,6 @@ function handleAgdaChordKeydown(event, view) {
     event.preventDefault()
     event.stopPropagation()
     waitingForAgdaChord = true
-    agdaChordTimer = setTimeout(clearAgdaChord, 1500)
     return true
   }
 
