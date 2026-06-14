@@ -24,6 +24,7 @@ import {
   isAgdaCtrlKey,
   validateAgdaShortcutOverrides,
 } from '$lib/agda/shortcuts'
+import { lookupChar, formatCodePoint } from '$lib/agda/input-lookup'
 import {
   autoOneCommand,
   contextCommand,
@@ -467,10 +468,34 @@ async function requestActiveGoalDetails(goalId, documentVersion) {
 
 let waitingForAgdaChord = $state(false)
 let agdaChordSubPrefix = /** @type {string | undefined} */(undefined)
+let waitingForCxChord = $state(false)
 
 function clearAgdaChord() {
   waitingForAgdaChord = false
   agdaChordSubPrefix = undefined
+}
+
+function clearCxChord() {
+  waitingForCxChord = false
+}
+
+/** @param {EditorView} view */
+function lookupUnicodeAtCursor(view) {
+  const { from, to } = view.state.selection.main
+  const text = view.state.sliceDoc(from, to > from ? to : from + 2)
+  const cp = text.codePointAt(0)
+  if (cp === undefined || text.length === 0) {
+    agdaController.appendQueryResult('Unicode Lookup', 'No character at cursor.')
+    return
+  }
+  const char = String.fromCodePoint(cp)
+  const sequences = lookupChar(char)
+  const uLabel = formatCodePoint(cp)
+  const content = sequences.length === 0
+    ? `${char}  (${uLabel})\nNo Agda input sequences found.`
+    : `${char}  (${uLabel})\n${sequences.map(s => '\\' + s).join('  ')}`
+  agdaController.appendQueryResult('Unicode Lookup', content)
+  selectedMessageTab = 'queries'
 }
 
 /**
@@ -606,6 +631,24 @@ const agdaKeymap = keymap.of(agdaShortcutRegistry.flatMap(shortcut =>
 function handleAgdaChordKeydown(event, view) {
   if (event.isComposing || !view.hasFocus) return false
 
+  // C-x chord (e.g. C-x C-= for Unicode lookup)
+  if (isAgdaCtrlKey(event, 'x') && !waitingForAgdaChord && !waitingForCxChord) {
+    event.preventDefault()
+    event.stopPropagation()
+    waitingForCxChord = true
+    return true
+  }
+
+  if (waitingForCxChord) {
+    if (['Control', 'Alt', 'Shift', 'Meta'].includes(event.key)) return false
+    event.preventDefault()
+    event.stopPropagation()
+    clearCxChord()
+    if (event.key === '=') lookupUnicodeAtCursor(view)
+    return true
+  }
+
+  // C-c chord
   if (isAgdaCtrlKey(event, 'c') && !waitingForAgdaChord) {
     event.preventDefault()
     event.stopPropagation()
@@ -709,6 +752,7 @@ function codeMirror(el) {
     window.removeEventListener('keydown', captureAgdaChord, { capture: true })
     ev.dom.removeEventListener('agda-reload-needed', reloadAfterAgdaEdit)
     clearAgdaChord()
+    clearCxChord()
     ev.destroy()
   }
 }
@@ -982,6 +1026,8 @@ $effect(() => {
           <div class="container" {@attach codeMirror}></div>
           {#if waitingForAgdaChord}
             <div class="chord-hint" aria-live="polite" aria-label="Waiting for second chord key">C-c</div>
+          {:else if waitingForCxChord}
+            <div class="chord-hint" aria-live="polite" aria-label="Waiting for second chord key">C-x</div>
           {/if}
         </div>
         <section class="commands-panel-shell">
