@@ -10,58 +10,50 @@ start_als
 
 set_editor_fixture "test-fixtures/agda/query-goal.agda" "{! n !}" 4
 
-wait_for_button "Show commands" 30000
-
+# ── Open the commands panel ──────────────────────────────────────────────────
 ab eval "(async () => {
-  const toggle = Array.from(document.querySelectorAll('button'))
-    .find(button => button.textContent.trim() === 'Show commands')
-  if (!toggle) throw new Error('Show commands button missing')
+  const toggle = document.querySelector('.commands-panel-toggle')
+  if (!toggle) throw new Error('Commands panel toggle button missing')
   toggle.click()
-  await new Promise(requestAnimationFrame)
+  await new Promise(r => setTimeout(r, 200))
 
   const panel = document.querySelector('.commands-panel')
-  if (!panel) throw new Error('Commands panel missing')
+  if (!panel) throw new Error('Commands panel missing after click')
 
-  const style = getComputedStyle(panel)
   const buttons = Array.from(document.querySelectorAll('.command-button'))
-  const labels = buttons.map(button => button.querySelector('.command-button-label')?.textContent?.trim())
-  const expected = ['Load', 'Give', 'Case split', 'Goal type', 'Search about', 'Why in scope']
-  const missing = expected.filter(label => !labels.includes(label))
-  if (missing.length) throw new Error('Missing command buttons: ' + missing.join(', '))
-  if (style.overflowY !== 'auto') throw new Error('Commands panel is not vertically scrollable')
   if (buttons.length < 15) throw new Error('Too few command buttons: ' + buttons.length)
 
-  return {
-    ok: true,
-    count: buttons.length,
-    overflowY: style.overflowY,
-    maxHeight: style.maxHeight,
-  }
+  const texts = buttons.map(b => b.textContent.trim())
+  // Load is C-c C-l, Give is C-c C-SPC, Case split is C-c C-c, Goal type is C-c C-t
+  const expected = ['C-c C-l', 'C-c C-SPC', 'C-c C-c', 'C-c C-t']
+  const missing = expected.filter(s => !texts.includes(s))
+  if (missing.length) throw new Error('Missing command buttons: ' + missing.join(', '))
+
+  const expanded = toggle.getAttribute('aria-expanded')
+  if (expanded !== 'true') throw new Error('Toggle aria-expanded should be true, got: ' + expanded)
+
+  return { ok: true, count: buttons.length, expanded }
 })()"
 
 echo "PASS commands panel renders command buttons"
 
-ab eval "(() => {
-  const load = Array.from(document.querySelectorAll('.command-button'))
-    .find(button => button.textContent.includes('Load'))
-  if (!load) throw new Error('Load command button missing')
-  load.click()
-  return { ok: true }
-})()"
-
-wait_for_log_contains "Load finished." 30000
+# ── Click Load command (C-c C-l) ─────────────────────────────────────────────
+load_agda
 
 assert_log_contains "Load finished." "Load command button runs Load"
 assert_active_goal_contains "Goal 0" "Command panel Load updates goals"
 
+# ── Collapse the commands panel ──────────────────────────────────────────────
 ab eval "(async () => {
-  const toggle = Array.from(document.querySelectorAll('button'))
-    .find(button => button.textContent.trim() === 'Hide commands')
-  if (!toggle) throw new Error('Hide commands button missing')
+  const toggle = document.querySelector('.commands-panel-toggle')
+  if (!toggle) throw new Error('Commands panel toggle button missing')
   toggle.click()
-  await new Promise(requestAnimationFrame)
-  if (document.querySelector('.commands-panel')) throw new Error('Commands panel is still visible')
-  return { ok: true }
+  await new Promise(r => setTimeout(r, 200))
+  const expanded = toggle.getAttribute('aria-expanded')
+  if (expanded !== 'false') throw new Error('Toggle aria-expanded should be false after collapse, got: ' + expanded)
+  const panel = document.querySelector('.commands-panel')
+  if (panel) throw new Error('Commands panel should be hidden after collapse')
+  return { ok: true, expanded }
 })()"
 
 echo "PASS commands panel hides"

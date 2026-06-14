@@ -8,7 +8,7 @@ source "$SCRIPT_DIR/browser-common.sh"
 cmd_load_entry_count() {
   local raw
   raw="$(ab eval "(() => {
-    const entries = JSON.parse(document.querySelector('.performance-summary')?.dataset.performanceEntries || '[]')
+    const entries = JSON.parse(document.querySelector('.messages-panel')?.dataset.performanceEntries ?? '[]')
     return entries.filter(entry => entry.label === 'Agda Cmd_load').length
   })()")"
   echo "$raw" | tail -n 1 | tr -cd '0-9'
@@ -48,8 +48,8 @@ assert_log_contains "Load finished." "Cubical Prelude double load finishes"
 assert_log_not_matches "module not found|not in scope|library.*(not|could not|failed)|failed.*library|Could not find" "Cubical double load has no lookup errors"
 
 ab eval "(() => {
-  const panel = document.querySelector('.performance-summary')
-  if (!panel) throw new Error('Performance summary is missing')
+  const panel = document.querySelector('.messages-panel')
+  if (!panel) throw new Error('Messages panel is missing')
   const entries = JSON.parse(panel.dataset.performanceEntries || '[]')
   const cmdLoads = entries.filter(entry => entry.label === 'Agda Cmd_load')
   const driveLoads = entries.filter(entry => entry.label === 'Drive proxy after Cmd_load')

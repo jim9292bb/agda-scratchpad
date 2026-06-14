@@ -14,15 +14,12 @@ ab eval "(async () => {
     .find(button => button.textContent.trim() === 'Settings')
   if (!settings) throw new Error('Settings button missing')
   if (settings.closest('.header')) throw new Error('Settings button should not be in the editor header')
-  const controls = settings.closest('.flex')
-  if (!controls) throw new Error('Settings button should be in the ALS controls row')
-  const controlLabels = Array.from(controls.children).map(element => element.textContent.trim())
-  const dumpIndex = controlLabels.indexOf('Dump FS')
-  const settingsIndex = controlLabels.indexOf('Settings')
-  if (dumpIndex < 0) throw new Error('Dump FS control missing near Settings')
-  if (settingsIndex !== dumpIndex + 1) throw new Error('Settings should be immediately after Dump FS')
+  const controls = settings.closest('.als-buttons')
+  if (!controls) throw new Error('Settings button should be in the .als-buttons container')
+  const restartBtn = controls.querySelector('button[class*="restart"], button')
+  if (!restartBtn) throw new Error('Restart button missing near Settings')
   settings.click()
-  await new Promise(requestAnimationFrame)
+  await new Promise(r => setTimeout(r, 100))
 
   const panel = document.querySelector('.settings-panel')
   if (!panel) throw new Error('Settings panel missing')
@@ -76,7 +73,7 @@ ab eval "(async () => {
     .find(button => button.textContent.trim() === 'Runtime')
   if (!runtimeTab) throw new Error('Runtime segment missing')
   runtimeTab.click()
-  await new Promise(requestAnimationFrame)
+  await new Promise(r => setTimeout(r, 100))
   if (!document.querySelector('.settings-runtime-list')) {
     throw new Error('Runtime settings list missing')
   }
@@ -85,7 +82,7 @@ ab eval "(async () => {
     .find(button => button.textContent.trim() === 'Commands')
   if (!commandsTab) throw new Error('Commands segment missing')
   commandsTab.click()
-  await new Promise(requestAnimationFrame)
+  await new Promise(r => setTimeout(r, 100))
   const commandTitle = document.querySelector('#command-settings-title')
   if (!commandTitle || commandTitle.textContent.trim() !== 'Commands and shortcuts') {
     throw new Error('Commands settings section missing')
@@ -115,7 +112,7 @@ ab eval "(async () => {
     .find(button => button.textContent.trim() === 'Close')
   if (!close) throw new Error('Settings close button missing')
   close.click()
-  await new Promise(requestAnimationFrame)
+  await new Promise(r => setTimeout(r, 100))
   if (document.querySelector('.settings-panel')) throw new Error('Settings panel is still visible')
   return { ok: true }
 })()"

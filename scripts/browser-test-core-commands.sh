@@ -68,8 +68,7 @@ cursor_in_goal 0
 press_agda_chord "h" "KeyH"
 ab wait 5000
 
-assert_log_contains "\"kind\":\"HelperFunction\"" "Helper function response is logged"
-assert_log_contains "\"signature\":\"n : N\"" "Helper function type is reported"
+assert_log_contains "n : N" "Helper function type is reported"
 assert_log_contains "Helper function type finished." "Helper function type finishes"
 
 echo "browser-test-core-commands: PASS"

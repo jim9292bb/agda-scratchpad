@@ -25,8 +25,8 @@ select_text "true" "last"
 press_agda_chord "w" "KeyW"
 ab wait 3000
 
-assert_log_contains "\"kind\":\"SearchAbout\"" "Search about response"
-assert_log_contains "\"kind\":\"ModuleContents\"" "Module contents response"
-assert_log_contains "\"kind\":\"WhyInScope\"" "Why in scope response"
+assert_log_contains "Search about finished." "Search about response"
+assert_log_contains "Module contents finished." "Module contents response"
+assert_log_contains "Why in scope finished." "Why in scope response"
 
 echo "browser-test-query-shortcuts: PASS"

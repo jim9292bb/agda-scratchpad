@@ -1108,7 +1108,7 @@ $effect(() => {
 {/snippet}
 
 {#snippet messagesPanel()}
-  <section class="messages-panel" data-log-content={textboxContent} aria-label="Messages">
+  <section class="messages-panel" data-log-content={textboxContent} data-performance-entries={JSON.stringify(agdaController.performanceEntries)} aria-label="Messages">
     <header class="messages-header">
       <div>
         <strong>Messages</strong>

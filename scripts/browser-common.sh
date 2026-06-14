@@ -27,7 +27,8 @@ open_app() {
   ab wait --load networkidle
   # Force a full reload so each test starts from a clean app state,
   # even when the dev server has hot-reloaded between test runs.
-  ab eval "location.reload()"
+  # Clear shortcut overrides so tests don't inherit state from a previous test run.
+  ab eval "localStorage.removeItem('agda-scratchpad.shortcut-overrides.v1'); location.reload()"
   ab wait --load networkidle
 }
 
@@ -117,23 +118,47 @@ set_editor_fixture() {
 load_agda() {
   # Trigger Cmd_load via the C-c C-l keyboard chord.
   # The standalone Load button was removed; load is dispatched through the shortcut.
-  # Record current log length so we detect the NEXT completion, not a previous one.
   local before_len
   before_len="$(ab eval "(() => (document.querySelector('.messages-panel')?.dataset.logContent ?? '').length)()")"
+  # Observer must be registered BEFORE the dispatch so we cannot miss a fast load.
+  _begin_load_wait
   press_agda_chord "l" "KeyL"
-  _wait_for_load_completion "$before_len" 20000
+  _poll_load_completion "$before_len" 20000
 }
 
-_wait_for_load_completion() {
+# Register a MutationObserver on .messages-panel BEFORE triggering a load action.
+# Must be called before the dispatch that starts the load.
+_begin_load_wait() {
+  ab eval "(() => {
+    window.__loadWaitChanged = false
+    const panel = document.querySelector('.messages-panel')
+    if (panel) {
+      const obs = new MutationObserver(() => {
+        window.__loadWaitChanged = true
+        obs.disconnect()
+      })
+      obs.observe(panel, { attributes: true, attributeFilter: ['data-log-content'] })
+    }
+  })()" >/dev/null
+}
+
+# Poll for "Load finished." / "Load failed." after _begin_load_wait + trigger.
+_poll_load_completion() {
   local before_len="$1"
   local timeout_ms="${2:-20000}"
   local elapsed=0
+  # loadAgdaFile() resets the log before appending new output, so the log can
+  # temporarily become the same length as before_len. The MutationObserver set by
+  # _begin_load_wait catches this reset; once __loadWaitChanged is true, the whole
+  # log is checked (not just the tail from before_len).
   while (( elapsed < timeout_ms )); do
     local found
     found="$(ab eval "(() => {
       const log = document.querySelector('.messages-panel')?.dataset.logContent ?? ''
-      const tail = log.slice(Number($before_len))
-      return tail.includes('Load finished.') || tail.includes('Load failed.')
+      if (window.__loadWaitChanged || log.length !== Number('$before_len')) {
+        return log.includes('Load finished.') || log.includes('Load failed.')
+      }
+      return false
     })()")"
     if [[ "$found" == *"true"* ]]; then return 0; fi
     ab wait 500 >/dev/null
@@ -141,6 +166,13 @@ _wait_for_load_completion() {
   done
   echo "Timed out waiting for Load to complete" >&2
   return 1
+}
+
+_wait_for_load_completion() {
+  local before_len="$1"
+  local timeout_ms="${2:-20000}"
+  _begin_load_wait
+  _poll_load_completion "$before_len" "$timeout_ms"
 }
 
 # Waits for a Load command round-trip to complete.
