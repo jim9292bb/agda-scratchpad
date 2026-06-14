@@ -1045,41 +1045,21 @@ $effect(() => {
               <button
                 type="button"
                 class:active={goal.id === activeGoalId}
-                class="goal-card"
+                class="goal-entry"
                 aria-label={`Focus goal ${goal.id}`}
                 onclick={() => focusGoal(goal.id)}>
-                <div class="goal-meta">
-                  <strong>Goal {goal.id}</strong>
-                  {#if goal.range}
-                    <span>{goal.range}</span>
-                  {/if}
-                </div>
+                <div class="goal-head">?{goal.id}{#if goal.type} : {goal.type}{:else if goal.id === activeGoalId && activeGoalDetailStatus === 'loading'}<span class="goal-type-muted"> : …</span>{:else}<span class="goal-type-muted"> : ?</span>{/if}</div>
                 {#if goal.id === activeGoalId}
-                  <div class="goal-detail">
-                    <div class="goal-detail-label">Type</div>
-                    {#if goal.type}
-                      <pre>{goal.type}</pre>
-                    {:else if activeGoalDetailStatus === 'loading'}
-                      <div class="goal-type-empty">Loading goal details...</div>
-                    {:else}
-                      <div class="goal-type-empty">Type information is not available yet.</div>
-                    {/if}
-
-                    <div class="goal-detail-label">Context</div>
-                    {#if goal.context}
-                      <pre>{goal.context}</pre>
-                    {:else if activeGoalDetailStatus === 'loading'}
-                      <div class="goal-type-empty">Loading context...</div>
-                    {:else if activeGoalDetailStatus === 'error'}
-                      <div class="goal-type-empty">{activeGoalDetailError}</div>
-                    {:else}
-                      <div class="goal-type-empty">No context entries.</div>
-                    {/if}
-                  </div>
-                {:else if goal.type}
-                  <pre>{goal.type}</pre>
-                {:else}
-                  <div class="goal-type-empty">Type information is not available yet.</div>
+                  {#if goal.context}
+                    <div class="goal-separator"></div>
+                    <pre class="goal-context">{goal.context}</pre>
+                  {:else if activeGoalDetailStatus === 'loading'}
+                    <div class="goal-separator"></div>
+                    <div class="goal-context-empty">Loading…</div>
+                  {:else if activeGoalDetailStatus === 'error'}
+                    <div class="goal-separator"></div>
+                    <div class="goal-context-empty">{activeGoalDetailError}</div>
+                  {/if}
                 {/if}
               </button>
             {/each}
@@ -1591,70 +1571,62 @@ $effect(() => {
   padding: 8px;
 }
 
-.goals-empty,
-.goal-type-empty {
+.goals-empty {
   color: #777;
   font-size: .8rem;
+  padding: 4px 0;
 }
 
-.goal-card {
+.goal-entry {
   display: block;
   width: 100%;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  background: var(--quiet-neutral-fill-softer);
-  padding: 8px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 3px 8px;
   cursor: pointer;
   color: inherit;
-  font: inherit;
+  font-family: JuliaMono, monospace;
+  font-size: 12px;
   text-align: start;
 }
 
-.goal-card:hover,
-.goal-card:focus-visible {
-  border-color: var(--quiet-primary-stroke-soft);
-  outline: none;
+.goal-entry:hover,
+.goal-entry:focus-visible {
   background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill-softer));
+  outline: none;
 }
 
-.goal-card.active {
-  border-color: var(--quiet-primary-stroke);
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 32%, var(--quiet-neutral-fill-softer));
-  box-shadow: inset 3px 0 0 var(--quiet-primary-stroke);
+.goal-entry.active {
+  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 28%, var(--quiet-neutral-fill-softer));
+  box-shadow: inset 2px 0 0 var(--quiet-primary-stroke);
 }
 
-.goal-detail {
-  margin-top: .5em;
+.goal-head {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
 }
 
-.goal-detail-label {
-  margin-top: .75em;
-  font-size: .75rem;
-  font-weight: 700;
-  letter-spacing: .03em;
-  text-transform: uppercase;
-  color: #777;
+.goal-type-muted {
+  color: #999;
 }
 
-.goal-card + .goal-card {
-  margin-top: 8px;
+.goal-separator {
+  border-top: 1px solid var(--quiet-neutral-stroke-softer);
+  margin: 4px 0;
 }
 
-.goal-meta {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 6px;
-  color: #666;
-  font-size: .75rem;
-}
-
-.goal-card pre {
+.goal-context {
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-family: JuliaMono, monospace;
-  font-size: 12px;
+  color: var(--quiet-muted-text, #555);
+}
+
+.goal-context-empty {
+  color: #777;
+  font-size: .8rem;
 }
 
 .info-section {
