@@ -6,6 +6,7 @@ export const agdaLightSchemeFromEmacs = EditorView.theme({
   '.agda-hole[data-goal-id]::after': {
     content: 'attr(data-goal-id)',
     marginInlineStart: '0.2em',
+    fontFamily: 'inherit',
     color: 'black',
     fontSize: '0.82em',
     pointerEvents: 'none',
@@ -69,6 +70,7 @@ export const agdaDarkSchemeFromEmacs = EditorView.theme({
   '.agda-hole[data-goal-id]::after': {
     content: 'attr(data-goal-id)',
     marginInlineStart: '0.2em',
+    fontFamily: 'inherit',
     color: 'black',
     fontSize: '0.82em',
     pointerEvents: 'none',
