@@ -1423,9 +1423,9 @@ $effect(() => {
   right: 14px;
   font-family: var(--font-mono, monospace);
   font-size: 11px;
-  color: var(--quiet-neutral-fg, #ccc);
-  background: color-mix(in srgb, var(--quiet-neutral-fill, #333) 85%, transparent);
-  border: 1px solid color-mix(in srgb, var(--quiet-neutral-border, #555) 60%, transparent);
+  color: var(--color-text, #111);
+  background: color-mix(in srgb, var(--quiet-neutral-fill-softer, #e8e8e8) 90%, transparent);
+  border: 1px solid color-mix(in srgb, var(--quiet-neutral-border, #bbb) 70%, transparent);
   border-radius: 4px;
   padding: 2px 7px;
   pointer-events: none;
