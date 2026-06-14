@@ -465,7 +465,7 @@ async function requestActiveGoalDetails(goalId, documentVersion) {
   }
 }
 
-let waitingForAgdaChord = false
+let waitingForAgdaChord = $state(false)
 let agdaChordSubPrefix = /** @type {string | undefined} */(undefined)
 
 function clearAgdaChord() {
@@ -978,7 +978,12 @@ $effect(() => {
     <SplitPane class="editor-goals-splitter" orientation="vertical" bind:ratio={editorGoalsSplit} style="--divider-min-position: 35%; --divider-max-position: 92%;">
       {#snippet start()}
       <section class="editor-pane">
-        <div class="container" {@attach codeMirror}></div>
+        <div class="editor-wrap">
+          <div class="container" {@attach codeMirror}></div>
+          {#if waitingForAgdaChord}
+            <div class="chord-hint" aria-live="polite" aria-label="Waiting for second chord key">C-c</div>
+          {/if}
+        </div>
         <section class="commands-panel-shell">
           <button
             type="button"
@@ -1397,12 +1402,35 @@ $effect(() => {
   outline: none;
 }
 
-.container {
+.editor-wrap {
+  position: relative;
   flex: 1 1;
+  min-height: 0;
+}
+
+.container {
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: row;
   min-height: 0;
   padding-right: 4px;
+}
+
+.chord-hint {
+  position: absolute;
+  bottom: 10px;
+  right: 14px;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  color: var(--quiet-neutral-fg, #ccc);
+  background: color-mix(in srgb, var(--quiet-neutral-fill, #333) 85%, transparent);
+  border: 1px solid color-mix(in srgb, var(--quiet-neutral-border, #555) 60%, transparent);
+  border-radius: 4px;
+  padding: 2px 7px;
+  pointer-events: none;
+  user-select: none;
+  letter-spacing: 0.04em;
 }
 
 :global(.split-pane) {
