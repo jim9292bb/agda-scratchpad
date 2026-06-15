@@ -1926,6 +1926,19 @@ $effect(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative;
+}
+
+.editor-pane::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 20px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.025), transparent);
+  pointer-events: none;
+  z-index: 10;
 }
 
 .goals-section {
