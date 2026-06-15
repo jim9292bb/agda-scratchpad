@@ -971,6 +971,31 @@ let activeGoalDetailError = $state('')
 let selectedMessageTab = $state(/** @type {'log' | 'queries' | 'errors'} */('log'))
 let commandsPanelVisible = $state(false)
 let editorGoalsSplit = $state(0.78)
+let savedEditorGoalsSplit = $state(/** @type {number | null} */(null))
+/** @type {HTMLElement | undefined} */
+let editorPaneSectionEl = $state()
+/** @type {HTMLElement | undefined} */
+let commandsPanelEl = $state()
+
+async function toggleCommandsPanel() {
+  if (!commandsPanelVisible) {
+    commandsPanelVisible = true
+    await tick()
+    if (editorPaneSectionEl && commandsPanelEl) {
+      const editorH = editorPaneSectionEl.clientHeight
+      const panelH = commandsPanelEl.clientHeight
+      const totalH = editorH / editorGoalsSplit
+      savedEditorGoalsSplit = editorGoalsSplit
+      editorGoalsSplit = Math.max(0.1, editorGoalsSplit - panelH / totalH)
+    }
+  } else {
+    commandsPanelVisible = false
+    if (savedEditorGoalsSplit !== null) {
+      editorGoalsSplit = savedEditorGoalsSplit
+      savedEditorGoalsSplit = null
+    }
+  }
+}
 let settingsPanelVisible = $state(false)
 let examplesMenuOpen = $state(false)
 let aboutPanelVisible = $state(false)
@@ -1062,7 +1087,7 @@ $effect(() => {
     </header>
     <SplitPane class="editor-goals-splitter" orientation="vertical" bind:ratio={editorGoalsSplit} style="--divider-min-position: 35%; --divider-max-position: 92%;">
       {#snippet start()}
-      <section class="editor-pane">
+      <section class="editor-pane" bind:this={editorPaneSectionEl}>
         <div class="editor-wrap">
           <div class="container" {@attach codeMirror}></div>
           {#if waitingForAgdaChord}
@@ -1071,18 +1096,22 @@ $effect(() => {
             <div class="chord-hint" aria-live="polite" aria-label="Waiting for second chord key">C-x</div>
           {/if}
         </div>
+      </section>
+      {/snippet}
+      {#snippet end()}
+      <section class="goals-section">
         <section class="commands-panel-shell">
           <button
             type="button"
             class="commands-panel-toggle"
             aria-expanded={commandsPanelVisible}
             aria-controls="commands-panel"
-            onclick={() => { commandsPanelVisible = !commandsPanelVisible }}>
+            onclick={toggleCommandsPanel}>
             <span class="commands-panel-arrow" class:open={commandsPanelVisible}>▶</span>
             Commands
           </button>
           {#if commandsPanelVisible}
-            <div id="commands-panel" class="commands-panel" aria-label="Agda commands">
+            <div id="commands-panel" class="commands-panel" aria-label="Agda commands" bind:this={commandsPanelEl}>
               {#each activeAgdaShortcutRegistry as shortcut}
                 <button
                   type="button"
@@ -1099,10 +1128,6 @@ $effect(() => {
             </div>
           {/if}
         </section>
-      </section>
-      {/snippet}
-      {#snippet end()}
-      <section class="goals-section">
         <header class="panel-header">Goals</header>
         {#if commandInputPrompt}
           <form class="command-input-panel" onsubmit={(event) => { event.preventDefault(); submitCommandInputPrompt() }}>
@@ -1288,7 +1313,7 @@ $effect(() => {
       <span class="als-status-label" style="color: {statusMeta.color}">{statusMeta.label}</span>
       <button type="button" class="btn btn-primary" onclick={() => agdaController.restartALSWASM()} disabled={agdaController.alsWorkerStatus !== 'active'}>Restart</button>
       <div class="control-card-actions">
-      <button type="button" class="control-btn control-icon-btn" aria-label="Help" onclick={() => { commandsPanelVisible = !commandsPanelVisible }}>
+      <button type="button" class="control-btn control-icon-btn" aria-label="Help" onclick={toggleCommandsPanel}>
         <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
           <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286zm1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94z"/>
           <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0-1a8 8 0 1 1 0 16A8 8 0 0 1 8 0z"/>
@@ -2108,7 +2133,7 @@ $effect(() => {
 .messages-tab {
   border: none;
   background: var(--quiet-neutral-fill-softer);
-  color: #888;
+  color: #374151;
   font: inherit;
   font-size: .72rem;
   padding: 3px 9px;
@@ -2659,8 +2684,7 @@ $effect(() => {
 }
 
 .commands-panel-shell {
-  background: var(--quiet-neutral-fill-softer);
-  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
+  flex-shrink: 0;
 }
 
 .commands-panel-toggle,
@@ -2706,9 +2730,11 @@ $effect(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  max-height: 240px;
+  max-height: 200px;
   overflow-y: auto;
   padding: 6px 8px;
+  background: var(--quiet-neutral-fill-softer);
+  border-top: 1px solid var(--quiet-neutral-stroke-softer);
 }
 
 .command-button {
