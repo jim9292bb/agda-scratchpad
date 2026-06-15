@@ -1,3 +1,7 @@
+html {
+  font-size: 18px;
+}
+
 :root {
   --quiet-primary-seed: #989cff;
   --quiet-neutral-seed: #8b8c93;

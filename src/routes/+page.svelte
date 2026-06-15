@@ -1750,10 +1750,15 @@ $effect(() => {
 }
 
 .control-icon-btn {
-  padding: 6px 8px;
+  padding: 8px 10px;
   line-height: 0;
   border: none;
   color: #374151;
+}
+
+.control-icon-btn svg {
+  width: 18px;
+  height: 18px;
 }
 
 .control-icon-btn:hover {
