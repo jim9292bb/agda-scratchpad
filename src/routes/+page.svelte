@@ -444,7 +444,31 @@ function syncGoalPanel(view) {
  * @param {number} goalId
  * @param {number} documentVersion
  */
-async function requestActiveGoalDetails(goalId, documentVersion) {
+let autoFetchingGoalTypes = $state(false)
+
+async function autoFetchGoalTypes(/** @type {number} */ documentVersion) {
+  if (autoFetchingGoalTypes) return
+  autoFetchingGoalTypes = true
+  try {
+    const goalIds = /** @type {number[]} */ (panelGoalInfos
+      .filter(g => typeof g.id === 'number' && g.type === undefined)
+      .map(g => g.id))
+    for (const goalId of goalIds) {
+      const view = agdaController.editorView
+      if (!view || getAgdaDocumentVersion(view.state) !== documentVersion) break
+      if (agdaController.alsWorkerStatus !== 'active') break
+      if (panelGoalInfos.find(g => g.id === goalId)?.type !== undefined) continue
+      await agdaController.runAgdaInteraction(
+        goalTypeContextCommand('Simplified', { id: goalId }),
+        { suppressDisplayInfo: true },
+      )
+    }
+  } finally {
+    autoFetchingGoalTypes = false
+  }
+}
+
+async function requestActiveGoalDetails(/** @type {number} */ goalId, /** @type {number} */ documentVersion) {
   const requestKey = `${documentVersion}:${goalId}`
   if (activeGoalDetailRequestKey === requestKey) return
 
@@ -1066,6 +1090,19 @@ $effect(() => {
   const documentVersion = getAgdaDocumentVersion(view.state)
   untrack(() => {
     void requestActiveGoalDetails(goalId, documentVersion)
+  })
+})
+
+$effect(() => {
+  if (autoFetchingGoalTypes) return
+  if (panelGoalInfos.every(g => g.type !== undefined)) return
+  if (agdaController.alsWorkerStatus !== 'active') return
+  if (agdaController.iotcmStatus !== 'ready') return
+  const view = agdaController.editorView
+  if (!view) return
+  const documentVersion = getAgdaDocumentVersion(view.state)
+  untrack(() => {
+    void autoFetchGoalTypes(documentVersion)
   })
 })
 </script>
