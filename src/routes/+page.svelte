@@ -2140,8 +2140,8 @@ $effect(() => {
   flex-direction: column;
   min-height: 0;
   height: 100%;
-  border-top: 1px solid var(--quiet-neutral-stroke-softer);
-  background: color-mix(in srgb, var(--quiet-neutral-fill-softer) 82%, transparent);
+  border-top: 1px solid var(--quiet-messages-stroke);
+  background: var(--quiet-messages-fill);
 }
 
 .messages-header {
@@ -2150,8 +2150,8 @@ $effect(() => {
   justify-content: space-between;
   gap: 10px;
   padding: 7px 8px;
-  background: var(--quiet-neutral-fill-softer);
-  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
+  background: var(--quiet-messages-fill-softer);
+  border-bottom: 1px solid var(--quiet-messages-stroke);
 }
 
 .messages-header-info {
@@ -2178,16 +2178,16 @@ $effect(() => {
 .messages-tab-group {
   display: flex;
   gap: 1px;
-  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border: 1px solid var(--quiet-messages-stroke);
   border-radius: 5px;
-  background: var(--quiet-neutral-stroke-softer);
+  background: var(--quiet-messages-stroke);
   overflow: hidden;
   flex-shrink: 0;
 }
 
 .messages-tab {
   border: none;
-  background: var(--quiet-neutral-fill-softer);
+  background: var(--quiet-messages-fill-softer);
   color: #374151;
   font: inherit;
   font-size: .72rem;
@@ -2203,7 +2203,7 @@ $effect(() => {
 }
 
 .messages-tab:hover:not(.active) {
-  background: color-mix(in srgb, var(--quiet-neutral-stroke-softer) 60%, var(--quiet-neutral-fill-softer));
+  background: color-mix(in srgb, var(--quiet-messages-stroke) 60%, var(--quiet-messages-fill-softer));
 }
 
 .messages-body {

@@ -15,6 +15,9 @@ html {
   --quiet-neutral-fill: #ffffff;
   --quiet-neutral-fill-softer: #fcfcfd;
   --quiet-neutral-stroke-softer: #e2e4e8;
+  --quiet-messages-fill: #fbfbfe;
+  --quiet-messages-fill-softer: #f8f8fd;
+  --quiet-messages-stroke: #e5e6f0;
   --quiet-primary-fill-soft: var(--quiet-primary-200);
   --quiet-primary-stroke: var(--quiet-primary-seed);
   --quiet-primary-stroke-soft: var(--quiet-primary-300);
