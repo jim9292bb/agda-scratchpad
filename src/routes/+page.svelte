@@ -1158,7 +1158,7 @@ $effect(() => {
   </section>
   {/snippet}
   {#snippet end()}
-  <section>
+  <section class="right-column">
     <SplitPane orientation="vertical" position={.75}>
       {#snippet start()}
       <section class="info-section">
@@ -1847,6 +1847,18 @@ $effect(() => {
   display: flex;
   flex-direction: column;
   height: calc(100% - 1px);
+  position: relative;
+}
+.editor-section::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 24px;
+  height: 100%;
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.04), transparent);
+  pointer-events: none;
+  z-index: 10;
 }
 
 :global(.editor-goals-splitter) {
