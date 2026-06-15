@@ -994,7 +994,7 @@ let activeGoalDetailStatus = $state(/** @type {'idle' | 'loading' | 'ready' | 'e
 let activeGoalDetailError = $state('')
 let selectedMessageTab = $state(/** @type {'log' | 'queries' | 'errors'} */('log'))
 let commandsPanelVisible = $state(false)
-let editorGoalsSplit = $state(0.78)
+let editorGoalsSplit = $state(0.65)
 let savedEditorGoalsSplit = $state(/** @type {number | null} */(null))
 /** @type {HTMLElement | undefined} */
 let editorPaneSectionEl = $state()
@@ -1221,7 +1221,7 @@ $effect(() => {
   {/snippet}
   {#snippet end()}
   <section class="right-column">
-    <SplitPane class="right-column-splitter" orientation="vertical" position={.75}>
+    <SplitPane class="right-column-splitter" orientation="vertical" position={.65}>
       {#snippet start()}
       <section class="info-section">
         {@render alsButtons()}
