@@ -1910,9 +1910,9 @@ $effect(() => {
   position: absolute;
   top: 0;
   right: 0;
-  width: 24px;
+  width: 8px;
   height: 100%;
-  background: linear-gradient(to left, rgba(0, 0, 0, 0.04), transparent);
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.09), transparent);
   pointer-events: none;
   z-index: 10;
 }
@@ -1935,8 +1935,8 @@ $effect(() => {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 20px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.025), transparent);
+  height: 7px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.07), transparent);
   pointer-events: none;
   z-index: 10;
 }
