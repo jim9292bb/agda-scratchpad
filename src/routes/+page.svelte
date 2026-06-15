@@ -804,6 +804,38 @@ function closeSettingsPanel() {
   agdaController.editorView?.focus()
 }
 
+function copyEditorCode() {
+  const text = agdaController.editorView?.state.doc.toString() ?? ''
+  navigator.clipboard.writeText(text)
+}
+
+function exportAgdaFile() {
+  const text = agdaController.editorView?.state.doc.toString() ?? ''
+  const blob = new Blob([text], { type: 'text/plain' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'source.agda'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+/** @param {Event} event */
+function openAgdaFile(event) {
+  const input = /** @type {HTMLInputElement} */ (event.currentTarget)
+  const file = input.files?.[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = () => {
+    const text = /** @type {string} */ (reader.result)
+    const view = agdaController.editorView
+    if (!view) return
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } })
+  }
+  reader.readAsText(file)
+  input.value = ''
+}
+
 /**
  * @param {string} id
  * @param {string} value
@@ -940,6 +972,9 @@ let selectedMessageTab = $state(/** @type {'log' | 'queries' | 'errors'} */('log
 let commandsPanelVisible = $state(false)
 let editorGoalsSplit = $state(0.78)
 let settingsPanelVisible = $state(false)
+let examplesMenuOpen = $state(false)
+/** @type {HTMLInputElement} */
+let fileInput
 let selectedSettingsSegment = $state('general')
 let shortcutOverrides = $state(initialShortcutOverrides)
 let shortcutDrafts = $state({ ...initialShortcutOverrides })
@@ -1014,10 +1049,15 @@ $effect(() => {
   {#snippet start()}
   <section class="editor-section">
     <header class="header">
-      <div class="header-brand">
+      <div class="header-left">
         <span class="header-title">Agda Scratchpad</span>
+        {@render headerExamplePicker()}
       </div>
-      {@render headerExamplePicker()}
+      <div class="header-actions">
+        <button type="button" class="header-action-btn" onclick={copyEditorCode}>Copy</button>
+        <button type="button" class="header-action-btn" onclick={() => fileInput.click()}>Open</button>
+        <button type="button" class="header-action-btn" onclick={exportAgdaFile}>Export</button>
+      </div>
     </header>
     <SplitPane class="editor-goals-splitter" orientation="vertical" bind:ratio={editorGoalsSplit} style="--divider-min-position: 35%; --divider-max-position: 92%;">
       {#snippet start()}
@@ -1390,19 +1430,40 @@ $effect(() => {
 
 
 {#snippet headerExamplePicker()}
-  <label class="header-example-picker" for="scratchpad-example">
-    <span>Example</span>
-    <select
-      id="scratchpad-example"
-      value={selectedExampleId}
-      title={selectedScratchpadExample?.description ?? 'Select an Agda example'}
-      onchange={(event) => selectScratchpadExample(event.currentTarget.value)}>
-      {#each scratchpadExamples as example}
-        <option value={example.id}>{example.label}</option>
-      {/each}
-    </select>
-  </label>
+  <div class="header-examples-wrap">
+    <button
+      type="button"
+      class="header-examples-btn"
+      aria-expanded={examplesMenuOpen}
+      onclick={() => { examplesMenuOpen = !examplesMenuOpen }}>
+      Examples
+      <span class="header-examples-arrow" class:open={examplesMenuOpen}>▾</span>
+    </button>
+    {#if examplesMenuOpen}
+      <div class="header-examples-menu" role="menu">
+        {#each scratchpadExamples as example}
+          <button
+            type="button"
+            class="header-examples-item"
+            class:active={example.id === selectedExampleId}
+            role="menuitem"
+            title={example.description}
+            onclick={() => { selectScratchpadExample(example.id); examplesMenuOpen = false }}>
+            {example.label}
+          </button>
+        {/each}
+      </div>
+      <div class="header-menu-backdrop" role="presentation" onclick={() => { examplesMenuOpen = false }}></div>
+    {/if}
+  </div>
 {/snippet}
+
+<input
+  bind:this={fileInput}
+  type="file"
+  accept=".agda,.lagda,.lagda.md"
+  class="sr-only"
+  onchange={openAgdaFile}>
 
 <div
   bind:clientWidth={width} style="height: 100%">
@@ -1419,7 +1480,10 @@ $effect(() => {
   border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
 }
 
-.header-brand {
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   min-width: 0;
 }
 
@@ -1428,30 +1492,107 @@ $effect(() => {
   letter-spacing: 1px;
   font-size: 1rem;
   font-family: monospace;
+  white-space: nowrap;
 }
 
-.header-example-picker {
-  display: flex;
+.header-actions {
   flex: 0 0 auto;
+  display: flex;
   align-items: center;
-  gap: 8px;
-  color: #666;
-  font-size: .8rem;
-  font-weight: 700;
+  gap: 4px;
 }
 
-.header-example-picker select {
-  min-width: 220px;
+.header-action-btn {
+  padding: 4px 10px;
   border: 1px solid var(--quiet-neutral-stroke-softer);
   border-radius: 4px;
-  padding: 4px 6px;
-  background: var(--quiet-neutral-fill-softer);
-  color: inherit;
+  background: transparent;
+  color: #666;
+  font: inherit;
+  font-size: .8rem;
+  cursor: pointer;
 }
 
-.header-example-picker select:focus-visible {
-  border-color: var(--quiet-primary-stroke-soft);
-  outline: none;
+.header-action-btn:hover {
+  background: var(--quiet-neutral-fill-softer);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+}
+
+.header-examples-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.header-examples-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 4px;
+  background: transparent;
+  color: #666;
+  font: inherit;
+  font-size: .85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.header-examples-btn:hover {
+  background: var(--quiet-neutral-fill-softer);
+}
+
+.header-examples-arrow {
+  font-size: .7rem;
+  transition: transform 0.15s;
+  display: inline-block;
+}
+
+.header-examples-arrow.open {
+  transform: rotate(180deg);
+}
+
+.header-examples-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 200;
+  min-width: 200px;
+  background: var(--quiet-neutral-fill-softer);
+  border: 1px solid var(--quiet-neutral-stroke-softer);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.1);
+  overflow: hidden;
+}
+
+.header-examples-item {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  text-align: left;
+  font: inherit;
+  font-size: .85rem;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.header-examples-item:hover {
+  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 12%, transparent);
+}
+
+.header-examples-item.active {
+  font-weight: 600;
+  color: var(--quiet-primary-text);
 }
 
 .editor-wrap {
@@ -1495,7 +1636,6 @@ $effect(() => {
   align-items: center;
   justify-content: space-between;
   padding: 8px;
-  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
 }
 
 .als-toolbar-left {
