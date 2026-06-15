@@ -1607,7 +1607,6 @@ $effect(() => {
   display: flex;
   flex-direction: row;
   min-height: 0;
-  padding-right: 4px;
 }
 
 .chord-hint {
