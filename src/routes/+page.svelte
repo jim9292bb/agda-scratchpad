@@ -1181,18 +1181,18 @@ $effect(() => {
 {#snippet messagesPanel()}
   <section class="messages-panel" data-log-content={textboxContent} data-performance-entries={JSON.stringify(agdaController.performanceEntries)} data-query-results={agdaController.queryResults.map(r => r.content).join('\n---\n')} aria-label="Messages">
     <header class="messages-header">
-      <div>
+      <div class="messages-header-info">
         <strong>Messages</strong>
         <span>{selectedMessageTab === 'log' ? 'Agda interaction log' : selectedMessageTab === 'queries' ? `${agdaController.queryResults.length} results` : `${agdaDiagnostics.length} diagnostics`}</span>
       </div>
-      <label class="messages-view-select">
-        <span>View</span>
-        <select bind:value={selectedMessageTab} aria-label="Message view">
-          <option value="log">Log</option>
-          <option value="queries">Queries {agdaController.queryResults.length ? `(${agdaController.queryResults.length})` : ''}</option>
-          <option value="errors">Errors {agdaDiagnostics.length ? `(${agdaDiagnostics.length})` : ''}</option>
-        </select>
-      </label>
+      <div class="messages-tab-group" role="group" aria-label="Message view">
+        <button type="button" class="messages-tab" class:active={selectedMessageTab === 'log'}
+          onclick={() => { selectedMessageTab = 'log' }}>Log</button>
+        <button type="button" class="messages-tab" class:active={selectedMessageTab === 'queries'}
+          onclick={() => { selectedMessageTab = 'queries' }}>Queries{agdaController.queryResults.length ? ` (${agdaController.queryResults.length})` : ''}</button>
+        <button type="button" class="messages-tab" class:active={selectedMessageTab === 'errors'}
+          onclick={() => { selectedMessageTab = 'errors' }}>Errors{agdaDiagnostics.length ? ` (${agdaDiagnostics.length})` : ''}</button>
+      </div>
     </header>
 
     <div class="messages-body">
@@ -1285,8 +1285,8 @@ $effect(() => {
   <div class="control-card">
     <div class="control-card-row">
       <span class="als-status-dot" style="--dot-color: {statusMeta.color}"></span>
-      <span class="als-status-label">{statusMeta.label}</span>
-      <button type="button" class="btn" onclick={() => agdaController.restartALSWASM()} disabled={agdaController.alsWorkerStatus !== 'active'}>Restart</button>
+      <span class="als-status-label" style="color: {statusMeta.color}">{statusMeta.label}</span>
+      <button type="button" class="btn btn-primary" onclick={() => agdaController.restartALSWASM()} disabled={agdaController.alsWorkerStatus !== 'active'}>Restart</button>
       <div class="control-card-actions">
       <button type="button" class="control-btn control-icon-btn" aria-label="Help" onclick={() => { commandsPanelVisible = !commandsPanelVisible }}>
         <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true">
@@ -1512,7 +1512,7 @@ $effect(() => {
   onchange={openAgdaFile}>
 
 <div
-  bind:clientWidth={width} style="height: 100%">
+  bind:clientWidth={width} style="height: 100%; background: var(--quiet-neutral-fill-softer)">
   {@render editor(isMobile ? 'vertical' : 'horizontal')}
 </div>
 
@@ -1523,6 +1523,7 @@ $effect(() => {
   justify-content: space-between;
   gap: 12px;
   padding: 8px;
+  background: var(--quiet-neutral-fill-softer);
   border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
 }
 
@@ -1534,7 +1535,7 @@ $effect(() => {
 }
 
 .header-title {
-  color: #999;
+  color: #1f2937;
   letter-spacing: 1px;
   font-size: 1rem;
   font-family: monospace;
@@ -1552,15 +1553,17 @@ $effect(() => {
   padding: 4px 10px;
   border: 1px solid var(--quiet-neutral-stroke-softer);
   border-radius: 4px;
-  background: transparent;
-  color: #666;
+  background: var(--quiet-neutral-fill);
+  color: #374151;
   font: inherit;
-  font-size: .8rem;
+  font-size: .82rem;
   cursor: pointer;
 }
 
 .header-action-btn:hover {
-  background: var(--quiet-neutral-fill-softer);
+  border-color: var(--quiet-primary-stroke-soft);
+  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill));
+  color: var(--quiet-primary-text, #3b3aab);
 }
 
 .sr-only {
@@ -1584,16 +1587,18 @@ $effect(() => {
   padding: 4px 10px;
   border: 1px solid var(--quiet-neutral-stroke-softer);
   border-radius: 4px;
-  background: transparent;
-  color: #666;
+  background: var(--quiet-neutral-fill);
+  color: #374151;
   font: inherit;
-  font-size: .85rem;
+  font-size: .82rem;
   font-weight: 600;
   cursor: pointer;
 }
 
 .header-examples-btn:hover {
-  background: var(--quiet-neutral-fill-softer);
+  border-color: var(--quiet-primary-stroke-soft);
+  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill));
+  color: var(--quiet-primary-text, #3b3aab);
 }
 
 .header-examples-arrow {
@@ -1680,7 +1685,7 @@ $effect(() => {
   margin: 12px;
   border: 1px solid var(--quiet-neutral-stroke-softer);
   border-radius: 6px;
-  background: var(--quiet-neutral-fill-softer);
+  background: var(--quiet-neutral-fill);
   overflow: hidden;
 }
 
@@ -1706,21 +1711,30 @@ $effect(() => {
   border: 1px solid var(--quiet-neutral-stroke-softer);
   border-radius: 4px;
   background: transparent;
-  color: #666;
+  color: #374151;
   font: inherit;
-  font-size: .8rem;
+  font-size: .82rem;
   cursor: pointer;
   text-decoration: none;
 }
 
 .control-btn:hover {
-  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 12%, transparent);
+  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, transparent);
   border-color: var(--quiet-primary-stroke-soft);
+  color: var(--quiet-primary-text, #3b3aab);
 }
 
 .control-icon-btn {
   padding: 5px 7px;
   line-height: 0;
+  border: none;
+  color: #374151;
+}
+
+.control-icon-btn:hover {
+  border: none;
+  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 22%, transparent);
+  color: var(--quiet-primary-text, #3b3aab);
 }
 
 .about-backdrop {
@@ -1813,7 +1827,7 @@ $effect(() => {
 
 .als-status-label {
   font-size: .78rem;
-  color: #666;
+  font-weight: 500;
 }
 
 
@@ -1821,21 +1835,33 @@ $effect(() => {
   border: 1px solid var(--quiet-neutral-stroke-softer);
   border-radius: 4px;
   background: var(--quiet-neutral-fill-softer);
-  color: inherit;
+  color: #374151;
   cursor: pointer;
   font: inherit;
   padding: 5px 12px;
-  font-size: 0.875rem;
+  font-size: .82rem;
 }
 .btn:hover:not(:disabled),
 .btn:focus-visible:not(:disabled) {
   border-color: var(--quiet-primary-stroke-soft);
   outline: none;
   background: color-mix(in srgb, var(--quiet-primary-fill-soft) 18%, var(--quiet-neutral-fill-softer));
+  color: var(--quiet-primary-text, #3b3aab);
 }
 .btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--quiet-primary-fill-soft);
+  border-color: var(--quiet-primary-stroke-soft);
+  color: var(--quiet-primary-text, #3b3aab);
+}
+.btn-primary:hover:not(:disabled),
+.btn-primary:focus-visible:not(:disabled) {
+  background: color-mix(in srgb, var(--quiet-primary-fill-soft) 85%, var(--quiet-neutral-fill));
+  border-color: var(--quiet-primary-stroke);
 }
 
 
@@ -1843,11 +1869,16 @@ $effect(() => {
   flex: 1 1;
 }
 
+.container :global(.cm-editor) {
+  background: var(--quiet-neutral-fill);
+}
+
 .editor-section {
   display: flex;
   flex-direction: column;
   height: calc(100% - 1px);
   position: relative;
+  background: var(--quiet-neutral-fill);
 }
 .editor-section::after {
   content: '';
@@ -1881,6 +1912,7 @@ $effect(() => {
 
 .panel-header {
   padding: 6px 8px;
+  background: var(--quiet-neutral-fill-softer);
   border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
   color: #777;
   font-family: monospace;
@@ -2038,10 +2070,11 @@ $effect(() => {
   justify-content: space-between;
   gap: 10px;
   padding: 7px 8px;
+  background: var(--quiet-neutral-fill-softer);
   border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
 }
 
-.messages-header div {
+.messages-header-info {
   display: flex;
   align-items: baseline;
   gap: 8px;
@@ -2062,27 +2095,35 @@ $effect(() => {
   white-space: nowrap;
 }
 
-.messages-view-select {
+.messages-tab-group {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #666;
-  font-size: .72rem;
-}
-
-.messages-view-select select {
+  gap: 1px;
   border: 1px solid var(--quiet-neutral-stroke-softer);
-  border-radius: 4px;
-  background: var(--quiet-neutral-fill-softer);
-  color: inherit;
-  font: inherit;
-  padding: 4px 24px 4px 7px;
+  border-radius: 5px;
+  background: var(--quiet-neutral-stroke-softer);
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
-.messages-view-select select:hover,
-.messages-view-select select:focus-visible {
-  border-color: var(--quiet-primary-stroke-soft);
-  outline: none;
+.messages-tab {
+  border: none;
+  background: var(--quiet-neutral-fill-softer);
+  color: #888;
+  font: inherit;
+  font-size: .72rem;
+  padding: 3px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.messages-tab.active {
+  background: var(--quiet-primary-fill-soft);
+  color: var(--quiet-primary-text, #3b3aab);
+  font-weight: 500;
+}
+
+.messages-tab:hover:not(.active) {
+  background: color-mix(in srgb, var(--quiet-neutral-stroke-softer) 60%, var(--quiet-neutral-fill-softer));
 }
 
 .messages-body {
@@ -2106,7 +2147,7 @@ $effect(() => {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 8px;
-  color: #555;
+  color: #374151;
   font-size: .78rem;
   font-weight: 700;
   letter-spacing: .02em;
@@ -2175,7 +2216,7 @@ $effect(() => {
 }
 
 .diagnostics-panel-title {
-  color: #555;
+  color: #374151;
   font-size: .78rem;
   font-weight: 700;
   letter-spacing: .02em;
@@ -2223,7 +2264,7 @@ $effect(() => {
 .diagnostic-card.clickable:focus-visible {
   border-color: #777;
   border-left-color: currentColor;
-  background: #fff;
+  background: var(--quiet-neutral-fill);
   outline: none;
 }
 
@@ -2255,7 +2296,7 @@ $effect(() => {
 
 .diagnostic-card pre {
   margin: 0;
-  color: #555;
+  color: #374151;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-family: JuliaMono, monospace;
@@ -2612,7 +2653,7 @@ $effect(() => {
 }
 
 .settings-note code {
-  color: #555;
+  color: #374151;
   font-family: JuliaMono, monospace;
   font-size: .78em;
 }
@@ -2632,6 +2673,7 @@ $effect(() => {
 
 .commands-panel-toggle {
   border: none;
+  border-bottom: 1px solid var(--quiet-neutral-stroke-softer);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -2639,6 +2681,7 @@ $effect(() => {
   padding: 6px 8px;
   text-align: start;
   font-size: .82rem;
+  background: var(--quiet-neutral-fill-softer);
 }
 
 .commands-panel-arrow {
