@@ -3,6 +3,8 @@
 A browser-hosted, single-file Agda scratchpad for demonstrations, learning, and
 practice.
 
+Forked from [agda-web/als-demo](https://github.com/agda-web/als-demo).
+
 The project is positioned close to the [JSCoq scratchpad](https://coq.vercel.app/scratchpad.html): open a browser, write
 or paste a small Agda example, load it with Agda/ALS, and interact with goals,
 context, commands, and diagnostics without setting up a local Agda project.
