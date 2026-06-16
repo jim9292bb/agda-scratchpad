@@ -70,3 +70,4 @@ For roadmap details, see `PROJECT_GOAL.md` and `ROADMAP.md`.
 - [agda-web/als-demo](https://github.com/agda-web/als-demo) — upstream project this is forked from
 - [agda-web/agda-language-server](https://github.com/agda-web/agda-language-server) — source of the ALS WASM binaries downloaded by `npm run setup`
 - [banacorn/agda-mode-vscode](https://github.com/banacorn/agda-mode-vscode) — reference for Agda interaction commands and shortcut behavior
+- [agda-web/browser_wasi_shim](https://github.com/agda-web/browser_wasi_shim) — browser WASI shim used by the runtime backend
