@@ -31,12 +31,6 @@ See `PROJECT_GOAL.md` for the full product positioning.
 
 ## Development
 
-This workspace uses `nvm`; load Node before running project commands:
-
-```sh
-source /usr/share/nvm/init-nvm.sh
-```
-
 ### First-time setup
 
 Download the ALS WASM binaries and library archives:
