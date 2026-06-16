@@ -44,7 +44,7 @@ npm run setup
 ```sh
 npm run check       # type-check
 npm run build       # production build
-npm run dev         # dev server (http://localhost:5173)
+npm run dev         # dev server (http://localhost:8099)
 npm run test        # unit tests (Vitest)
 ```
 
