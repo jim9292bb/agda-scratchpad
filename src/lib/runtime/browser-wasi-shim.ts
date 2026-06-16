@@ -91,7 +91,10 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
     )
 
     const progressCtx = traceFetchProgress(wasmAndData.wasm, (loaded) => {
-      this._wasmLoadingProgress!.bytesLoaded = loaded
+      if (this._wasmLoadingProgress) {
+        this._wasmLoadingProgress = { ...this._wasmLoadingProgress, bytesLoaded: loaded }
+        callbacks.onWASMLoadingProgressChange(this._wasmLoadingProgress)
+      }
     })
 
     if (isSafari) {
