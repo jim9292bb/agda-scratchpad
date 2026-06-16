@@ -279,14 +279,30 @@ class LiveSourcePreopenDirectory extends PreopenDirectory {
     fs_rights_inheriting: bigint,
     fd_flags: number,
   ) {
-    if (path_str === 'source.agda') this._refreshSource()
-    else this._ensureAgdai(path_str)
+    if (path_str === 'source.agda') {
+      this._refreshSource()
+    } else if (path_str.endsWith('.agdai')) {
+      // Skip network fetch for O_CREAT (ALS writing a newly compiled file)
+      const isWrite = (oflags & 1 /* OFLAGS_CREAT */) !== 0
+      if (!isWrite && !this._agdaiFetched.has(path_str)) {
+        // Check VFS first — files already there (e.g. lib/prim from --setup) need no fetch
+        const probe = super.path_open(dirflags, path_str, oflags, fs_rights_base, fs_rights_inheriting, fd_flags)
+        if (probe.ret === 0) return probe
+        this._ensureAgdai(path_str)
+      }
+    }
     return super.path_open(dirflags, path_str, oflags, fs_rights_base, fs_rights_inheriting, fd_flags)
   }
 
   override path_filestat_get(flags: number, path_str: string) {
-    if (path_str === 'source.agda') this._refreshSource()
-    else this._ensureAgdai(path_str)
+    if (path_str === 'source.agda') {
+      this._refreshSource()
+    } else if (path_str.endsWith('.agdai') && !this._agdaiFetched.has(path_str)) {
+      // Check VFS first — avoids spurious fetches for files already present
+      const probe = super.path_filestat_get(flags, path_str)
+      if (probe.ret === 0) return probe
+      this._ensureAgdai(path_str)
+    }
     return super.path_filestat_get(flags, path_str)
   }
 }
