@@ -18,7 +18,7 @@ const config = {
   kit: {
     adapter: adapter({ precompress: false }),
     paths: {
-      base: CI ? '/als-demo' : '',
+      base: CI ? '/agda-scratchpad' : '',
     }
   }
 }
