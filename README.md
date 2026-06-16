@@ -1,7 +1,7 @@
 # Agda Scratchpad
 
 A browser-hosted, single-file Agda scratchpad for demonstrations, learning, and
-practice.
+practice. **[Try it on GitHub Pages →](https://jim9292bb.github.io/agda-scratchpad/)**
 
 Forked from [agda-web/als-demo](https://github.com/agda-web/als-demo).
 
@@ -33,13 +33,21 @@ See `PROJECT_GOAL.md` for the full product positioning.
 
 ## Development
 
+### Prerequisites
+
+Node.js 18–24 (the `engines` field in `package.json` specifies `>=18.0.0 <25.0.0`).
+
 ### First-time setup
 
-Download the ALS WASM binaries and library archives:
-
 ```sh
-npm run setup
+npm install         # install dependencies
+npm run setup       # download ALS WASM binaries and library archives (~300 MB)
 ```
+
+`npm run setup` fetches:
+- ALS WASM binaries (Agda 2.6, 2.7, 2.8) from [agda-web/agda-language-server](https://github.com/agda-web/agda-language-server/releases/tag/nightly-20260407)
+- Standard library and Cubical source zips from upstream Agda releases
+- Pre-built `.agdai` cache zips for Agda 2.8.0
 
 ### Common commands
 
@@ -64,6 +72,8 @@ Then in another terminal:
 npm run test:browser                    # full suite
 npm run test:browser:core-commands      # targeted
 ```
+
+Browser tests require `agent-browser` to be available on `PATH`.
 
 For roadmap details, see `PROJECT_GOAL.md` and `ROADMAP.md`.
 
