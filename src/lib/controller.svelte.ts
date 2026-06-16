@@ -92,6 +92,7 @@ export class AgdaController {
 
   alsWorkerStatus = $state<'initial' | 'errored' | 'loading' | 'loaded' | 'active' | 'deactivating' | 'terminated' | 'exited'>('initial')
   wasmLoadingProgress = $state<WASMLoadingProgress | null>(null)
+  wasmLibraryFetchProgress = $state<{ fetched: number; total: number } | null>(null)
   receivedALSVersion = $state<string | undefined>()
   driveIsCreated = $state(false)
   currentFilePath = $state('/source.agda')
@@ -193,6 +194,7 @@ export class AgdaController {
         onWASMLoadingProgressChange: (p) => { this.wasmLoadingProgress = p },
         onWASMLoaded: () => { this.alsWorkerStatus = 'loaded' },
         onVersionReceived: (ver) => { this.receivedALSVersion = ver },
+        onLibraryFetchProgress: (fetched, total) => { this.wasmLibraryFetchProgress = { fetched, total } },
         onDriveCreated: () => { this.driveIsCreated = true },
         onPerformanceEntries: (entries) => { this.appendPerformanceEntries(entries) },
       },
@@ -275,6 +277,7 @@ export class AgdaController {
     console.log('attempting to terminate the worker')
     this._backend.terminate()
     this.wasmLoadingProgress = null
+    this.wasmLibraryFetchProgress = null
     this.runningWASM = undefined
     this.driveIsCreated = false
     this.alsWorkerStatus = 'terminated'

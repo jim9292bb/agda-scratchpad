@@ -74,6 +74,7 @@ export interface BackendCallbacks {
   onWASMLoadingProgressChange(progress: WASMLoadingProgress | null): void
   onWASMLoaded(): void
   onVersionReceived(version: string): void
+  onLibraryFetchProgress(fetched: number, total: number): void
   onDriveCreated(): void
   onPerformanceEntries(entries: PerformanceEntry[]): void
 }

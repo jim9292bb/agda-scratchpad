@@ -126,16 +126,21 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
     const fetchOptional = (url: string) =>
       fetch(asset(url)).then(r => r.ok ? r.arrayBuffer() : undefined).catch(() => undefined)
 
+    const libTotal = wasmAndData.dataFile ? 5 : 4
+    let libFetched = 0
+    const trackLib = <T>(p: Promise<T>): Promise<T> =>
+      p.then(r => { callbacks.onLibraryFetchProgress(++libFetched, libTotal); return r })
+
     const [dataZipData, stdlibData, cubicalData, stdlibAgdaiData, cubicalAgdaiData] = await Promise.all([
       wasmAndData.dataFile
-        ? trace.measure('Read Agda builtins data', () => wasmAndData.dataFile!.arrayBuffer())
+        ? trackLib(trace.measure('Read Agda builtins data', () => wasmAndData.dataFile!.arrayBuffer()))
         : Promise.resolve(undefined),
-      trace.measure('Fetch standard-library zip', () =>
-        fetch(asset('/agda-stdlib-2.3.zip')).then(x => x.arrayBuffer())),
-      trace.measure('Fetch Cubical zip', () =>
-        fetch(asset('/agda-cubical-0.9.zip')).then(x => x.arrayBuffer())),
-      trace.measure('Fetch stdlib .agdai cache', () => fetchOptional('/stdlib-agdai.zip')),
-      trace.measure('Fetch cubical .agdai cache', () => fetchOptional('/cubical-agdai.zip')),
+      trackLib(trace.measure('Fetch standard-library zip', () =>
+        fetch(asset('/agda-stdlib-2.3.zip')).then(x => x.arrayBuffer()))),
+      trackLib(trace.measure('Fetch Cubical zip', () =>
+        fetch(asset('/agda-cubical-0.9.zip')).then(x => x.arrayBuffer()))),
+      trackLib(trace.measure('Fetch stdlib .agdai cache', () => fetchOptional('/stdlib-agdai.zip'))),
+      trackLib(trace.measure('Fetch cubical .agdai cache', () => fetchOptional('/cubical-agdai.zip'))),
     ])
 
     const { initPromise } = makeWasiShimLspWorker({

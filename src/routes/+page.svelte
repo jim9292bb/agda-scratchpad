@@ -1347,7 +1347,7 @@ $effect(() => {
   <div class="control-card">
     <div class="control-card-row">
       <span class="als-status-dot" style="--dot-color: {statusMeta.color}"></span>
-      <span class="als-status-label" style="color: {statusMeta.color}">{statusMeta.label}{#if agdaController.alsWorkerStatus === 'loading' && agdaController.wasmLoadingProgress}{@const p = agdaController.wasmLoadingProgress}{@const loaded = (p.bytesLoaded / 1048576).toFixed(1)}{@const total = p.bytesTotal ? ` / ${(p.bytesTotal / 1048576).toFixed(1)}` : ''} {loaded}{total} MB{/if}</span>
+      <span class="als-status-label" style="color: {statusMeta.color}">{statusMeta.label}{#if agdaController.alsWorkerStatus === 'loading' && agdaController.wasmLoadingProgress}{@const p = agdaController.wasmLoadingProgress}{@const loaded = (p.bytesLoaded / 1048576).toFixed(1)}{@const total = p.bytesTotal && p.bytesTotal >= p.bytesLoaded ? ` / ${(p.bytesTotal / 1048576).toFixed(1)}` : ''} {loaded}{total} MB{:else if agdaController.alsWorkerStatus === 'loaded' && !agdaController.driveIsCreated && agdaController.wasmLibraryFetchProgress}{@const lp = agdaController.wasmLibraryFetchProgress} {lp.fetched} / {lp.total}{/if}</span>
       <button type="button" class="btn btn-primary" onclick={() => agdaController.restartALSWASM()} disabled={agdaController.alsWorkerStatus !== 'active'}>Restart</button>
       <div class="control-card-actions">
       <button type="button" class="control-btn control-icon-btn" aria-label="Help" onclick={toggleCommandsPanel}>
