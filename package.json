@@ -52,7 +52,7 @@
     "node": ">=18.0.0 <25.0.0"
   },
   "dependencies": {
-    "@agda-web/browser_wasi_shim": "https://github.com/jim9292bb/als-demo/releases/download/deps/agda-web-browser_wasi_shim-0.4.2.tgz",
+    "@agda-web/browser_wasi_shim": "https://github.com/jim9292bb/agda-scratchpad/releases/download/deps/agda-web-browser_wasi_shim-0.4.2.tgz",
     "@andy0130tw/vscode-jsonrpc-esm": "^9.0.0-next-esm.9",
     "@codemirror/autocomplete": "^6.20.1",
     "@codemirror/commands": "^6.10.2",

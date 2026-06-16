@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATIC_DIR="$SCRIPT_DIR/../static"
 
 NIGHTLY="https://github.com/agda-web/agda-language-server/releases/download/nightly-20260407"
-CACHE="https://github.com/jim9292bb/als-demo/releases/download/cache-2.8.0"
+CACHE="https://github.com/jim9292bb/agda-scratchpad/releases/download/cache-2.8.0"
 
 download() {
   local url="$1"
@@ -30,7 +30,7 @@ echo "Downloading Agda library source archives from GitHub..."
 download "https://github.com/agda/agda-stdlib/archive/refs/tags/v2.3.zip" "$STATIC_DIR/agda-stdlib-2.3.zip"
 download "https://github.com/agda/cubical/archive/refs/tags/v0.9.zip"     "$STATIC_DIR/agda-cubical-0.9.zip"
 
-echo "Downloading pre-built Agda 2.8.0 cache from agda-web/als-demo cache-2.8.0..."
+echo "Downloading pre-built Agda 2.8.0 cache from jim9292bb/agda-scratchpad cache-2.8.0..."
 download "$CACHE/agda-data.zip"      "$STATIC_DIR/agda-data.zip"
 download "$CACHE/stdlib-agdai.zip"   "$STATIC_DIR/stdlib-agdai.zip"
 download "$CACHE/cubical-agdai.zip"  "$STATIC_DIR/cubical-agdai.zip"
