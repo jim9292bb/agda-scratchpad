@@ -245,6 +245,9 @@ class LiveSourcePreopenDirectory extends PreopenDirectory {
     if (!this._agdaiFetchSab) return
     if (!path_str.endsWith('.agdai')) return
     if (this._agdaiFetched.has(path_str)) return
+    // Only fetch paths we actually serve: stdlib/_build/ and cubical/_build/
+    // lib/prim, source.agdai, and short-path probes (stdlib/src/...) will 404.
+    if (!path_str.startsWith('stdlib/_build/') && !path_str.startsWith('cubical/_build/')) return
 
     this._agdaiFetched.add(path_str)  // mark before fetch to avoid retry on NOENT
     const content = this._fetchAgdaiSync(path_str)
