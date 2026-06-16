@@ -3,7 +3,7 @@
 A browser-hosted, single-file Agda scratchpad for demonstrations, learning, and
 practice.
 
-The project is positioned close to the JSCoq scratchpad: open a browser, write
+The project is positioned close to the [JSCoq scratchpad](https://coq.vercel.app/scratchpad.html): open a browser, write
 or paste a small Agda example, load it with Agda/ALS, and interact with goals,
 context, commands, and diagnostics without setting up a local Agda project.
 
@@ -64,3 +64,9 @@ npm run test:browser:core-commands      # targeted
 ```
 
 For roadmap details, see `PROJECT_GOAL.md` and `ROADMAP.md`.
+
+## Related projects
+
+- [agda-web/als-demo](https://github.com/agda-web/als-demo) — upstream project this is forked from
+- [agda-web/agda-language-server](https://github.com/agda-web/agda-language-server) — source of the ALS WASM binaries downloaded by `npm run setup`
+- [banacorn/agda-mode-vscode](https://github.com/banacorn/agda-mode-vscode) — reference for Agda interaction commands and shortcut behavior
