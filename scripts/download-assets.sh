@@ -35,4 +35,11 @@ download "$CACHE/agda-data.zip"      "$STATIC_DIR/agda-data.zip"
 download "$CACHE/stdlib-agdai.zip"   "$STATIC_DIR/stdlib-agdai.zip"
 download "$CACHE/cubical-agdai.zip"  "$STATIC_DIR/cubical-agdai.zip"
 
+if [[ -d "$STATIC_DIR/agdai/stdlib" && -d "$STATIC_DIR/agdai/cubical" ]]; then
+  echo "  static/agdai/ already extracted — skipping (delete it to re-extract)"
+else
+  echo "Extracting .agdai files for on-demand serving..."
+  node "$SCRIPT_DIR/extract-agdai-for-serving.mjs"
+fi
+
 echo "Done. Static assets are ready."
