@@ -1337,7 +1337,7 @@ $effect(() => {
   {@const statusMeta = {
     initial:      { color: '#888',    label: 'Starting...' },
     loading:      { color: '#f59e0b', label: 'Loading...' },
-    loaded:       { color: '#f59e0b', label: 'Starting...' },
+    loaded:       { color: '#f59e0b', label: agdaController.driveIsCreated ? 'Setting up...' : 'Fetching libraries...' },
     active:       { color: '#22c55e', label: 'Active' },
     deactivating: { color: '#888',    label: 'Stopping...' },
     errored:      { color: '#ef4444', label: 'Error' },
