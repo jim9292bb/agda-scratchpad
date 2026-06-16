@@ -35,14 +35,38 @@ This workspace uses `nvm`; load Node before running project commands:
 
 ```sh
 source /usr/share/nvm/init-nvm.sh
-npm run check
-npm run build
 ```
 
-For roadmap and agent workflow details, see:
+### First-time setup
 
-- `PROJECT_GOAL.md`
-- `ROADMAP.md`
-- `AGENTS.md`
-- `CODEX_WORKFLOWS.md`
+Download the ALS WASM binaries and library archives:
 
+```sh
+npm run setup
+```
+
+### Common commands
+
+```sh
+npm run check       # type-check
+npm run build       # production build
+npm run dev         # dev server (http://localhost:5173)
+npm run test        # unit tests (Vitest)
+```
+
+### Browser regression tests
+
+A dev server must be running before executing browser tests:
+
+```sh
+npm run dev -- --host 0.0.0.0 --force
+```
+
+Then in another terminal:
+
+```sh
+npm run test:browser                    # full suite
+npm run test:browser:core-commands      # targeted
+```
+
+For roadmap details, see `PROJECT_GOAL.md` and `ROADMAP.md`.
