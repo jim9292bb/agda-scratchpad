@@ -125,7 +125,7 @@ export function createWritableByteStream(writer) {
 }
 
 /**
- * @typedef {{ wasmSource: import('$lib/worker/types').WASMSource, stdinWaker: MessagePort, stdin: SharedArrayBuffer, stdout: SharedArrayBuffer, sourceSab: SharedArrayBuffer, stdlibZip: ArrayBuffer, cubicalZip: ArrayBuffer, dataZip?: ArrayBuffer, stdlibAgdaiZip?: ArrayBuffer, cubicalAgdaiZip?: ArrayBuffer, agdaVersion: string }} WASIShimWorkerInitObject
+ * @typedef {{ wasmSource: import('$lib/worker/types').WASMSource, stdinWaker: MessagePort, stdin: SharedArrayBuffer, stdout: SharedArrayBuffer, sourceSab: SharedArrayBuffer, stdlibZip: ArrayBuffer, cubicalZip: ArrayBuffer, dataZip?: ArrayBuffer, stdlibAgdaiZip?: ArrayBuffer, cubicalAgdaiZip?: ArrayBuffer, agdaiFetchSab?: SharedArrayBuffer, agdaVersion: string }} WASIShimWorkerInitObject
  */
 
 /**

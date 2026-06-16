@@ -15,6 +15,12 @@ import type { DriveProxyStats, WASMLoadingProgress } from '$lib/worker/types'
 
 const SOURCE_SAB_CAPACITY = 4 * 1024 * 1024  // 4 MB
 
+// SAB layout for on-demand .agdai fetch (must match als-wasi-shim.ts)
+const AGDAI_SAB_SIZE = 6 * 1024 * 1024
+const AGDAI_SAB_PATH_OFFSET = 16
+const AGDAI_SAB_PATH_MAX = 4096
+const AGDAI_SAB_CONTENT_OFFSET = AGDAI_SAB_PATH_OFFSET + AGDAI_SAB_PATH_MAX  // 4112
+
 const emptyDriveProxyStats: DriveProxyStats = {
   totalCalls: 0,
   totalDurationMs: 0,
@@ -44,6 +50,8 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
   _lspWorker: Worker | undefined
   private _workerInitData: ALSWorkerInitResultProxied | undefined
   private _wasmLoadingProgress: WASMLoadingProgress | null = null
+  private _agdaiFetchSab: SharedArrayBuffer | undefined
+  private _agdaiFetchAbort = false
 
   constructor(
     agdaBuffers: { stdin: SharedArrayBuffer; stdout: SharedArrayBuffer },
@@ -123,15 +131,12 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
 
     const wakerChannel = new MessageChannel()
 
-    const fetchOptional = (url: string) =>
-      fetch(asset(url)).then(r => r.ok ? r.arrayBuffer() : undefined).catch(() => undefined)
-
-    const libTotal = wasmAndData.dataFile ? 5 : 4
+    const libTotal = wasmAndData.dataFile ? 3 : 2
     let libFetched = 0
     const trackLib = <T>(p: Promise<T>): Promise<T> =>
       p.then(r => { callbacks.onLibraryFetchProgress(++libFetched, libTotal); return r })
 
-    const [dataZipData, stdlibData, cubicalData, stdlibAgdaiData, cubicalAgdaiData] = await Promise.all([
+    const [dataZipData, stdlibData, cubicalData] = await Promise.all([
       wasmAndData.dataFile
         ? trackLib(trace.measure('Read Agda builtins data', () => wasmAndData.dataFile!.arrayBuffer()))
         : Promise.resolve(undefined),
@@ -139,9 +144,11 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
         fetch(asset('/agda-stdlib-2.3.zip')).then(x => x.arrayBuffer()))),
       trackLib(trace.measure('Fetch Cubical zip', () =>
         fetch(asset('/agda-cubical-0.9.zip')).then(x => x.arrayBuffer()))),
-      trackLib(trace.measure('Fetch stdlib .agdai cache', () => fetchOptional('/stdlib-agdai.zip'))),
-      trackLib(trace.measure('Fetch cubical .agdai cache', () => fetchOptional('/cubical-agdai.zip'))),
     ])
+
+    this._agdaiFetchSab = new SharedArrayBuffer(AGDAI_SAB_SIZE)
+    this._agdaiFetchAbort = false
+    this._runAgdaiFetchListener()
 
     const { initPromise } = makeWasiShimLspWorker({
       wasmSource: { ...this._wasmLoadingProgress.source },
@@ -152,8 +159,7 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
       stdlibZip: stdlibData,
       cubicalZip: cubicalData,
       dataZip: dataZipData,
-      stdlibAgdaiZip: stdlibAgdaiData,
-      cubicalAgdaiZip: cubicalAgdaiData,
+      agdaiFetchSab: this._agdaiFetchSab,
       agdaVersion,
     }, worker => {
       this._lspWorker = worker
@@ -201,9 +207,50 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
     return { ...emptyDriveProxyStats }
   }
 
+  private async _runAgdaiFetchListener(): Promise<void> {
+    const sab = this._agdaiFetchSab!
+    const ctrl = new Int32Array(sab)
+    const dec = new TextDecoder()
+
+    while (!this._agdaiFetchAbort) {
+      const waitResult = Atomics.waitAsync(ctrl, 0, 0)
+      if (waitResult.async) await waitResult.value
+      if (this._agdaiFetchAbort) break
+      if (Atomics.load(ctrl, 0) !== 1) continue
+
+      const pathLen = Atomics.load(ctrl, 1)
+      // .slice() is required: TextDecoder rejects SharedArrayBuffer-backed views
+      const path = dec.decode(new Uint8Array(sab, AGDAI_SAB_PATH_OFFSET, pathLen).slice())
+
+      let ok = false
+      try {
+        const resp = await fetch(asset(`/agdai/${path}`))
+        if (resp.ok) {
+          const bytes = new Uint8Array(await resp.arrayBuffer())
+          new Uint8Array(sab, AGDAI_SAB_CONTENT_OFFSET).set(bytes)
+          Atomics.store(ctrl, 3, bytes.length)
+          ok = true
+        }
+      } catch (e) {
+        console.warn('[agdai-fetch] failed:', path, e)
+      }
+
+      Atomics.store(ctrl, 2, ok ? 0 : -1)
+      Atomics.store(ctrl, 0, 2)
+      Atomics.notify(ctrl, 0)
+    }
+  }
+
   terminate(): void {
     this._wasmLoadingProgress?.cancel?.()
     this._wasmLoadingProgress = null
+
+    this._agdaiFetchAbort = true
+    if (this._agdaiFetchSab) {
+      const ctrl = new Int32Array(this._agdaiFetchSab)
+      Atomics.store(ctrl, 0, -1)
+      Atomics.notify(ctrl, 0)
+    }
 
     this._lspWorker?.terminate()
     this._lspWorker = undefined
