@@ -4,6 +4,8 @@
  * We compute the transitive closure and kick off parallel fetches before ALS type-checks.
  */
 
+import { asset } from '$app/paths'
+
 const AGDA_VERSION = '2.8.0'
 
 /** @type {{ graph: Record<string, string[]>, libOf: Record<string, string> } | null} */
@@ -14,7 +16,7 @@ async function loadManifest() {
   if (manifest || manifestLoading) return
   manifestLoading = true
   try {
-    const resp = await fetch('/agdai-manifest.json')
+    const resp = await fetch(asset('/agdai-manifest.json'))
     if (resp.ok) manifest = await resp.json()
   } catch {
     // manifest unavailable — prefetch disabled, on-demand fetch still works
