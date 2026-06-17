@@ -84,6 +84,21 @@ For roadmap details, see `PROJECT_GOAL.md` and `ROADMAP.md`.
 - [banacorn/agda-mode-vscode](https://github.com/banacorn/agda-mode-vscode) — reference for Agda interaction commands and shortcut behavior
 - [agda-web/browser_wasi_shim](https://github.com/agda-web/browser_wasi_shim) — browser WASI shim used by the runtime backend
 
+## Acknowledgments
+
+This project embeds and redistributes the following academic software. Each
+project requests a citation if you use it; see the linked `CITATION.cff` files
+for full citation details.
+
+- **Agda** — Agda Developers. [agda/agda](https://github.com/agda/agda),
+  [CITATION.cff](https://github.com/agda/agda/blob/master/CITATION.cff)
+- **Agda Standard Library** — The Agda Community.
+  [agda/agda-stdlib](https://github.com/agda/agda-stdlib),
+  [CITATION.cff](https://github.com/agda/agda-stdlib/blob/master/CITATION.cff)
+- **Cubical Agda Library** — The Agda Community.
+  [agda/cubical](https://github.com/agda/cubical),
+  [CITATION.cff](https://github.com/agda/cubical/blob/master/CITATION.cff)
+
 ## License
 
 MIT — see [LICENSE](LICENSE). Third-party code included or derived from elsewhere is documented in
