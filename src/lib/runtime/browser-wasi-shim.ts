@@ -52,6 +52,7 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
   private _wasmLoadingProgress: WASMLoadingProgress | null = null
   private _agdaiFetchSab: SharedArrayBuffer | undefined
   private _agdaiFetchAbort = false
+  private _agdaiFetchCache = new Map<string, Uint8Array>()
 
   constructor(
     agdaBuffers: { stdin: SharedArrayBuffer; stdout: SharedArrayBuffer },
@@ -224,13 +225,16 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
 
       let ok = false
       try {
-        const resp = await fetch(asset(`/agdai/${path}`))
-        if (resp.ok) {
-          const bytes = new Uint8Array(await resp.arrayBuffer())
+        const cached = this._agdaiFetchCache.get(path)
+        const bytes = cached ?? await fetch(asset(`/agdai/${path}`))
+          .then(r => r.ok ? r.arrayBuffer().then(b => new Uint8Array(b)) : null)
+          .catch(() => null)
+        if (bytes) {
           new Uint8Array(sab, AGDAI_SAB_CONTENT_OFFSET).set(bytes)
           Atomics.store(ctrl, 3, bytes.length)
           ok = true
         }
+        if (!cached) console.debug('[agdai-fetch] miss (no prefetch):', path)
       } catch (e) {
         console.warn('[agdai-fetch] failed:', path, e)
       }
@@ -238,6 +242,16 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
       Atomics.store(ctrl, 2, ok ? 0 : -1)
       Atomics.store(ctrl, 0, 2)
       Atomics.notify(ctrl, 0)
+    }
+  }
+
+  prefetchAgdai(paths: string[]): void {
+    for (const path of paths) {
+      if (this._agdaiFetchCache.has(path)) continue
+      fetch(asset(`/agdai/${path}`))
+        .then(r => r.ok ? r.arrayBuffer() : null)
+        .then(buf => { if (buf) this._agdaiFetchCache.set(path, new Uint8Array(buf)) })
+        .catch(() => {})
     }
   }
 

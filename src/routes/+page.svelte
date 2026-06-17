@@ -48,6 +48,7 @@ import {
 import { diagnosticToAgdaUtf8Position, focusAgdaUtf8Position } from '$lib/agda/diagnostics'
 
 import { clearGoals, clearRunningInfo, emitRunningInfo, removeGoalInfo, setGoalInfo } from '$lib/agda/effects'
+import { triggerPrefetch } from '$lib/agda/prefetch'
 
 const driveLockSab = new SharedArrayBuffer(4)
 const driveStdinSab = SPSC.allocateArrayBuffer(4096)
@@ -939,6 +940,12 @@ async function loadAgdaFile() {
   commandInputPrompt = null
   commandInputError = ''
   agdaController.editorView?.dispatch({ effects: clearGoals.of() })
+
+  const prefetchFn = agdaController.backend?.prefetchAgdai?.bind(agdaController.backend)
+  if (prefetchFn && agdaController.editorView) {
+    triggerPrefetch(agdaController.editorView.state.doc.toString(), prefetchFn)
+  }
+
   try {
     await agdaController.loadAgdaFile()
     syncAgdaDiagnostics()

@@ -34,6 +34,7 @@ export default defineConfig(async ({ command }) => {
   server: {
     port: 8099,
     https: VITE_SERVE_ENABLE_SSL,
+    allowedHosts: 'all',
   },
   define: {
     // XXX: is using env better?

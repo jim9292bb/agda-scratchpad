@@ -106,4 +106,6 @@ export interface RuntimeBackend {
   getDriveProxyStats(): Promise<DriveProxyStats>
   isInitialized(): boolean
   terminate(): void
+  /** Fire-and-forget: fetch .agdai files into cache so they're ready when ALS requests them. */
+  prefetchAgdai?(paths: string[]): void
 }

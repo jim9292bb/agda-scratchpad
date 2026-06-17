@@ -113,6 +113,10 @@ export class AgdaController {
     return this._backend.getDriveHandle()
   }
 
+  get backend(): RuntimeBackend {
+    return this._backend
+  }
+
   constructor(readonly config: {
     agdaBuffers: {
       stdin: SharedArrayBuffer,
