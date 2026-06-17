@@ -1,9 +1,9 @@
 # Agda Scratchpad
 
-A browser-hosted, single-file Agda scratchpad for demonstrations, learning, and
-practice. **[Try it on GitHub Pages →](https://jim9292bb.github.io/agda-scratchpad/)**
+**[Try it on GitHub Pages →](https://jim9292bb.github.io/agda-scratchpad/)**
 
-Forked from [agda-web/als-demo](https://github.com/agda-web/als-demo).
+A browser-hosted, single-file Agda scratchpad for demonstrations, learning, and
+practice. Forked from [agda-web/als-demo](https://github.com/agda-web/als-demo).
 Developed with AI pair-programming assistance (OpenAI Codex and Claude Code).
 
 The project is positioned close to the [JSCoq scratchpad](https://coq.vercel.app/scratchpad.html): open a browser, write
