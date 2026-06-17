@@ -1,10 +1,11 @@
 # Third-Party Licenses
 
-This file documents third-party code included or derived from in this project,
-as well as third-party binaries and source archives that this project fetches
-and re-serves to every visitor of the deployed site (the ALS WASM binary and
-the standard-library/Cubical source archives downloaded by `npm run setup` and
-fetched into the browser at runtime).
+This file documents third-party code copied into, or derived from elsewhere
+and adapted for, this project. It also documents third-party binaries and
+source archives that this project fetches and re-serves to every visitor of
+the deployed site (the ALS WASM binary and the standard-library/Cubical source
+archives downloaded by `npm run setup` and fetched into the browser at
+runtime).
 
 ---
 

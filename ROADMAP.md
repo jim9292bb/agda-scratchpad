@@ -1,7 +1,7 @@
 # Agda Scratchpad Roadmap
 
 This roadmap tracks work for a browser-hosted, single-file Agda scratchpad for
-teaching, demonstrations, and practice. The product positioning is close to the
+teaching, demonstrations, and practice. The project takes a similar approach to the
 JSCoq scratchpad: focused interaction with one source buffer, not development of
 a multi-file Agda project.
 
@@ -249,7 +249,7 @@ Goal: the default experience should support demos and short practice sessions.
 
 ## Browser Regression Suite
 
-Goal: common scratchpad workflows should be repeatable by Codex and humans.
+Goal: common scratchpad workflows should be repeatable by AI coding agents and humans.
 
 - [x] Add reusable Agda fixtures under `test-fixtures/agda/`.
 - [x] Add shared `agent-browser` helper functions.
@@ -267,9 +267,9 @@ Goal: common scratchpad workflows should be repeatable by Codex and humans.
 - [x] Add browser regression script for syntax and semantic error display.
 - [x] Expose browser regressions through `package.json` scripts where practical.
 
-## Codex Workflow and Methodology
+## AI-Assisted Workflow and Methodology
 
-Goal: keep Codex-assisted development predictable without making the repository
+Goal: keep AI-assisted development predictable without making the repository
 depend on agent-specific tooling.
 
 - [x] Document plugin and MCP usage for this workspace.

@@ -3,7 +3,7 @@
 This project is a browser-hosted single-file Agda scratchpad for demonstration,
 learning, and practice.
 
-Its product positioning is close to the JSCoq scratchpad:
+It takes a similar approach to the JSCoq scratchpad:
 
 - Open the browser.
 - Write or paste a small Agda example.
