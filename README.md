@@ -1,13 +1,14 @@
 # Agda Scratchpad
 
 A browser-hosted, single-file Agda scratchpad for demonstrations, learning, and
-practice. [Try it live](https://jim9292bb.github.io/agda-scratchpad/). Forked
-from [agda-web/als-demo](https://github.com/agda-web/als-demo).
-Developed with AI pair-programming assistance (OpenAI Codex and Claude Code).
+practice. [Try it live](https://jim9292bb.github.io/agda-scratchpad/).
 
 The project takes a similar approach to the [JSCoq scratchpad](https://coq.vercel.app/scratchpad.html): open a browser, write
 or paste a small Agda example, load it with Agda/ALS, and interact with goals,
 context, commands, and diagnostics without setting up a local Agda project.
+
+Forked from [agda-web/als-demo](https://github.com/agda-web/als-demo); developed
+with AI pair-programming assistance (OpenAI Codex and Claude Code).
 
 ## Scope
 
@@ -41,13 +42,17 @@ Node.js 18–24 (the `engines` field in `package.json` specifies `>=18.0.0 <25.0
 
 ```sh
 npm install         # install dependencies
-npm run setup       # download ALS WASM binaries and library archives (~300 MB)
+npm run setup       # download ALS WASM binaries and library archives (~300 MB download,
+                     # ~600 MB on disk after extraction)
 ```
 
 `npm run setup` fetches:
 - ALS WASM binaries (Agda 2.6, 2.7, 2.8) from [agda-web/agda-language-server](https://github.com/agda-web/agda-language-server/releases/tag/nightly-20260407)
 - Standard library and Cubical source zips from upstream Agda releases
-- Pre-built `.agdai` cache zips for Agda 2.8.0
+- Pre-built `.agdai` cache zips for Agda 2.8.0, extracted into `static/agdai/` so
+  individual `.agdai` files can be fetched on demand at runtime (see
+  `static/agdai-manifest.json`, committed to the repo, for the dependency
+  manifest used to prefetch them)
 
 ### Common commands
 
@@ -73,11 +78,15 @@ npm run test:browser                    # full suite
 npm run test:browser:core-commands      # targeted
 ```
 
+See `package.json` for the full list of targeted `test:browser:*` scripts.
+
 Browser tests require `agent-browser` to be available on `PATH`.
 
 For roadmap details, see `PROJECT_GOAL.md` and `ROADMAP.md`.
 
 ## Related projects
+
+Tooling and dependencies this project builds on:
 
 - [agda-web/als-demo](https://github.com/agda-web/als-demo) — upstream project this is forked from
 - [agda-web/agda-language-server](https://github.com/agda-web/agda-language-server) — source of the ALS WASM binaries downloaded by `npm run setup`
@@ -86,9 +95,10 @@ For roadmap details, see `PROJECT_GOAL.md` and `ROADMAP.md`.
 
 ## Acknowledgments
 
-This project embeds and redistributes the following academic software. Each
-project requests a citation if you use it; see the linked `CITATION.cff` files
-for full citation details.
+This project embeds and redistributes the following academic software (see
+[Related projects](#related-projects) above for tooling-level dependencies).
+Each project requests a citation if you use it; see the linked `CITATION.cff`
+files for full citation details.
 
 - **Agda** — Agda Developers. [agda/agda](https://github.com/agda/agda),
   [CITATION.cff](https://github.com/agda/agda/blob/master/CITATION.cff)
