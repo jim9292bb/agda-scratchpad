@@ -21,7 +21,10 @@ For the current branch handoff and next runtime migration task, read
 - [x] Treat Cubical Agda and the standard library as preloaded runtime assets, not as project-management features.
 - [ ] Do not add multi-file editing.
 - [ ] Do not add a file explorer.
-- [ ] Do not add package manager UI.
+- [ ] Do not add an open package manager UI (arbitrary user-supplied library
+      formats, dependency resolution, or a library registry). A bounded
+      file-server-origin override (see "Custom File Server / Library Source")
+      is an explicit, scoped exception to this line, not a contradiction of it.
 - [ ] Do not add project/workspace configuration UI.
 - [ ] Do not port Agda executable download or version switching unless multiple WASM runtimes are intentionally supported.
 - [ ] Do not port VSCode-specific Markdown preview or editor-workspace keybindings.
@@ -72,6 +75,45 @@ runtime architecture.
 - [x] Port `browser-wasi-shim-memfs` into the main app behind the runtime backend selector.
 - [ ] Browser-test library loading with both runtime backends.
 - [ ] Decide whether `browser-wasi-shim-overlay-snapshot` is worth porting after the simpler memfs backend works.
+
+## Custom File Server / Library Source
+
+Goal: let users point the scratchpad at an alternate static-asset origin
+serving the same contract this project's own CI produces (WASM binaries,
+`.agdai` cache, library source archives, `agdai-manifest.json`), similar in
+spirit to JSCoq's package selector, without building an open package manager.
+Default behavior (the project's own GitHub Pages assets) must remain
+unaffected when no custom origin is configured.
+
+Design decisions from prior discussion, not yet implemented:
+
+- [ ] Add a "Custom file server URL" field to the Settings → Runtime and
+      libraries section (currently read-only).
+- [ ] Default to the project's own asset origin; only override fetch base
+      paths when a custom URL is explicitly set.
+- [ ] Distinguish two trust tiers for what a custom origin can override:
+  - [ ] Library data assets (`.agdai`, `agdai-manifest.json`, stdlib/cubical
+        source archives) — lower risk, data only, no code execution.
+  - [ ] The ALS WASM binary itself — full code execution risk; treat
+        separately from library data.
+- [ ] Before first use of a custom WASM origin, show a warning dialog that
+      states plainly that the binary will execute arbitrary WASM code in the
+      browser tab and that the user must trust the origin; show the exact
+      URL for the user to verify.
+- [ ] After the user accepts, compute a SHA-256 hash of the fetched WASM
+      bytes and store it (keyed by URL) as a trust-on-first-use pin.
+- [ ] On every subsequent load from that URL, recompute the hash and compare
+      against the pinned value; if it differs, re-show the warning dialog
+      instead of silently proceeding (catches supply-chain swaps after the
+      initial trust decision).
+- [ ] Document required CORS / `Cross-Origin-Resource-Policy` headers a
+      custom file server must set, given this app's COEP/COOP requirements
+      for `SharedArrayBuffer`.
+- [ ] Persist the custom URL and pinned hashes in browser local storage,
+      scoped separately from the existing shortcut-override storage.
+- [ ] Browser-test: default origin unaffected when no custom URL is set;
+      warning dialog appears on first custom WASM use; hash mismatch
+      re-triggers the warning on a later load.
 
 ## Goal Lifecycle and Editor State
 

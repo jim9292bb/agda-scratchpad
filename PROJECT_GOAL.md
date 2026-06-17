@@ -30,7 +30,10 @@ It should not prioritize:
 
 - editing multiple files;
 - project-wide file explorers;
-- package management UI;
+- an open package management UI (arbitrary user-supplied library formats,
+  dependency resolution, or a library registry) — a bounded, JSCoq-style
+  custom file-server-origin override is a planned, scoped exception; see
+  "Custom File Server / Library Source" in `ROADMAP.md`;
 - version switching unless multiple WASM runtimes are intentionally supported;
 - full VSCode feature parity;
 - compiling or deploying Agda projects;
