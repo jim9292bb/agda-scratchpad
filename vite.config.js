@@ -41,9 +41,6 @@ export default defineConfig(async ({ command }) => {
     APP_REPO_URL: JSON.stringify('https://github.com/agda-web/als-demo'),
     APP_COMMIT_ID: GIT_COMMIT_HASH,
   },
-  optimizeDeps: {
-    include: ['@runno/wasi', 'jszip'],
-  },
   clearScreen: false,
   plugins: [
     sveltekit(),
