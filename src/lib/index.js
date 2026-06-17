@@ -171,8 +171,13 @@ export function traceFetchProgress(resp, callback) {
 
   let loaded = 0, bytesTotal = -1
 
+  // Content-Length reports the on-the-wire (possibly compressed) size, but fetch()
+  // transparently decompresses the body, so `loaded` counts decompressed bytes.
+  // If the response is content-encoded, Content-Length is not a valid total.
+  const contentEncoding = resp.headers.get('content-encoding')
+  const isIdentityEncoding = contentEncoding == null || contentEncoding === 'identity'
   const contentLength = resp.headers.get('content-length')
-  if (contentLength != null) {
+  if (contentLength != null && isIdentityEncoding) {
     bytesTotal = Number.parseInt(contentLength, 10)
   }
 
