@@ -1,6 +1,6 @@
 # Agda Scratchpad
 
-**[Try it on GitHub Pages →](https://jim9292bb.github.io/agda-scratchpad/)**
+**[Try it live →](https://jim9292bb.github.io/agda-scratchpad/)**
 
 A browser-hosted, single-file Agda scratchpad for demonstrations, learning, and
 practice. Forked from [agda-web/als-demo](https://github.com/agda-web/als-demo).
