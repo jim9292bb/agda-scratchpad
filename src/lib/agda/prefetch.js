@@ -68,6 +68,8 @@ function parseTopLevelImports(src) {
  * @param {(paths: string[]) => void} prefetchFn  - backend.prefetchAgdai
  */
 export function triggerPrefetch(src, prefetchFn) {
+  // Debug-only escape hatch for measuring prefetch's effect; not a user-facing setting.
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('agda-scratchpad:debug-disable-prefetch') === '1') return
   if (!manifest) return
   const { graph, libOf } = manifest
 
