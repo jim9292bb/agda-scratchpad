@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-and-build:
+    name: Check, build, unit test
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22.x
+        cache: npm
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Type-check
+      run: npm run check
+
+    - name: Build
+      run: npm run build
+
+    - name: Unit tests
+      run: npm run test
+
+  browser-regression:
+    name: Browser regression (core-commands)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22.x
+        cache: npm
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Download assets
+      run: npm run setup
+
+    - name: Install agent-browser
+      run: npm install -g agent-browser@0.27.0
+
+    # Skip `agent-browser install --with-deps`: it pulls in fonts-noto-cjk,
+    # fonts-noto-color-emoji, and fonts-freefont-ttf, which are unnecessary
+    # for DOM/text-based assertions and can take 10+ minutes to download
+    # depending on the apt mirror (one observed run: 13m20s for a single
+    # 61 MB font package alone). Install only the actual headless-Chrome
+    # runtime libraries instead.
+    - name: Install Chrome runtime libraries
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          libxcb-shm0 libx11-xcb1 libx11-6 libxcb1 libxext6 libxrandr2 \
+          libxcomposite1 libxcursor1 libxdamage1 libxfixes3 libxi6 \
+          libgtk-3-0t64 libpangocairo-1.0-0 libpango-1.0-0 libatk1.0-0t64 \
+          libcairo-gobject2 libcairo2 libgdk-pixbuf-2.0-0 libxrender1 \
+          libasound2t64 libfreetype6 libfontconfig1 libdbus-1-3 libnss3 \
+          libnspr4 libatk-bridge2.0-0t64 libdrm2 libxkbcommon0 \
+          libatspi2.0-0t64 libcups2t64 libxshmfence1 libgbm1
+
+    - name: Cache Chrome binary
+      id: chrome-cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.agent-browser/browsers
+        key: agent-browser-chrome-${{ runner.os }}-0.27.0
+
+    - name: Install Chrome
+      if: steps.chrome-cache.outputs.cache-hit != 'true'
+      run: agent-browser install
+
+    - name: Start dev server
+      run: |
+        npm run dev -- --host 0.0.0.0 --force &
+        echo "waiting for dev server..."
+        for i in $(seq 1 60); do
+          if curl -fsS http://127.0.0.1:8099/ >/dev/null 2>&1; then
+            echo "dev server is up"
+            exit 0
+          fi
+          sleep 2
+        done
+        echo "dev server did not become ready in time" >&2
+        exit 1
+
+    - name: Run browser regression
+      run: npm run test:browser:core-commands
