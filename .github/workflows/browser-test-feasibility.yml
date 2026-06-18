@@ -1,0 +1,52 @@
+name: Browser Test Feasibility (experimental)
+
+# Manual-only: this is a feasibility experiment for running agent-browser
+# regressions in GitHub Actions, not yet part of the regular CI gate.
+# See ROADMAP.md / CODEX_WORKFLOWS.md discussion before wiring this into
+# push-triggered CI.
+on:
+  workflow_dispatch:
+
+jobs:
+  browser-test:
+    name: Run one browser regression script
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22.x
+        cache: npm
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Download assets
+      run: npm run setup
+
+    - name: Install agent-browser
+      run: npm install -g agent-browser@0.27.0
+
+    - name: Install browser binaries
+      run: agent-browser install --with-deps
+
+    - name: Start dev server
+      run: |
+        npm run dev -- --host 0.0.0.0 --force &
+        echo "waiting for dev server..."
+        for i in $(seq 1 60); do
+          if curl -fsS http://127.0.0.1:8099/ >/dev/null 2>&1; then
+            echo "dev server is up"
+            exit 0
+          fi
+          sleep 2
+        done
+        echo "dev server did not become ready in time" >&2
+        exit 1
+
+    - name: Run browser regression
+      run: npm run test:browser:core-commands
