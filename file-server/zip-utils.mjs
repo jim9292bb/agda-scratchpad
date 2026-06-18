@@ -1,20 +1,13 @@
 /**
- * Extracts stdlib-agdai.zip and cubical-agdai.zip into static/agdai/
- * so individual .agdai files can be served on demand from GitHub Pages.
- *
- * Run after `npm run setup` during CI build:
- *   node scripts/extract-agdai-for-serving.mjs
+ * Minimal ZIP extraction using only Node built-ins (no external dependency).
+ * Reads the central directory, decompresses each entry with DecompressionStream,
+ * and writes it to destDir, preserving the directory structure.
  */
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
-import { fileURLToPath } from 'node:url'
-import { join, dirname } from 'node:path'
+import { join } from 'node:path'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const STATIC = join(__dirname, '../static')
-const OUT = join(STATIC, 'agdai')
-
-async function extractZip(zipPath, destDir) {
+export async function extractZip(zipPath, destDir) {
   const buf = await readFile(zipPath)
   const bytes = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
   const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength)
@@ -88,22 +81,3 @@ async function extractZip(zipPath, destDir) {
   await Promise.all(tasks)
   return count
 }
-
-async function main() {
-  await mkdir(OUT, { recursive: true })
-
-  const stdlibZip  = join(STATIC, 'stdlib-agdai.zip')
-  const cubicalZip = join(STATIC, 'cubical-agdai.zip')
-
-  console.log('Extracting stdlib-agdai.zip...')
-  const stdlibCount = await extractZip(stdlibZip, join(OUT, 'stdlib'))
-  console.log(`  ${stdlibCount} files`)
-
-  console.log('Extracting cubical-agdai.zip...')
-  const cubicalCount = await extractZip(cubicalZip, join(OUT, 'cubical'))
-  console.log(`  ${cubicalCount} files`)
-
-  console.log('Done.')
-}
-
-main().catch(err => { console.error(err); process.exit(1) })

@@ -25,9 +25,6 @@ jobs:
     - name: Download assets
       run: npm run setup
 
-    - name: Extract .agdai files for on-demand serving
-      run: node scripts/extract-agdai-for-serving.mjs
-
     - name: Build
       run: NODE_ENV=production npm run build
 

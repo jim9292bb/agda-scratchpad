@@ -39,7 +39,7 @@ if [[ -d "$STATIC_DIR/agdai/stdlib" && -d "$STATIC_DIR/agdai/cubical" ]]; then
   echo "  static/agdai/ already extracted — skipping (delete it to re-extract)"
 else
   echo "Extracting .agdai files for on-demand serving..."
-  node "$SCRIPT_DIR/extract-agdai-for-serving.mjs"
+  node "$SCRIPT_DIR/../file-server/extract-agdai.mjs"
 fi
 
 echo "Done. Static assets are ready."

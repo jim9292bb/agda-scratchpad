@@ -2,7 +2,9 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": [
     "src/app.d.ts",
-    "static/coi-serviceworker.js"
+    "static/coi-serviceworker.js",
+    "file-server/extract-agdai.mjs",
+    "file-server/generate-manifest.mjs"
   ],
   "ignore": [
     "experiments/**"
