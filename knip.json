@@ -1,0 +1,15 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/app.d.ts",
+    "static/coi-serviceworker.js"
+  ],
+  "ignore": [
+    "experiments/**"
+  ],
+  "rules": {
+    "exports": "warn",
+    "types": "warn",
+    "binaries": "off"
+  }
+}

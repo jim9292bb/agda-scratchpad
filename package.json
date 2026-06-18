@@ -16,6 +16,7 @@
     "tsc": "tsc -b",
     "check": "npm run svelte-kit-sync && svelte-check --tsconfig ./tsconfigs/tsconfig.app.json",
     "check:watch": "npm run svelte-kit-sync && svelte-check --tsconfig ./tsconfigs/tsconfig.app.json --watch",
+    "lint:deps": "knip",
     "test:unit": "vitest",
     "test": "npm run test:unit -- --run",
     "test:browser": "npm run test:browser:core-commands && npm run test:browser:goal-lifecycle && npm run test:browser:damaged-goals && npm run test:browser:load-state && npm run test:browser:commands-panel && npm run test:browser:settings && npm run test:browser:shortcut-overrides && npm run test:browser:auto && npm run test:browser:queries && npm run test:browser:command-input && npm run test:browser:goal-details && npm run test:browser:libraries && npm run test:browser:library-cache-profile && npm run test:browser:errors && npm run test:browser:examples && npm run test:browser:unicode-input && npm run test:browser:unicode-lookup",
@@ -40,8 +41,8 @@
   "devDependencies": {
     "@sveltejs/kit": "^2.53.4",
     "@types/node": "^25.9.1",
-    "@typescript-eslint/types": "^8.60.0",
     "@vitejs/plugin-basic-ssl": "^2.1.4",
+    "knip": "^6.17.1",
     "svelte": "^5.53.8",
     "svelte-check": "^4.4.5",
     "typescript": "^5.9.3",
@@ -54,17 +55,17 @@
   "dependencies": {
     "@agda-web/browser_wasi_shim": "https://github.com/jim9292bb/agda-scratchpad/releases/download/deps/agda-web-browser_wasi_shim-0.4.2.tgz",
     "@andy0130tw/vscode-jsonrpc-esm": "^9.0.0-next-esm.9",
-    "@codemirror/autocomplete": "^6.20.1",
     "@codemirror/commands": "^6.10.2",
     "@codemirror/language": "^6.12.2",
-    "@codemirror/lint": "^6.9.5",
     "@codemirror/lsp-client": "^6.2.2",
     "@codemirror/state": "^6.5.4",
     "@codemirror/view": "^6.39.16",
+    "@lezer/highlight": "^1.2.1",
     "@sveltejs/adapter-static": "^3.0.10",
     "codemirror": "6.0.2",
     "comlink": "^4.4.2",
     "spsc": "^0.0.7",
+    "vscode-languageserver-protocol": "^3.17.5",
     "zod": "^4.3.6"
   }
 }
