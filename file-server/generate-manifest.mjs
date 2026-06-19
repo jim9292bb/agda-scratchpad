@@ -24,31 +24,20 @@
  */
 
 import { readFile, writeFile, mkdir, mkdtemp, readdir, cp, rm } from 'node:fs/promises'
-import { fileURLToPath } from 'node:url'
-import { join, dirname, relative, sep } from 'node:path'
+import { join, relative, sep } from 'node:path'
 import { tmpdir } from 'node:os'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { extractZip } from './zip-utils.mjs'
-import { LIBRARIES } from './libraries.mjs'
+import { REPO_ROOT, getSelectedLibraries } from './resolve-deploy-config.mjs'
 
 const execFileAsync = promisify(execFile)
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const STATIC = join(__dirname, '../static')
+const STATIC = join(REPO_ROOT, 'static')
 
 // Everything.agda must sit inside the library's own include path so its
 // module name ("Everything") resolves there, not at the extraction root.
 const EVERYTHING_FILENAME = 'Everything.agda'
-
-async function findOne(dir, pattern) {
-  const entries = await readdir(dir)
-  const matches = entries.filter(e => pattern.test(e))
-  if (matches.length !== 1) {
-    throw new Error(`expected exactly one match for ${pattern} in ${dir}, found: ${matches.join(', ') || '(none)'}`)
-  }
-  return matches[0]
-}
 
 async function findSoleSubdir(dir) {
   const entries = await readdir(dir, { withFileTypes: true })
@@ -97,11 +86,10 @@ function parseDot(dotFile, content) {
 async function buildLibraryGraph(lib, workDir) {
   const agdaiDir = join(STATIC, 'agdai', lib.name)
 
-  console.log(`[${lib.name}] extracting source archive...`)
-  const zipName = await findOne(STATIC, lib.sourceZipPattern)
+  console.log(`[${lib.name}@${lib.version}] extracting source archive...`)
   const extractDir = join(workDir, lib.name)
   await mkdir(extractDir, { recursive: true })
-  await extractZip(join(STATIC, zipName), extractDir)
+  await extractZip(join(STATIC, lib.sourceZipName), extractDir)
   const libRoot = join(extractDir, await findSoleSubdir(extractDir))
 
   const agdaLibFile = (await readdir(libRoot)).find(f => f.endsWith('.agda-lib'))
@@ -109,9 +97,14 @@ async function buildLibraryGraph(lib, workDir) {
   const include = parseAgdaLibInclude(await readFile(join(libRoot, agdaLibFile), 'utf8'))
   const includeDir = include ? join(libRoot, include) : libRoot
 
-  console.log(`[${lib.name}] copying prebuilt .agdai cache (include="${include || '.'}")...`)
-  const agdaVersion = await findSoleSubdir(join(agdaiDir, '_build'))
-  await cp(join(agdaiDir, '_build'), join(libRoot, '_build'), { recursive: true })
+  if (lib.agdaiZipName) {
+    console.log(`[${lib.name}] copying prebuilt .agdai cache (include="${include || '.'}")...`)
+    const agdaVersion = await findSoleSubdir(join(agdaiDir, '_build'))
+    await cp(join(agdaiDir, '_build'), join(libRoot, '_build'), { recursive: true })
+    console.log(`[${lib.name}] .agdai cache was built with Agda ${agdaVersion}`)
+  } else {
+    console.log(`[${lib.name}] no prebuilt .agdai cache configured; agda will type-check from source (slower).`)
+  }
 
   console.log(`[${lib.name}] generating Everything.agda...`)
   const agdaFiles = (await findAgdaFiles(includeDir)).sort()
@@ -139,7 +132,6 @@ async function buildLibraryGraph(lib, workDir) {
   const dotContent = await readFile(dotFile, 'utf8').catch(() => {
     throw new Error(`[${lib.name}] agda did not produce a dependency graph at ${dotFile}`)
   })
-  console.log(`[${lib.name}] agda version used for .agdai cache: ${agdaVersion}`)
   return parseDot(dotFile, dotContent)
 }
 
@@ -149,7 +141,7 @@ async function main() {
   try {
     const graphs = {}
     const libOf = {}
-    for (const lib of LIBRARIES) {
+    for (const lib of getSelectedLibraries()) {
       const edges = await buildLibraryGraph(lib, dir)
       for (const mod of Object.keys(edges)) libOf[mod] = lib.libKey
       Object.assign(graphs, edges)

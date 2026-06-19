@@ -8,19 +8,21 @@
  */
 
 import { mkdir } from 'node:fs/promises'
-import { fileURLToPath } from 'node:url'
-import { join, dirname } from 'node:path'
+import { join } from 'node:path'
 import { extractZip } from './zip-utils.mjs'
-import { LIBRARIES } from './libraries.mjs'
+import { REPO_ROOT, getSelectedLibraries } from './resolve-deploy-config.mjs'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const STATIC = join(__dirname, '../static')
+const STATIC = join(REPO_ROOT, 'static')
 const OUT = join(STATIC, 'agdai')
 
 async function main() {
   await mkdir(OUT, { recursive: true })
 
-  for (const lib of LIBRARIES) {
+  for (const lib of getSelectedLibraries()) {
+    if (!lib.agdaiZipName) {
+      console.log(`Skipping ${lib.name}@${lib.version}: no prebuilt .agdai cache configured.`)
+      continue
+    }
     console.log(`Extracting ${lib.agdaiZipName}...`)
     const count = await extractZip(join(STATIC, lib.agdaiZipName), join(OUT, lib.name))
     console.log(`  ${count} files`)

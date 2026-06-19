@@ -2,39 +2,35 @@ import type { SPSCReader } from 'spsc/reader'
 import type { SPSCWriter } from 'spsc/writer'
 import type { WASMLoadingProgress, PerformanceEntry, DriveProxyStats } from '$lib/worker/types'
 import { asset } from '$app/paths'
+import { DEPLOY_CONFIG } from '../../../deploy.config.mjs'
+import { ALS_CATALOG } from '../../../file-server/als-catalog.mjs'
 
 // ── Agda version types and WASM manifest ─────────────────────────────────────
+//
+// Which ALS versions this deployment bundles is configured in
+// deploy.config.mjs, not hardcoded here. Library/ALS compatibility is
+// configured there too, on each librarySet's compatibleAlsVersions — not on
+// these per-ALS-version entries.
 
-export const supportedAgdaVersions = ['2.6.4.3', '2.7.0.1', '2.8.0'] as const
-export type SupportedAgdaVersion = typeof supportedAgdaVersions[number]
+export const supportedAgdaVersions: readonly string[] = DEPLOY_CONFIG.alsVersions
+export type SupportedAgdaVersion = string
 
 interface AgdaVersionSpec {
   path: string
-  stdlibCandidates: string[]
   /** zip archive to unpack to the initial drive; not needed since 2.8.0 (use --setup instead) */
   dataPath?: string
 }
 
-export const agdaVersionMap: Record<SupportedAgdaVersion, AgdaVersionSpec> = {
-  ['__proto__' as any]: null,
-  '2.6.4.3': {
-    path: asset('/als-2.6.wasm'),
-    stdlibCandidates: ['2.0', '2.1'],
-    dataPath: asset('/agda-data.zip'),
-  },
-  '2.7.0.1': {
-    path: asset('/als-2.7ext.wasm'),
-    stdlibCandidates: ['2.1.1', '2.2', '2.3'],
-    dataPath: asset('/agda-data.zip'),
-  },
-  '2.8.0': {
-    path: asset('/als-2.8ext.wasm'),
-    stdlibCandidates: ['2.3'],
-    // agda-data.zip provides _build/2.8.0/agda/ .agdai cache for prim modules;
-    // sources are embedded in the WASM binary (written by --setup), but the
-    // .agdai cache must be supplied externally to avoid re-typechecking on every load.
-    dataPath: asset('/agda-data.zip'),
-  },
+export const agdaVersionMap: Record<SupportedAgdaVersion, AgdaVersionSpec> = Object.create(null)
+for (const version of DEPLOY_CONFIG.alsVersions) {
+  const entry = ALS_CATALOG.find(e => e.version === version)
+  if (!entry) {
+    throw new Error(`deploy.config.mjs lists ALS version "${version}" with no matching file-server/als-catalog.mjs entry`)
+  }
+  agdaVersionMap[version] = {
+    path: asset(`/${entry.wasmFilename}`),
+    dataPath: entry.dataZipName ? asset(`/${entry.dataZipName}`) : undefined,
+  }
 }
 
 export async function fetchWASMAndData(agdaVersion: SupportedAgdaVersion) {

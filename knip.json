@@ -4,7 +4,8 @@
     "src/app.d.ts",
     "static/coi-serviceworker.js",
     "file-server/extract-agdai.mjs",
-    "file-server/generate-manifest.mjs"
+    "file-server/generate-manifest.mjs",
+    "file-server/print-download-list.mjs"
   ],
   "ignore": [
     "experiments/**"

@@ -19,7 +19,12 @@
     "../src/**/*.svelte",
     "../tests/**/*.js",
     "../tests/**/*.ts",
-    "../tests/**/*.svelte"
+    "../tests/**/*.svelte",
+    // Outside src/, but imported by src/lib/runtime/interface.ts at build
+    // time. The rest of file-server/ is Node-only build tooling, not part
+    // of the app bundle, and isn't covered by any tsconfig (same as scripts/).
+    "../deploy.config.mjs",
+    "../file-server/als-catalog.mjs"
   ],
   "exclude": [
     // copied from .svelte-kit/tsconfig.json
