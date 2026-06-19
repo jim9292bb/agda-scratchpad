@@ -30,32 +30,16 @@ import { tmpdir } from 'node:os'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { extractZip } from './zip-utils.mjs'
+import { LIBRARIES } from './libraries.mjs'
 
 const execFileAsync = promisify(execFile)
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const STATIC = join(__dirname, '../static')
 
-const LIBRARIES = [
-  {
-    name: 'stdlib',
-    zipPattern: /^agda-stdlib-.*\.zip$/,
-    agdaiDir: join(STATIC, 'agdai/stdlib'),
-    libKey: 's',
-    // Everything.agda must sit inside the library's own include path so its
-    // module name ("Everything") resolves there, not at the extraction root.
-    everythingRelToInclude: 'Everything.agda',
-    optionsPragma: '{-# OPTIONS --rewriting --guardedness --sized-types #-}',
-  },
-  {
-    name: 'cubical',
-    zipPattern: /^agda-cubical-.*\.zip$/,
-    agdaiDir: join(STATIC, 'agdai/cubical'),
-    libKey: 'c',
-    everythingRelToInclude: 'Everything.agda',
-    optionsPragma: '{-# OPTIONS --cubical --guardedness #-}',
-  },
-]
+// Everything.agda must sit inside the library's own include path so its
+// module name ("Everything") resolves there, not at the extraction root.
+const EVERYTHING_FILENAME = 'Everything.agda'
 
 async function findOne(dir, pattern) {
   const entries = await readdir(dir)
@@ -111,8 +95,10 @@ function parseDot(dotFile, content) {
 
 /** Builds Everything.agda, runs `agda --dependency-graph`, returns its parsed edge map. */
 async function buildLibraryGraph(lib, workDir) {
+  const agdaiDir = join(STATIC, 'agdai', lib.name)
+
   console.log(`[${lib.name}] extracting source archive...`)
-  const zipName = await findOne(STATIC, lib.zipPattern)
+  const zipName = await findOne(STATIC, lib.sourceZipPattern)
   const extractDir = join(workDir, lib.name)
   await mkdir(extractDir, { recursive: true })
   await extractZip(join(STATIC, zipName), extractDir)
@@ -124,12 +110,12 @@ async function buildLibraryGraph(lib, workDir) {
   const includeDir = include ? join(libRoot, include) : libRoot
 
   console.log(`[${lib.name}] copying prebuilt .agdai cache (include="${include || '.'}")...`)
-  const agdaVersion = await findSoleSubdir(join(lib.agdaiDir, '_build'))
-  await cp(join(lib.agdaiDir, '_build'), join(libRoot, '_build'), { recursive: true })
+  const agdaVersion = await findSoleSubdir(join(agdaiDir, '_build'))
+  await cp(join(agdaiDir, '_build'), join(libRoot, '_build'), { recursive: true })
 
   console.log(`[${lib.name}] generating Everything.agda...`)
   const agdaFiles = (await findAgdaFiles(includeDir)).sort()
-  const everythingPath = join(includeDir, lib.everythingRelToInclude)
+  const everythingPath = join(includeDir, EVERYTHING_FILENAME)
   const imports = agdaFiles.map(f => `import ${pathToModuleName(f, includeDir)}`)
   await writeFile(everythingPath, `${lib.optionsPragma}\nmodule Everything where\n${imports.join('\n')}\n`)
 

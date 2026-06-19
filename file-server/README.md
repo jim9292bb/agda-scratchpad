@@ -6,18 +6,30 @@ manifest (`static/agdai-manifest.json`) used to prefetch them in parallel.
 
 This is a clearly-separated subdirectory within this repo, not a standalone
 package. It may be split into its own repository later if there's real demand
-for forking just this piece (e.g. to host a custom library set behind the
-planned "Custom File Server / Library Source" Settings feature — see
-`ROADMAP.md`); see that discussion before assuming a split is needed.
+for forking just this piece; see ROADMAP.md "Curated Multi-Library Support"
+for the current plan to extend this to libraries beyond stdlib/cubical
+(agda-categories, plfa, agda-unimath, 1lab) before assuming a split is needed.
 
 ## Scripts
 
+### `libraries.mjs`
+
+The shared spec for every library both scripts below operate on. Each entry
+needs: `name`, `libKey` (a short tag stored in the manifest), `agdaiZipName`
+(the prebuilt `.agdai` cache zip in `static/`), `sourceZipPattern` (regex to
+find the source archive in `static/`), and `optionsPragma` (the `{-# OPTIONS #-}`
+line needed to scope-check the library's `Everything.agda`). Adding a library
+that follows the same shape as stdlib/cubical (one `.agda-lib` at the source
+archive root, a prebuilt `.agdai` cache zip) should only require adding an
+entry here — see ROADMAP.md before adding agda-categories/plfa/agda-unimath/1lab,
+since their exact `.agda-lib` layout hasn't been confirmed yet.
+
 ### `extract-agdai.mjs`
 
-Extracts the prebuilt `.agdai` cache zips (`stdlib-agdai.zip`,
-`cubical-agdai.zip`, downloaded by `npm run setup`) into `static/agdai/`, so
-individual `.agdai` files can be served on demand. Runs automatically as part
-of `npm run setup` (see `scripts/download-assets.sh`); only needs Node.js.
+Extracts each library's prebuilt `.agdai` cache zip (downloaded by
+`npm run setup`) into `static/agdai/<name>/`, so individual `.agdai` files can
+be served on demand. Runs automatically as part of `npm run setup` (see
+`scripts/download-assets.sh`); only needs Node.js.
 
 ```sh
 node file-server/extract-agdai.mjs
@@ -25,14 +37,15 @@ node file-server/extract-agdai.mjs
 
 ### `generate-manifest.mjs`
 
-Generates `static/agdai-manifest.json`: a module dependency graph for the
-standard library and Cubical Agda, used by the browser runtime
-(`src/lib/agda/prefetch.js`) to fetch all `.agdai` files a source buffer needs
-in parallel, instead of one at a time as ALS requests them during `Cmd_load`.
+Generates `static/agdai-manifest.json`: a module dependency graph across all
+configured libraries, used by the browser runtime (`src/lib/agda/prefetch.js`)
+to fetch all `.agdai` files a source buffer needs in parallel, instead of one
+at a time as ALS requests them during `Cmd_load`.
 
 **This is a maintenance script, not part of the regular build.** Run it
-manually and commit the resulting `static/agdai-manifest.json` whenever the
-bundled standard library, Cubical, or Agda version changes.
+manually and commit the resulting `static/agdai-manifest.json` whenever a
+configured library's version or the Agda version changes, or when a library
+is added to/removed from `libraries.mjs`.
 
 Prerequisites:
 
