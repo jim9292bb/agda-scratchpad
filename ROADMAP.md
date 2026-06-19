@@ -76,44 +76,46 @@ runtime architecture.
 - [ ] Browser-test library loading with both runtime backends.
 - [ ] Decide whether `browser-wasi-shim-overlay-snapshot` is worth porting after the simpler memfs backend works.
 
-## Custom File Server / Library Source
+## Curated Multi-Library Support
 
-Goal: let users point the scratchpad at an alternate static-asset origin
-serving the same contract this project's own CI produces (WASM binaries,
-`.agdai` cache, library source archives, `agdai-manifest.json`), similar in
-spirit to JSCoq's package selector, without building an open package manager.
-Default behavior (the project's own GitHub Pages assets) must remain
-unaffected when no custom origin is configured.
+Goal: let users pick from a small, project-curated set of well-known Agda
+libraries beyond stdlib/cubical — concrete motivating examples: `agda/agda-categories`,
+`plfa/plfa.github.io`, `UniMath/agda-unimath`, `plt-amy/1lab` (verify exact repo
+coordinates before implementing), and multiple versions of a given library.
+This replaces an earlier, more open-ended "point at any custom file server
+URL" design (see git history of this file). That design was scoped for
+letting users self-host an *untrusted* alternate origin, which needs a
+trust/warning/hash-pinning model. The actual need here doesn't require
+that: every library in the curated set is still built and served by this
+project's own CI from the same trusted origin as stdlib/cubical today —
+users are choosing from a menu, not supplying an arbitrary external server.
+No new trust boundary, no hash pinning, no warning dialogs needed.
 
-Design decisions from prior discussion, not yet implemented:
+Not yet implemented:
 
-- [ ] Add a "Custom file server URL" field to the Settings → Runtime and
-      libraries section (currently read-only).
-- [ ] Default to the project's own asset origin; only override fetch base
-      paths when a custom URL is explicitly set.
-- [ ] Distinguish two trust tiers for what a custom origin can override:
-  - [ ] Library data assets (`.agdai`, `agdai-manifest.json`, stdlib/cubical
-        source archives) — lower risk, data only, no code execution.
-  - [ ] The ALS WASM binary itself — full code execution risk; treat
-        separately from library data.
-- [ ] Before first use of a custom WASM origin, show a warning dialog that
-      states plainly that the binary will execute arbitrary WASM code in the
-      browser tab and that the user must trust the origin; show the exact
-      URL for the user to verify.
-- [ ] After the user accepts, compute a SHA-256 hash of the fetched WASM
-      bytes and store it (keyed by URL) as a trust-on-first-use pin.
-- [ ] On every subsequent load from that URL, recompute the hash and compare
-      against the pinned value; if it differs, re-show the warning dialog
-      instead of silently proceeding (catches supply-chain swaps after the
-      initial trust decision).
-- [ ] Document required CORS / `Cross-Origin-Resource-Policy` headers a
-      custom file server must set, given this app's COEP/COOP requirements
-      for `SharedArrayBuffer`.
-- [ ] Persist the custom URL and pinned hashes in browser local storage,
-      scoped separately from the existing shortcut-override storage.
-- [ ] Browser-test: default origin unaffected when no custom URL is set;
-      warning dialog appears on first custom WASM use; hash mismatch
-      re-triggers the warning on a later load.
+- [ ] Generalize `file-server/generate-manifest.mjs` and `extract-agdai.mjs`
+      to take a library spec (source archive URL, `.agda-lib` include path,
+      OPTIONS pragma, Agda version) instead of the current hardcoded
+      stdlib/cubical pair, so adding a library is a config addition, not a
+      script rewrite.
+- [ ] Add specs for agda-categories, plfa, agda-unimath, 1lab (confirm each
+      library's actual `.agda-lib` name/include path/required OPTIONS first).
+- [ ] Support multiple versions of the same library concurrently (today
+      `AGDA_VERSION` and library version are both implicitly singular in
+      `prefetch.js`'s path construction and the manifest schema).
+- [ ] Do not eagerly download every curated library during `npm run setup` —
+      stdlib+cubical alone are already ~600 MB on disk. Extend the on-demand
+      `.agdai` fetch + prefetch-manifest mechanism (built this session for
+      stdlib/cubical) to additional libraries, fetched only once a user
+      actually selects one.
+- [ ] Add a library picker to Settings → Runtime and libraries (currently
+      read-only) — a selection control, not a URL input field.
+- [ ] Decide how multiple selected libraries combine in the Agda library
+      config written to the VFS (can a session use more than one
+      non-stdlib library at once, e.g. agda-categories + cubical?).
+- [ ] Browser-test: selecting a library fetches and registers it; an
+      unselected library's modules fail to resolve; switching libraries
+      mid-session behaves predictably (probably: requires a restart).
 
 ## Goal Lifecycle and Editor State
 

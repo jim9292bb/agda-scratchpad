@@ -31,9 +31,12 @@ It should not prioritize:
 - editing multiple files;
 - project-wide file explorers;
 - an open package management UI (arbitrary user-supplied library formats,
-  dependency resolution, or a library registry) — a bounded, JSCoq-style
-  custom file-server-origin override is a planned, scoped exception; see
-  "Custom File Server / Library Source" in `ROADMAP.md`;
+  dependency resolution, a library registry, or letting users point at an
+  untrusted external file server) — picking among a small, project-curated
+  set of well-known libraries (e.g. agda-categories, plfa, agda-unimath,
+  1lab, in addition to stdlib/cubical) is a planned, scoped exception, since
+  every option in that set is still built and served from this project's own
+  trusted origin; see "Curated Multi-Library Support" in `ROADMAP.md`;
 - version switching unless multiple WASM runtimes are intentionally supported;
 - full VSCode feature parity;
 - compiling or deploying Agda projects;
