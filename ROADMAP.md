@@ -128,23 +128,35 @@ Done:
       generalization, after adding deploy.config.mjs, and again after the
       profiles flattening.
 
+Done (continued):
+
+- [x] `src/lib/worker/als-wasi-shim.ts`'s `buildFilesystem()` no longer
+      hardcodes stdlib/cubical: it takes a generic `LibraryToLoad[]` and
+      generates `~/.config/agda/libraries`/`defaults` from each library's
+      `folderName`/`agdaLibFile`/`libraryName` (added as explicit fields on
+      `file-server/libraries.mjs` catalog entries, alongside
+      `archiveRootPrefix`/`includeSubpath` for the generic zip-extraction
+      path-rewrite). This is the actual mechanism that combines multiple
+      libraries for one Agda session — Agda's own `.agda-lib`
+      `depend:`/`flags:` resolution handles the rest; `deploy.config.mjs`'s
+      job is only to decide which `.agda-lib` paths get registered.
+- [x] Added a "Deployment profile" `<select>` to Settings → Runtime and
+      libraries (previously a static read-only display), populated from
+      `interface.ts`'s `deployProfiles` export. `AgdaController.switchProfile()`
+      terminates the current worker and restarts with the new profile's ALS
+      version + libraries; the backend is now constructed lazily since it
+      depends on the active profile.
+- [x] `src/lib/agda/prefetch.js`'s `AGDA_VERSION` constant is gone;
+      `triggerPrefetch()` takes the active profile's resolved libraries and
+      builds each `.agdai` path from that library's own
+      `agdaiCacheVersion`/`folderName`/`includeSubpath`, scoped to the
+      active profile's `libKey`s.
+- [x] Verified via the real browser regression suites (not just
+      `npm run check`/`build`): `test:browser:core-commands` and
+      `test:browser:library-loads` both PASS against this refactor.
+
 Not yet implemented:
 
-- [ ] **`src/lib/worker/als-wasi-shim.ts` still hardcodes the Agda library
-      registration**: it writes a fixed `home/root/.config/agda/libraries`
-      (`stdlib/standard-library.agda-lib\ncubical/cubical.agda-lib\n`) and
-      `defaults` (`standard-library\ncubical-0.9\n`), completely disconnected
-      from `deploy.config.mjs`. This needs to be generated from the
-      currently-active profile's `libraries` list instead — for each
-      selected library, discover its `.agda-lib` filename (same `readdir`
-      approach `generate-manifest.mjs` already uses, or add an explicit
-      `agdaLibFile` field to `file-server/libraries.mjs` so both build-time
-      and runtime agree on it without each re-discovering it) and write one
-      `libraries`/`defaults` line per library. This is the actual mechanism
-      that combines multiple libraries for one Agda session — see the
-      `.agda-lib`/`depend:`/`flags:` discussion elsewhere in project notes;
-      `deploy.config.mjs`'s job is only to decide *which* `.agda-lib` paths
-      get registered, not to reimplement Agda's own dependency resolution.
 - [ ] Add specs for agda-categories, plfa, agda-unimath, 1lab to
       `file-server/libraries.mjs` (confirm each library's actual `.agda-lib`
       name/include path/required OPTIONS first), and add corresponding
@@ -154,20 +166,17 @@ Not yet implemented:
       Extend the on-demand `.agdai` fetch + prefetch-manifest mechanism
       (built this session for stdlib/cubical) so a library only gets
       fetched once a user actually selects a profile that includes it.
-- [ ] Enable a (currently nonexistent — Settings shows a static, disabled
-      `Stdlib version`/`Agda version` display today) single "Deployment
-      profile" dropdown in Settings → Runtime and libraries, populated from
-      `interface.ts`'s `deployProfiles` export, so end users — not just the
-      deployer — can switch between whichever profiles the deployer
-      configured. Switching requires a session restart (new WASM instance,
-      re-registered VFS via the als-wasi-shim.ts fix above).
-- [ ] `src/lib/agda/prefetch.js`'s `AGDA_VERSION` constant needs to track the
-      currently-active profile's `alsVersion` instead of being hardcoded,
-      and its manifest lookups need to scope to the currently-active
-      profile's `libraries`.
 - [ ] Browser-test: selecting a profile fetches and registers its libraries;
       a library outside the active profile fails to resolve; switching
-      profiles mid-session behaves predictably (restart).
+      profiles mid-session behaves predictably (restart). (Manually
+      smoke-tested via agent-browser this session; not yet a committed
+      `scripts/browser-test-*.sh` script.)
+- [ ] `scripts/browser-test-settings-dialog.sh` looks up the Settings
+      toggle button by text content (`wait_for_button "Settings"`), but the
+      actual button is icon-only (`aria-label="Settings"`, no text) — the
+      test has likely never passed against the current UI. Pre-existing,
+      unrelated to the profile-switcher work above; needs its own fix
+      (match by `aria-label` instead of text content).
 
 ## Goal Lifecycle and Editor State
 
