@@ -6,7 +6,8 @@
   "scripts": {
     "build": "node src/build-agdai.mjs",
     "build:stdlib": "node src/build-agdai.mjs --stdlib-only",
-    "build:cubical": "node src/build-agdai.mjs --cubical-only"
+    "build:cubical": "node src/build-agdai.mjs --cubical-only",
+    "build:agda-categories": "node src/build-agdai.mjs --agda-categories-only"
   },
   "dependencies": {
     "jszip": "^3.10.1"

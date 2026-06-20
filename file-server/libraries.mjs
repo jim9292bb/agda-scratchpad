@@ -86,8 +86,9 @@ export const LIBRARY_CATALOG = [
     agdaLibFile: 'agda-categories.agda-lib',
     libraryName: 'agda-categories',
     // Targets Agda 2.8.0 + standard-library-2.3 (per the v0.3.0 release notes).
-    // No prebuilt .agdai cache yet — agdaiCacheVersion/agdaiZipUrl/agdaiZipName
-    // intentionally omitted; it type-checks from source on every load.
+    agdaiCacheVersion: '2.8.0',
+    agdaiZipUrl: `${CACHE_2_8_0}/agda-categories-agdai.zip`,
+    agdaiZipName: 'agda-categories-agdai.zip',
     //
     // No options here (unlike stdlib/cubical): not every file in this library
     // declares --without-K/--safe (e.g. Categories.Adjoint.Parametric has no

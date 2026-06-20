@@ -160,8 +160,6 @@ Done (agda-categories, second library proving the system generalizes):
 - [x] Added `agda-categories` v0.3.0 (targets Agda 2.8.0 + standard-library-2.3,
       per its release notes) to `file-server/libraries.mjs`, and a
       `stdlib-2.3-agda-categories-0.3.0-als-2.8.0` profile to `deploy.config.mjs`.
-      No prebuilt `.agdai` cache yet (`agdaiZipUrl`/`agdaiZipName` omitted) —
-      it type-checks from source on every load.
 - [x] `file-server/generate-manifest.mjs` now extracts every selected
       library's source upfront and builds one shared real `--library-file`
       registering all of them (previously each library was checked against
@@ -195,6 +193,25 @@ Done (agda-categories, second library proving the system generalizes):
       a clean `Load finished.` with no library-resolution errors. Verified
       no regression in `test:browser:libraries` / `test:browser:library-cache-profile`
       (the stdlib+cubical profile) after these changes.
+- [x] Prebuilt an `.agdai` cache for agda-categories via
+      `experiments/build-library` (`npm run build:agda-categories`).
+      `--build-library`'s 600s timeout was too short for a full type-check of
+      ~500 modules depending on stdlib (bumped to 1800s). Also: `--build-library`
+      writes interfaces for *every* module it checks, including depended-on
+      libraries' (here, some stdlib modules), into the same HOME-rooted
+      `_build/` tree as the library being built — `collectAgdai()` now only
+      keeps a `.agdai` if a matching `.agda` source exists under that
+      library's own extracted root, so the result is exactly agda-categories'
+      502 modules (verified 1:1 against its source tree — no missing, no
+      foreign leakage). Uploaded as `agda-categories-agdai.zip` to the
+      `cache-2.8.0` GitHub release alongside stdlib/cubical's, and wired into
+      `file-server/libraries.mjs`'s `agdaiCacheVersion`/`agdaiZipUrl`/
+      `agdaiZipName` — `print-download-list.mjs`/`extract-agdai.mjs` already
+      read these generically, no script changes needed there. Verified: first
+      `Cmd_load` of the agda-categories smoke fixture now takes ~4.1s
+      (browser, cache-backed) instead of from-source recompilation; manifest
+      regenerated from the cache-backed run is byte-identical to the
+      from-source one.
 
 Not yet implemented:
 
@@ -202,14 +219,10 @@ Not yet implemented:
       (confirm each library's actual `.agda-lib` name/include path/required
       OPTIONS first), and add corresponding profile(s) to `deploy.config.mjs`.
 - [ ] Do not eagerly download every configured profile's libraries during
-      `npm run setup` — stdlib+cubical alone are already ~600 MB on disk.
-      Extend the on-demand `.agdai` fetch + prefetch-manifest mechanism
-      (built this session for stdlib/cubical) so a library only gets
-      fetched once a user actually selects a profile that includes it.
-- [ ] Prebuild an `.agdai` cache for agda-categories (see
-      `experiments/build-library`) — it currently type-checks from source on
-      every load, which is slow given it depends on stdlib and has ~500
-      modules.
+      `npm run setup` — stdlib+cubical+agda-categories are already ~700+ MB
+      on disk. Extend the on-demand `.agdai` fetch + prefetch-manifest
+      mechanism (built this session for stdlib/cubical) so a library only
+      gets fetched once a user actually selects a profile that includes it.
 - [ ] `scripts/browser-test-settings-dialog.sh` looks up the Settings
       toggle button by text content (`wait_for_button "Settings"`), but the
       actual button is icon-only (`aria-label="Settings"`, no text) — the
