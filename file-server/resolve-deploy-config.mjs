@@ -14,30 +14,23 @@ export { DEPLOY_CONFIG }
 
 export const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
-/** Resolved ALS catalog entries for every version listed in deploy.config.mjs. */
+/** Resolved, deduplicated ALS catalog entries referenced by any configured profile. */
 export function getSelectedAlsVersions() {
-  return DEPLOY_CONFIG.alsVersions.map(findAls)
+  const seen = new Map()
+  for (const profile of DEPLOY_CONFIG.profiles) {
+    if (!seen.has(profile.alsVersion)) seen.set(profile.alsVersion, findAls(profile.alsVersion))
+  }
+  return [...seen.values()]
 }
 
-/** Resolved, deduplicated library catalog entries referenced by any configured librarySet. */
+/** Resolved, deduplicated library catalog entries referenced by any configured profile. */
 export function getSelectedLibraries() {
   const seen = new Map()
-  for (const set of DEPLOY_CONFIG.librarySets) {
-    for (const { name, version } of set.libraries) {
+  for (const profile of DEPLOY_CONFIG.profiles) {
+    for (const { name, version } of profile.libraries) {
       const key = `${name}@${version}`
       if (!seen.has(key)) seen.set(key, findLibrary(name, version))
     }
   }
   return [...seen.values()]
-}
-
-// Validate every librarySet's compatibleAlsVersions against alsVersions up front.
-for (const set of DEPLOY_CONFIG.librarySets) {
-  for (const alsVersion of set.compatibleAlsVersions) {
-    if (!DEPLOY_CONFIG.alsVersions.includes(alsVersion)) {
-      throw new Error(
-        `deploy.config.mjs: librarySet "${set.id}" lists compatibleAlsVersions "${alsVersion}", ` +
-        `but that version is not in alsVersions: ${JSON.stringify(DEPLOY_CONFIG.alsVersions)}`)
-    }
-  }
 }

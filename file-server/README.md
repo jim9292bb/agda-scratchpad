@@ -26,8 +26,8 @@ project's own deployment unchanged.
 
 Catalog of every library *version* this project knows how to build a
 `.agdai` cache and dependency manifest for. `deploy.config.mjs`'s
-`librarySets` reference entries here by `name`+`version`. Each entry needs:
-`name`, `version`, `libKey` (short tag stored in the manifest),
+`profiles[].libraries` reference entries here by `name`+`version`. Each entry
+needs: `name`, `version`, `libKey` (short tag stored in the manifest),
 `sourceArchiveUrl`/`sourceZipName` (where to download the source from and
 what to call it locally), `agdaiZipUrl`/`agdaiZipName` (optional — a prebuilt
 `.agdai` cache; without one the library still works, just type-checks from
@@ -36,25 +36,26 @@ to scope-check the library's generated `Everything.agda`).
 
 Adding a library/version that follows the same shape as stdlib/cubical (one
 `.agda-lib` at the source archive root) should only require a new catalog
-entry plus a reference to it from `deploy.config.mjs` — see ROADMAP.md before
-adding agda-categories/plfa/agda-unimath/1lab, since their exact `.agda-lib`
-layout and type-theory compatibility with existing entries hasn't been
-confirmed yet.
+entry plus a reference to it from a `deploy.config.mjs` profile — see
+ROADMAP.md before adding agda-categories/plfa/agda-unimath/1lab, since their
+exact `.agda-lib` layout and type-theory compatibility with existing entries
+hasn't been confirmed yet.
 
 ### `als-catalog.mjs`
 
 Catalog of ALS/Agda WASM builds this project knows how to fetch and run.
-`deploy.config.mjs`'s `alsVersions` references entries here by version.
-Library/ALS compatibility is *not* declared here — it's declared the other
-way around, on each `librarySet`'s `compatibleAlsVersions` in
-`deploy.config.mjs`, which is the one place deployers configure it.
+`deploy.config.mjs`'s `profiles[].alsVersion` references an entry here by
+version. There's no separate library/ALS compatibility table — each profile
+*is* a validated (alsVersion, libraries) pairing, so there's nothing to
+cross-reference.
 
 ### `resolve-deploy-config.mjs`
 
 Resolves `deploy.config.mjs` against both catalogs above, validating every
 reference up front (a typo fails fast with a clear error). Exports
-`getSelectedLibraries()` and `getSelectedAlsVersions()`, used by the scripts
-below instead of reading the catalogs or config directly.
+`getSelectedLibraries()` and `getSelectedAlsVersions()` — deduplicated across
+all configured profiles — used by the scripts below instead of reading the
+catalogs or config directly.
 
 ## Scripts
 

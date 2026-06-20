@@ -91,57 +91,83 @@ project's own CI from the same trusted origin as stdlib/cubical today —
 users are choosing from a menu, not supplying an arbitrary external server.
 No new trust boundary, no hash pinning, no warning dialogs needed.
 
-Self-deployers configure both which ALS/Agda versions and which library
-combinations their deployment bundles via `deploy.config.mjs` (repo root) —
-see that file's comments for the schema (`alsVersions`, `librarySets`).
+Self-deployers configure which Agda environment combinations their
+deployment offers via `deploy.config.mjs` (repo root) — see that file's
+comments for the schema. The schema is a flat list of `profiles`; each
+profile is a complete, ready-to-use combination (one ALS version + a
+compatible library set), not a separate "pick an ALS version" + "pick a
+library set" pair of independent choices — every option is valid by
+construction, so there's nothing to cross-reference or filter in the UI.
 Everything under `file-server/` reads from it via
 `file-server/resolve-deploy-config.mjs` instead of hardcoding stdlib/cubical.
-Library/ALS-version compatibility is configured on each `librarySet`'s
-`compatibleAlsVersions` field — the deployer declares it, nothing checks it
-automatically. The default config reproduces this project's own deployment
-(ALS 2.8.0, stdlib 2.3 + Cubical 0.9) unchanged.
+The default config reproduces this project's own deployment (ALS 2.8.0,
+stdlib 2.3 + Cubical 0.9, as a single profile) unchanged.
 
 Done:
 
 - [x] Generalize `file-server/generate-manifest.mjs` and `extract-agdai.mjs`
       to read a library spec catalog (`file-server/libraries.mjs`) instead of
-      the hardcoded stdlib/cubical pair. Verified behavior-preserving: the
-      regenerated `static/agdai-manifest.json` was byte-for-byte identical
-      to the pre-refactor version (2232 modules, 292 KB) both after this step
-      and after the deploy-config step below.
+      the hardcoded stdlib/cubical pair.
 - [x] Add `deploy.config.mjs` + `file-server/als-catalog.mjs` +
       `file-server/resolve-deploy-config.mjs`: a single config file drives
       which ALS versions and library combinations get downloaded
       (`scripts/download-assets.sh` → `file-server/print-download-list.mjs`),
       cached (`extract-agdai.mjs`), and exposed to the runtime
       (`src/lib/runtime/interface.ts`'s `agdaVersionMap`).
-- [x] `interface.ts`'s `agdaVersionMap`/`supportedAgdaVersions` are now
-      derived from `deploy.config.mjs` instead of a hardcoded 3-entry map;
-      `stdlibCandidates` (unused elsewhere) removed in favor of
-      `librarySet.compatibleAlsVersions`.
+- [x] `interface.ts`'s `agdaVersionMap`/`supportedAgdaVersions` derived from
+      `deploy.config.mjs` instead of a hardcoded 3-entry map; dropped the
+      unused `stdlibCandidates` field.
+- [x] Flattened the schema from independent `alsVersions` + `librarySets`
+      (with a `compatibleAlsVersions` cross-reference) to a single flat
+      `profiles` list, each a self-contained (alsVersion, libraries) pairing —
+      removes the possibility of the UI ever presenting an invalid pairing
+      and the need for compatibility-filtering logic.
+- [x] Verified behavior-preserving at each step: regenerated
+      `static/agdai-manifest.json` was byte-for-byte identical to the
+      pre-refactor version (2232 modules, 292 KB) after the library-spec
+      generalization, after adding deploy.config.mjs, and again after the
+      profiles flattening.
 
 Not yet implemented:
 
+- [ ] **`src/lib/worker/als-wasi-shim.ts` still hardcodes the Agda library
+      registration**: it writes a fixed `home/root/.config/agda/libraries`
+      (`stdlib/standard-library.agda-lib\ncubical/cubical.agda-lib\n`) and
+      `defaults` (`standard-library\ncubical-0.9\n`), completely disconnected
+      from `deploy.config.mjs`. This needs to be generated from the
+      currently-active profile's `libraries` list instead — for each
+      selected library, discover its `.agda-lib` filename (same `readdir`
+      approach `generate-manifest.mjs` already uses, or add an explicit
+      `agdaLibFile` field to `file-server/libraries.mjs` so both build-time
+      and runtime agree on it without each re-discovering it) and write one
+      `libraries`/`defaults` line per library. This is the actual mechanism
+      that combines multiple libraries for one Agda session — see the
+      `.agda-lib`/`depend:`/`flags:` discussion elsewhere in project notes;
+      `deploy.config.mjs`'s job is only to decide *which* `.agda-lib` paths
+      get registered, not to reimplement Agda's own dependency resolution.
 - [ ] Add specs for agda-categories, plfa, agda-unimath, 1lab to
       `file-server/libraries.mjs` (confirm each library's actual `.agda-lib`
       name/include path/required OPTIONS first), and add corresponding
-      `librarySet` entries to `deploy.config.mjs`.
-- [ ] Do not eagerly download every curated library during `npm run setup` —
-      stdlib+cubical alone are already ~600 MB on disk. Extend the on-demand
-      `.agdai` fetch + prefetch-manifest mechanism (built this session for
-      stdlib/cubical) so a library only gets fetched once a user actually
-      selects its `librarySet`.
-- [ ] Enable the (currently `disabled`) ALS version and library-set
-      dropdowns in Settings → Runtime and libraries, so end users — not just
-      the deployer — can switch between whichever combinations the deployer
-      configured. Switching either requires a session restart (new WASM
-      instance, re-registered VFS).
+      profile(s) to `deploy.config.mjs`.
+- [ ] Do not eagerly download every configured profile's libraries during
+      `npm run setup` — stdlib+cubical alone are already ~600 MB on disk.
+      Extend the on-demand `.agdai` fetch + prefetch-manifest mechanism
+      (built this session for stdlib/cubical) so a library only gets
+      fetched once a user actually selects a profile that includes it.
+- [ ] Enable a (currently nonexistent — Settings shows a static, disabled
+      `Stdlib version`/`Agda version` display today) single "Deployment
+      profile" dropdown in Settings → Runtime and libraries, populated from
+      `interface.ts`'s `deployProfiles` export, so end users — not just the
+      deployer — can switch between whichever profiles the deployer
+      configured. Switching requires a session restart (new WASM instance,
+      re-registered VFS via the als-wasi-shim.ts fix above).
 - [ ] `src/lib/agda/prefetch.js`'s `AGDA_VERSION` constant needs to track the
-      currently-active ALS version instead of being hardcoded, and its
-      manifest lookups need to scope to the currently-active `librarySet`.
-- [ ] Browser-test: selecting a library set fetches and registers it; an
-      unselected library's modules fail to resolve; switching ALS version or
-      library set mid-session behaves predictably (restart).
+      currently-active profile's `alsVersion` instead of being hardcoded,
+      and its manifest lookups need to scope to the currently-active
+      profile's `libraries`.
+- [ ] Browser-test: selecting a profile fetches and registers its libraries;
+      a library outside the active profile fails to resolve; switching
+      profiles mid-session behaves predictably (restart).
 
 ## Goal Lifecycle and Editor State
 

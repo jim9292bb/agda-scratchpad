@@ -5,14 +5,23 @@ import { asset } from '$app/paths'
 import { DEPLOY_CONFIG } from '../../../deploy.config.mjs'
 import { ALS_CATALOG } from '../../../file-server/als-catalog.mjs'
 
+// ── Deployment profiles ───────────────────────────────────────────────────────
+//
+// Which ALS/library combinations this deployment offers is configured in
+// deploy.config.mjs, not hardcoded here. Each profile is a complete,
+// ready-to-use combination (one ALS version + a compatible library set);
+// there's no separate "ALS version" + "library set" pair of independent
+// choices to keep in sync.
+
+export { DEPLOY_CONFIG }
+export const deployProfiles = DEPLOY_CONFIG.profiles
+
 // ── Agda version types and WASM manifest ─────────────────────────────────────
 //
-// Which ALS versions this deployment bundles is configured in
-// deploy.config.mjs, not hardcoded here. Library/ALS compatibility is
-// configured there too, on each librarySet's compatibleAlsVersions — not on
-// these per-ALS-version entries.
+// Derived from the set of alsVersion values used across deployProfiles.
 
-export const supportedAgdaVersions: readonly string[] = DEPLOY_CONFIG.alsVersions
+export const supportedAgdaVersions: readonly string[] =
+  [...new Set(deployProfiles.map(p => p.alsVersion))]
 export type SupportedAgdaVersion = string
 
 interface AgdaVersionSpec {
@@ -22,7 +31,7 @@ interface AgdaVersionSpec {
 }
 
 export const agdaVersionMap: Record<SupportedAgdaVersion, AgdaVersionSpec> = Object.create(null)
-for (const version of DEPLOY_CONFIG.alsVersions) {
+for (const version of supportedAgdaVersions) {
   const entry = ALS_CATALOG.find(e => e.version === version)
   if (!entry) {
     throw new Error(`deploy.config.mjs lists ALS version "${version}" with no matching file-server/als-catalog.mjs entry`)
