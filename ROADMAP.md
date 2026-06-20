@@ -155,22 +155,61 @@ Done (continued):
       `npm run check`/`build`): `test:browser:core-commands` and
       `test:browser:library-loads` both PASS against this refactor.
 
+Done (agda-categories, second library proving the system generalizes):
+
+- [x] Added `agda-categories` v0.3.0 (targets Agda 2.8.0 + standard-library-2.3,
+      per its release notes) to `file-server/libraries.mjs`, and a
+      `stdlib-2.3-agda-categories-0.3.0-als-2.8.0` profile to `deploy.config.mjs`.
+      No prebuilt `.agdai` cache yet (`agdaiZipUrl`/`agdaiZipName` omitted) —
+      it type-checks from source on every load.
+- [x] `file-server/generate-manifest.mjs` now extracts every selected
+      library's source upfront and builds one shared real `--library-file`
+      registering all of them (previously each library was checked against
+      `--library-file=/dev/null` in total isolation), so a library with a
+      `depend:` on another configured library resolves the same way the
+      browser runtime resolves it. Two bugs fixed along the way:
+      (1) leaving each library's generated `Everything.agda` in place caused
+      `[AmbiguousTopLevelModuleName]` once a later library's search path
+      could see an earlier one's leftover file — fixed by deleting it
+      immediately after that library's check; (2) a library's dependency
+      graph naturally includes modules from libraries it depends on (e.g.
+      agda-categories pulls in stdlib modules), so attributing `libOf` from
+      the full edge map let a later library "steal" ownership of an earlier
+      library's module — fixed by attributing `libOf` only from the modules
+      a library actually defines (`findAgdaFiles(includeDir)`), not every
+      module reachable from its generated `Everything.agda`.
+- [x] Removed agda-categories' `optionsPragma` (`--without-K --safe` was
+      previously assumed uniform across the library, but at least one file,
+      `Categories.Adjoint.Parametric.agda`, has no `{-# OPTIONS #-}` pragma
+      at all — declaring those flags on the generated `Everything.agda`
+      tripped Agda's coinfective check, `[CoInfectiveImport]`, against such
+      files). No options at all on the wrapper file is the correct fix:
+      coinfective flags are only enforced when the *importer* declares them.
+- [x] `static/agdai-manifest.json` regenerated (2734 modules, 371 KB; 1153
+      stdlib, 1090 cubical, 502 agda-categories — matches agda-categories'
+      502 source files).
+- [x] Added `scripts/browser-test-agda-categories-smoke.sh`
+      (`npm run test:browser:agda-categories`): switches the Settings →
+      Runtime profile selector to the agda-categories profile via the real
+      UI, loads a fixture importing `Categories.Category.Core`, and asserts
+      a clean `Load finished.` with no library-resolution errors. Verified
+      no regression in `test:browser:libraries` / `test:browser:library-cache-profile`
+      (the stdlib+cubical profile) after these changes.
+
 Not yet implemented:
 
-- [ ] Add specs for agda-categories, plfa, agda-unimath, 1lab to
-      `file-server/libraries.mjs` (confirm each library's actual `.agda-lib`
-      name/include path/required OPTIONS first), and add corresponding
-      profile(s) to `deploy.config.mjs`.
+- [ ] Add specs for plfa, agda-unimath, 1lab to `file-server/libraries.mjs`
+      (confirm each library's actual `.agda-lib` name/include path/required
+      OPTIONS first), and add corresponding profile(s) to `deploy.config.mjs`.
 - [ ] Do not eagerly download every configured profile's libraries during
       `npm run setup` — stdlib+cubical alone are already ~600 MB on disk.
       Extend the on-demand `.agdai` fetch + prefetch-manifest mechanism
       (built this session for stdlib/cubical) so a library only gets
       fetched once a user actually selects a profile that includes it.
-- [ ] Browser-test: selecting a profile fetches and registers its libraries;
-      a library outside the active profile fails to resolve; switching
-      profiles mid-session behaves predictably (restart). (Manually
-      smoke-tested via agent-browser this session; not yet a committed
-      `scripts/browser-test-*.sh` script.)
+- [ ] Prebuild an `.agdai` cache for agda-categories (see
+      `experiments/build-library`) — it currently type-checks from source on
+      every load, which is slow given it depends on stdlib and has ~500
+      modules.
 - [ ] `scripts/browser-test-settings-dialog.sh` looks up the Settings
       toggle button by text content (`wait_for_button "Settings"`), but the
       actual button is icon-only (`aria-label="Settings"`, no text) — the

@@ -39,5 +39,14 @@ export const DEPLOY_CONFIG = {
         { name: 'cubical', version: '0.9' },
       ],
     },
+    {
+      id: 'stdlib-2.3-agda-categories-0.3.0-als-2.8.0',
+      label: 'Standard Library v2.3 + agda-categories v0.3.0 (ALS 2.8.0)',
+      alsVersion: '2.8.0',
+      libraries: [
+        { name: 'stdlib', version: '2.3' },
+        { name: 'agda-categories', version: '0.3.0' },
+      ],
+    },
   ],
 }

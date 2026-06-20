@@ -33,8 +33,8 @@
  * Adding a library/version that follows the same shape as stdlib/cubical
  * (one `.agda-lib` at the source archive root) should only require a new
  * entry here. See ROADMAP.md "Curated Multi-Library Support" before adding
- * agda-categories/plfa/agda-unimath/1lab — their exact `.agda-lib` layout and
- * type-theory compatibility with existing entries hasn't been confirmed yet.
+ * plfa/agda-unimath/1lab — their exact `.agda-lib` layout and type-theory
+ * compatibility with existing entries hasn't been confirmed yet.
  */
 
 const CACHE_2_8_0 = 'https://github.com/jim9292bb/agda-scratchpad/releases/download/cache-2.8.0'
@@ -74,6 +74,26 @@ export const LIBRARY_CATALOG = [
     agdaiZipUrl: `${CACHE_2_8_0}/cubical-agdai.zip`,
     agdaiZipName: 'cubical-agdai.zip',
     optionsPragma: '{-# OPTIONS --cubical --guardedness #-}',
+  },
+  {
+    name: 'agda-categories',
+    version: '0.3.0',
+    libKey: 'a',
+    sourceArchiveUrl: 'https://github.com/agda/agda-categories/archive/refs/tags/v0.3.0.zip',
+    sourceZipName: 'agda-categories-0.3.0.zip',
+    archiveRootPrefix: 'agda-categories-0.3.0',
+    includeSubpath: 'src',
+    agdaLibFile: 'agda-categories.agda-lib',
+    libraryName: 'agda-categories',
+    // Targets Agda 2.8.0 + standard-library-2.3 (per the v0.3.0 release notes).
+    // No prebuilt .agdai cache yet — agdaiCacheVersion/agdaiZipUrl/agdaiZipName
+    // intentionally omitted; it type-checks from source on every load.
+    //
+    // No options here (unlike stdlib/cubical): not every file in this library
+    // declares --without-K/--safe (e.g. Categories.Adjoint.Parametric has no
+    // pragma at all), so giving the generated Everything.agda either flag
+    // trips Agda's coinfective check (CoInfectiveImport) against those files.
+    optionsPragma: '',
   },
 ]
 

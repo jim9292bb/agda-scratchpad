@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/browser-common.sh
+source "$SCRIPT_DIR/browser-common.sh"
+
+open_app
+
+ab eval "(async () => {
+  const settingsBtn = Array.from(document.querySelectorAll('button'))
+    .find(b => (b.getAttribute('aria-label') || '').trim() === 'Settings')
+  if (!settingsBtn) throw new Error('Settings button (aria-label) not found')
+  settingsBtn.click()
+  await new Promise(r => setTimeout(r, 150))
+
+  const runtimeTab = Array.from(document.querySelectorAll('.settings-segmented-control button'))
+    .find(b => b.textContent.trim() === 'Runtime')
+  if (!runtimeTab) throw new Error('Runtime settings segment not found')
+  runtimeTab.click()
+  await new Promise(r => setTimeout(r, 150))
+
+  const select = document.querySelector('#settings-panel-runtime select')
+  if (!select) throw new Error('Deployment profile select not found')
+  const option = Array.from(select.options).find(o => o.value.includes('agda-categories'))
+  if (!option) throw new Error('agda-categories profile option not found in select')
+  select.value = option.value
+  select.dispatchEvent(new Event('change', { bubbles: true }))
+  await new Promise(r => setTimeout(r, 150))
+
+  const closeBtn = Array.from(document.querySelectorAll('button'))
+    .find(b => (b.getAttribute('aria-label') || '').trim() === 'Close settings' || b.textContent.trim() === 'Close')
+  if (closeBtn) closeBtn.click()
+  return { ok: true, selected: option.value }
+})()"
+
+start_als
+
+set_editor_fixture "test-fixtures/agda/agda-categories-smoke.agda"
+
+click_button Load
+wait_for_log_contains "Load finished." 60000
+
+assert_log_contains "Load finished." "agda-categories module loads via the new profile"
+assert_log_not_matches "module not found|not in scope|library.*(not|could not|failed)|failed.*library|Could not find" "agda-categories load has no library lookup errors"
+
+ab eval "(() => {
+  const text = document.querySelector('.cm-content')?.textContent || ''
+  if (!text.includes('idCategoryGoal')) throw new Error('Expected fixture content not found in editor')
+})()"
+
+echo "browser-test-agda-categories-smoke: PASS"

@@ -82,10 +82,8 @@ function parseDot(dotFile, content) {
   return edges
 }
 
-/** Builds Everything.agda, runs `agda --dependency-graph`, returns its parsed edge map. */
-async function buildLibraryGraph(lib, workDir) {
-  const agdaiDir = join(STATIC, 'agdai', lib.name)
-
+/** Extracts a library's source archive and locates its .agda-lib/include dir. */
+async function extractLibrarySource(lib, workDir) {
   console.log(`[${lib.name}@${lib.version}] extracting source archive...`)
   const extractDir = join(workDir, lib.name)
   await mkdir(extractDir, { recursive: true })
@@ -97,8 +95,22 @@ async function buildLibraryGraph(lib, workDir) {
   const include = parseAgdaLibInclude(await readFile(join(libRoot, agdaLibFile), 'utf8'))
   const includeDir = include ? join(libRoot, include) : libRoot
 
+  return { lib, libRoot, includeDir, agdaLibFile }
+}
+
+/**
+ * Builds Everything.agda, runs `agda --dependency-graph`, returns its parsed
+ * edge map. `libraryFilePath` must register every selected library's
+ * .agda-lib (not just this one's) so libraries with a `depend:` on another
+ * configured library (e.g. agda-categories on standard-library) resolve,
+ * mirroring how the browser runtime registers all of a profile's libraries
+ * together.
+ */
+async function buildLibraryGraph({ lib, libRoot, includeDir }, workDir, libraryFilePath) {
+  const agdaiDir = join(STATIC, 'agdai', lib.name)
+
   if (lib.agdaiZipName) {
-    console.log(`[${lib.name}] copying prebuilt .agdai cache (include="${include || '.'}")...`)
+    console.log(`[${lib.name}] copying prebuilt .agdai cache...`)
     const agdaVersion = await findSoleSubdir(join(agdaiDir, '_build'))
     await cp(join(agdaiDir, '_build'), join(libRoot, '_build'), { recursive: true })
     console.log(`[${lib.name}] .agdai cache was built with Agda ${agdaVersion}`)
@@ -108,15 +120,17 @@ async function buildLibraryGraph(lib, workDir) {
 
   console.log(`[${lib.name}] generating Everything.agda...`)
   const agdaFiles = (await findAgdaFiles(includeDir)).sort()
+  const ownModules = new Set(agdaFiles.map(f => pathToModuleName(f, includeDir)))
   const everythingPath = join(includeDir, EVERYTHING_FILENAME)
   const imports = agdaFiles.map(f => `import ${pathToModuleName(f, includeDir)}`)
-  await writeFile(everythingPath, `${lib.optionsPragma}\nmodule Everything where\n${imports.join('\n')}\n`)
+  const pragma = lib.optionsPragma ? `${lib.optionsPragma}\n` : ''
+  await writeFile(everythingPath, `${pragma}module Everything where\n${imports.join('\n')}\n`)
 
   console.log(`[${lib.name}] running agda --dependency-graph (this can take a while)...`)
   const dotFile = join(workDir, `${lib.name}.dot`)
   try {
     await execFileAsync('agda', [
-      '--library-file=/dev/null',
+      `--library-file=${libraryFilePath}`,
       '-i', includeDir,
       '--only-scope-checking',
       `--dependency-graph=${dotFile}`,
@@ -127,23 +141,45 @@ async function buildLibraryGraph(lib, workDir) {
     // the Dot backend still wrote its output; only fail if the file is missing.
     console.warn(`[${lib.name}] agda exited with a warning/error (continuing if dependency graph was still written):`)
     console.warn(err.stderr || err.message)
+  } finally {
+    // Each other selected library is also registered in libraryFilePath, so
+    // its include dir is on the search path while checking this one. Leaving
+    // this Everything.agda in place would make the next library's check see
+    // two same-named top-level modules (AmbiguousTopLevelModuleName).
+    await rm(everythingPath, { force: true })
   }
 
   const dotContent = await readFile(dotFile, 'utf8').catch(() => {
     throw new Error(`[${lib.name}] agda did not produce a dependency graph at ${dotFile}`)
   })
-  return parseDot(dotFile, dotContent)
+  // edges includes every transitively-checked module, including ones from
+  // libraries this one depends on (e.g. agda-categories pulls in stdlib
+  // modules) — ownModules narrows attribution to modules this library
+  // actually defines, so a later library's pass can't steal ownership of an
+  // earlier library's module it merely imports.
+  return { edges: parseDot(dotFile, dotContent), ownModules }
 }
 
 async function main() {
   const dir = await mkdtemp(join(tmpdir(), 'agda-manifest-'))
 
   try {
+    const extracted = []
+    for (const lib of getSelectedLibraries()) {
+      extracted.push(await extractLibrarySource(lib, dir))
+    }
+
+    // Shared across all libraries (not per-profile): registering extra
+    // libraries that a given check doesn't depend on is harmless, and the
+    // manifest itself is a flat union over every selected library anyway.
+    const libraryFilePath = join(dir, 'libraries')
+    await writeFile(libraryFilePath, extracted.map(e => join(e.libRoot, e.agdaLibFile)).join('\n') + '\n')
+
     const graphs = {}
     const libOf = {}
-    for (const lib of getSelectedLibraries()) {
-      const edges = await buildLibraryGraph(lib, dir)
-      for (const mod of Object.keys(edges)) libOf[mod] = lib.libKey
+    for (const entry of extracted) {
+      const { edges, ownModules } = await buildLibraryGraph(entry, dir, libraryFilePath)
+      for (const mod of ownModules) libOf[mod] = entry.lib.libKey
       Object.assign(graphs, edges)
     }
 
