@@ -11,12 +11,12 @@ wait_for_button "Settings" 30000
 
 ab eval "(async () => {
   const settings = Array.from(document.querySelectorAll('button'))
-    .find(button => button.textContent.trim() === 'Settings')
+    .find(button => button.textContent.trim() === 'Settings' || (button.getAttribute('aria-label') || '').trim() === 'Settings')
   if (!settings) throw new Error('Settings button missing')
   if (settings.closest('.header')) throw new Error('Settings button should not be in the editor header')
-  const controls = settings.closest('.als-buttons')
-  if (!controls) throw new Error('Settings button should be in the .als-buttons container')
-  const restartBtn = controls.querySelector('button[class*="restart"], button')
+  const controls = settings.closest('.control-card-row')
+  if (!controls) throw new Error('Settings button should be in the ALS controls row (.control-card-row)')
+  const restartBtn = Array.from(controls.querySelectorAll('button')).find(b => b.textContent.trim() === 'Restart')
   if (!restartBtn) throw new Error('Restart button missing near Settings')
   settings.click()
   await new Promise(r => setTimeout(r, 100))

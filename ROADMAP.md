@@ -223,12 +223,31 @@ Not yet implemented:
       on disk. Extend the on-demand `.agdai` fetch + prefetch-manifest
       mechanism (built this session for stdlib/cubical) so a library only
       gets fetched once a user actually selects a profile that includes it.
-- [ ] `scripts/browser-test-settings-dialog.sh` looks up the Settings
-      toggle button by text content (`wait_for_button "Settings"`), but the
-      actual button is icon-only (`aria-label="Settings"`, no text) — the
-      test has likely never passed against the current UI. Pre-existing,
-      unrelated to the profile-switcher work above; needs its own fix
-      (match by `aria-label` instead of text content).
+Done (fixed stale browser-test selectors — `npm run test:browser` now passes
+all 18 scripts cleanly):
+
+- [x] `scripts/browser-common.sh`'s `click_button`/`wait_for_button` looked
+      up buttons by text content only; the Settings toggle is icon-only
+      (`aria-label="Settings"`, no text), so any test opening Settings had
+      likely never passed against the current UI. Both helpers now also
+      match by `aria-label`.
+- [x] `scripts/browser-test-settings-dialog.sh` and
+      `scripts/browser-test-shortcut-overrides.sh` had their own inline
+      Settings-button lookups (same text-only bug, bypassing the helper) —
+      fixed the same way. `settings-dialog.sh` also asserted the Settings
+      button lives in a `.als-buttons` container with a `Restart` button
+      found via `button[class*="restart"]` — neither class exists in the
+      current markup (button text is `Restart`, container is
+      `.control-card-row`); updated to match.
+- [x] `scripts/browser-test-error-display.sh` looked up a `.messages-view-select
+      select` to switch to the errors view; the messages panel now uses a
+      `.messages-tab-group` of buttons (Log/Queries/Errors), not a select.
+      Updated to click the Errors tab button.
+- [x] `scripts/browser-test-example-picker.sh` looked up a `#scratchpad-example`
+      `<select>`; the example picker is now a button + dropdown menu
+      (`.header-examples-btn` / `.header-examples-menu` /
+      `.header-examples-item`). Updated to open the menu and click the
+      target item by its label.
 
 ## Goal Lifecycle and Editor State
 

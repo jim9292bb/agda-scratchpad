@@ -44,7 +44,8 @@ click_button() {
   ab eval "(() => {
     const label = $label_json
     const button = Array.from(document.querySelectorAll('button, quiet-button'))
-      .find(button => button.textContent.trim() === label && !(button.disabled ?? button.hasAttribute('disabled')))
+      .find(button => (button.textContent.trim() === label || (button.getAttribute('aria-label') || '').trim() === label)
+        && !(button.disabled ?? button.hasAttribute('disabled')))
     if (!button) throw new Error('button not found: ' + label)
     button.click()
     return { ok: true, label }
@@ -59,7 +60,8 @@ wait_for_button() {
     local found
     found="$(ab eval "(() => {
       const button = Array.from(document.querySelectorAll('button, quiet-button'))
-        .find(button => button.textContent.trim() === '$label' && !(button.disabled ?? button.hasAttribute('disabled')))
+        .find(button => (button.textContent.trim() === '$label' || (button.getAttribute('aria-label') || '').trim() === '$label')
+          && !(button.disabled ?? button.hasAttribute('disabled')))
       return Boolean(button)
     })()")"
     if [[ "$found" == *"true"* ]]; then

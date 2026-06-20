@@ -21,10 +21,10 @@ wait_for_log_matches "Load failed:|\\[NotInScope\\]|Not in scope" 30000
 assert_log_matches "Load failed:|\\[NotInScope\\]|Not in scope" "Semantic not-in-scope error is reported"
 
 ab eval "(async () => {
-  const viewSelect = document.querySelector('.messages-view-select select')
-  if (!viewSelect) throw new Error('Messages view select missing')
-  viewSelect.value = 'errors'
-  viewSelect.dispatchEvent(new Event('change', { bubbles: true }))
+  const errorsTab = Array.from(document.querySelectorAll('.messages-tab-group .messages-tab'))
+    .find(button => button.textContent.trim().startsWith('Errors'))
+  if (!errorsTab) throw new Error('Messages Errors tab missing')
+  errorsTab.click()
   await new Promise(requestAnimationFrame)
   const panel = document.querySelector('.diagnostics-panel')
   if (!panel) throw new Error('Diagnostics panel missing')

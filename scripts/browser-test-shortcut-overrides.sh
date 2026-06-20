@@ -17,7 +17,7 @@ wait_for_button "Settings" 30000
 
 ab eval "(async () => {
   const settings = Array.from(document.querySelectorAll('button'))
-    .find(button => button.textContent.trim() === 'Settings')
+    .find(button => button.textContent.trim() === 'Settings' || (button.getAttribute('aria-label') || '').trim() === 'Settings')
   if (!settings) throw new Error('Settings button missing')
   settings.click()
   await new Promise(r => setTimeout(r, 100))
