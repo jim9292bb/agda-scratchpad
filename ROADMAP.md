@@ -218,11 +218,16 @@ Not yet implemented:
 - [ ] Add specs for plfa, agda-unimath, 1lab to `file-server/libraries.mjs`
       (confirm each library's actual `.agda-lib` name/include path/required
       OPTIONS first), and add corresponding profile(s) to `deploy.config.mjs`.
-- [ ] Do not eagerly download every configured profile's libraries during
-      `npm run setup` — stdlib+cubical+agda-categories are already ~700+ MB
-      on disk. Extend the on-demand `.agdai` fetch + prefetch-manifest
-      mechanism (built this session for stdlib/cubical) so a library only
-      gets fetched once a user actually selects a profile that includes it.
+
+Considered and rejected: having `npm run setup` skip libraries outside some
+"default" profile. The runtime is already lazy where it matters — a browser
+session only fetches its *active* profile's source zip
+(`browser-wasi-shim.ts`'s `_fetchLibraryZips`), and `.agdai` files are
+fetched per-file on demand via the prefetch manifest, never as a bulk zip.
+`npm run setup` downloading every configured profile's libraries is a
+one-time, deployer-side build cost (CI time / disk), not something any end
+user pays for — not worth the added complexity.
+
 Done (fixed stale browser-test selectors — `npm run test:browser` now passes
 all 18 scripts cleanly):
 
