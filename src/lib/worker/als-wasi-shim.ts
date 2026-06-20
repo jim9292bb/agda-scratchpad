@@ -236,9 +236,12 @@ class LiveSourcePreopenDirectory extends PreopenDirectory {
     if (!this._agdaiFetchSab) return
     if (!path_str.endsWith('.agdai')) return
     if (this._agdaiFetched.has(path_str)) return
-    // Only fetch paths we actually serve: stdlib/_build/ and cubical/_build/
-    // lib/prim, source.agdai, and short-path probes (stdlib/src/...) will 404.
-    if (!path_str.startsWith('stdlib/_build/') && !path_str.startsWith('cubical/_build/')) return
+    // Only fetch paths under a library's _build/ interface-cache tree (the
+    // layout produced by `--build-library`, served from static/agdai/<lib>/).
+    // Any other library folder's path is checked the same way — lib/prim,
+    // source.agdai, and short-path probes (e.g. stdlib/src/...) never match
+    // and would just 404 the network fetch.
+    if (!path_str.includes('/_build/')) return
 
     this._agdaiFetched.add(path_str)  // mark before fetch to avoid retry on NOENT
     const content = this._fetchAgdaiSync(path_str)

@@ -207,11 +207,29 @@ Done (agda-categories, second library proving the system generalizes):
       `cache-2.8.0` GitHub release alongside stdlib/cubical's, and wired into
       `file-server/libraries.mjs`'s `agdaiCacheVersion`/`agdaiZipUrl`/
       `agdaiZipName` — `print-download-list.mjs`/`extract-agdai.mjs` already
-      read these generically, no script changes needed there. Verified: first
-      `Cmd_load` of the agda-categories smoke fixture now takes ~4.1s
-      (browser, cache-backed) instead of from-source recompilation; manifest
-      regenerated from the cache-backed run is byte-identical to the
-      from-source one.
+      read these generically, no script changes needed there.
+- [x] Fixed: the prebuilt cache above was actually never used at runtime.
+      `src/lib/worker/als-wasi-shim.ts`'s `_ensureAgdai()` (the on-demand
+      `.agdai` network-fetch path, triggered when the WASM Agda process
+      probes for an interface file) had a hardcoded
+      `path_str.startsWith('stdlib/_build/') || path_str.startsWith('cubical/_build/')`
+      check — a leftover from before the multi-library generalization that
+      never got updated for new library folder names. Any other library's
+      `.agdai` probe silently returned without fetching, so Agda always fell
+      back to recompiling from source. The original smoke fixture (a single
+      shallow `Categories.Category.Core` import) didn't exercise this path
+      deeply enough to expose it — its "first Cmd_load ~4.1s" reading was
+      almost entirely stdlib's (working) cache plus one tiny from-source
+      agda-categories file. Caught when manually loading a deeper import
+      (`Categories.Category.Monoidal.Instance.StrictCats`, ~170 transitive
+      modules) showed dozens of `Checking <module>` log lines and a 123s
+      load. Fixed by generalizing the check to `path_str.includes('/_build/')`
+      — any registered library's real cache path always contains `_build/`;
+      source-tree probes never do. Same load now takes ~9s with zero
+      `Checking <module>` lines. Strengthened
+      `scripts/browser-test-agda-categories-smoke.sh`'s fixture to use the
+      deep import and assert no `Checking Categories\.` lines appear, so a
+      regression of this path-prefix check is actually caught next time.
 
 Not yet implemented:
 
