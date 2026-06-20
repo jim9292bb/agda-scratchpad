@@ -35,6 +35,12 @@ export default defineConfig(async ({ command }) => {
     port: 8099,
     https: VITE_SERVE_ENABLE_SSL,
     allowedHosts: 'all',
+    fs: {
+      // SvelteKit's default fs.allow excludes the project root, but
+      // src/lib/runtime/interface.ts imports deploy.config.mjs and
+      // file-server/*.mjs (outside src/) at build time.
+      allow: ['.'],
+    },
   },
   define: {
     // XXX: is using env better?

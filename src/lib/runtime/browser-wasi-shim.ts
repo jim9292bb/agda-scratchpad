@@ -10,8 +10,8 @@ import {
 import { fetchWASMAndData, type SupportedAgdaVersion } from './interface'
 import { createPerformanceTrace } from '$lib/performance.js'
 import type { ALSWorkerInitResultProxied } from '$lib/worker/types'
-import type { BackendInitOptions, DriveHandle, LSPStreams, RuntimeBackend } from './interface'
-import type { DriveProxyStats, WASMLoadingProgress } from '$lib/worker/types'
+import type { BackendInitOptions, DriveHandle, LSPStreams, ResolvedLibrary, RuntimeBackend } from './interface'
+import type { DriveProxyStats, LibraryToLoad, WASMLoadingProgress } from '$lib/worker/types'
 
 const SOURCE_SAB_CAPACITY = 4 * 1024 * 1024  // 4 MB
 
@@ -90,7 +90,7 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
   }
 
   async init(options: BackendInitOptions): Promise<MessagePort> {
-    const { agdaVersion, callbacks } = options
+    const { agdaVersion, libraries, callbacks } = options
     const trace = createPerformanceTrace()
 
     const wasmAndData = await trace.measure(
@@ -132,19 +132,18 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
 
     const wakerChannel = new MessageChannel()
 
-    const libTotal = wasmAndData.dataFile ? 3 : 2
+    // One fetch per library's source zip, plus one for its prebuilt .agdai
+    // cache zip if it has one, plus the shared Agda builtins data zip.
+    const fetchSteps = libraries.length + (wasmAndData.dataFile ? 1 : 0)
     let libFetched = 0
     const trackLib = <T>(p: Promise<T>): Promise<T> =>
-      p.then(r => { callbacks.onLibraryFetchProgress(++libFetched, libTotal); return r })
+      p.then(r => { callbacks.onLibraryFetchProgress(++libFetched, fetchSteps); return r })
 
-    const [dataZipData, stdlibData, cubicalData] = await Promise.all([
+    const [dataZipData, libraryZips] = await Promise.all([
       wasmAndData.dataFile
         ? trackLib(trace.measure('Read Agda builtins data', () => wasmAndData.dataFile!.arrayBuffer()))
         : Promise.resolve(undefined),
-      trackLib(trace.measure('Fetch standard-library zip', () =>
-        fetch(asset('/agda-stdlib-2.3.zip')).then(x => x.arrayBuffer()))),
-      trackLib(trace.measure('Fetch Cubical zip', () =>
-        fetch(asset('/agda-cubical-0.9.zip')).then(x => x.arrayBuffer()))),
+      Promise.all(libraries.map(lib => this._fetchLibraryZips(lib, trace, trackLib))),
     ])
 
     this._agdaiFetchSab = new SharedArrayBuffer(AGDAI_SAB_SIZE)
@@ -157,8 +156,7 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
       stdin: this._agdaBuffers.stdin,
       stdout: this._agdaBuffers.stdout,
       sourceSab: this._sourceSab,
-      stdlibZip: stdlibData,
-      cubicalZip: cubicalData,
+      libraries: libraryZips,
       dataZip: dataZipData,
       agdaiFetchSab: this._agdaiFetchSab,
       agdaVersion,
@@ -183,6 +181,28 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
     callbacks.onPerformanceEntries(trace.entries)
 
     return wakerChannel.port1
+  }
+
+  /**
+   * Fetches a library's source zip (the prebuilt .agdai cache zip is fetched
+   * lazily per-file on demand instead — see _runAgdaiFetchListener/prefetchAgdai
+   * — so it's intentionally not fetched here as a bulk zip).
+   */
+  private async _fetchLibraryZips(
+    lib: ResolvedLibrary,
+    trace: ReturnType<typeof createPerformanceTrace>,
+    trackLib: <T>(p: Promise<T>) => Promise<T>,
+  ): Promise<LibraryToLoad> {
+    const zip = await trackLib(trace.measure(`Fetch ${lib.name}@${lib.version} zip`, () =>
+      fetch(lib.sourceZipAsset).then(x => x.arrayBuffer())))
+    return {
+      folderName: lib.folderName,
+      zip,
+      archiveRootPrefix: lib.archiveRootPrefix,
+      includeSubpath: lib.includeSubpath,
+      agdaLibFile: lib.agdaLibFile,
+      libraryName: lib.libraryName,
+    }
   }
 
   run(): Promise<number> {

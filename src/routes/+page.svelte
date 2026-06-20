@@ -8,7 +8,7 @@ import { EditorView, keymap } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
 
 import SplitPane from '$lib/components/SplitPane.svelte'
-import { AgdaController, LS_DOC_KEY } from '$lib/controller.svelte'
+import { AgdaController, LS_DOC_KEY, deployProfiles, resolveProfileLibraries } from '$lib/controller.svelte'
 import { myCodeMirrorTheme } from '$lib/codemirror/theme'
 import { agdaInputMethod } from '$lib/codemirror/agda-input'
 import { attachAgdaIM } from '$lib/codemirror/agda-input-dom'
@@ -67,7 +67,6 @@ const agdaController = new AgdaController({
     stdin: driveStdinSab,
     stdout: driveStdoutSab,
   },
-  agdaVersion: '2.8.0',
 })
 
 $effect(() => {
@@ -77,13 +76,21 @@ $effect(() => {
 })
 
 function runtimeSummary() {
+  const profile = agdaController.activeProfile
   return [
     { label: 'Runtime backend', value: 'browser-wasi-shim-memfs' },
-    { label: 'Agda runtime', value: 'v2.8.0' },
-    { label: 'ALS WASM', value: 'als-2.8ext.wasm' },
-    { label: 'standard-library', value: 'v2.3' },
-    { label: 'Cubical', value: 'v0.9' },
+    { label: 'Agda runtime', value: `v${profile.alsVersion}` },
+    ...profile.libraries.map(lib => ({ label: lib.name, value: `v${lib.version}` })),
   ]
+}
+
+/** @param {string} profileId */
+async function onDeploymentProfileChange(profileId) {
+  try {
+    await agdaController.switchProfile(profileId)
+  } catch (err) {
+    textboxContent += `Failed to switch deployment profile: ${err instanceof Error ? err.message : String(err)}\n`
+  }
 }
 
 const settingsSegments = [
@@ -943,7 +950,11 @@ async function loadAgdaFile() {
 
   const prefetchFn = agdaController.backend?.prefetchAgdai?.bind(agdaController.backend)
   if (prefetchFn && agdaController.editorView) {
-    triggerPrefetch(agdaController.editorView.state.doc.toString(), prefetchFn)
+    triggerPrefetch(
+      agdaController.editorView.state.doc.toString(),
+      prefetchFn,
+      resolveProfileLibraries(agdaController.activeProfile),
+    )
   }
 
   try {
@@ -1395,9 +1406,9 @@ $effect(() => {
       </div>
       <p class="about-desc">A browser-hosted single-file Agda scratchpad for demonstrations, learning, and practice.</p>
       <dl class="about-meta">
-        <div class="about-meta-row"><dt>Agda</dt><dd>v2.8.0</dd></div>
-        <div class="about-meta-row"><dt>standard-library</dt><dd>v2.3</dd></div>
-        <div class="about-meta-row"><dt>Cubical</dt><dd>v0.9</dd></div>
+        {#each runtimeSummary() as item}
+          <div class="about-meta-row"><dt>{item.label}</dt><dd>{item.value}</dd></div>
+        {/each}
         <div class="about-meta-row"><dt>Commit</dt><dd><code>{APP_COMMIT_ID}</code></dd></div>
       </dl>
       <a class="about-github" href="https://github.com/jim9292bb/agda-scratchpad" target="_blank" rel="noopener noreferrer">
@@ -1484,7 +1495,20 @@ $effect(() => {
           {:else if selectedSettingsSegment === 'runtime'}
             <div id="settings-panel-runtime" class="settings-section" role="tabpanel" aria-labelledby="runtime-settings-title">
               <h3 id="runtime-settings-title">Runtime and libraries</h3>
-              <p class="settings-note">Read-only runtime assets used by the hosted Agda environment.</p>
+              <p class="settings-note">Choose which Agda/ALS version and library set this session uses. Switching restarts the worker.</p>
+              <div class="settings-option-grid">
+                <label class="settings-field">
+                  <span>Deployment profile</span>
+                  <select
+                    value={agdaController.selectedProfileId}
+                    disabled={deployProfiles.length < 2 || agdaController.alsWorkerStatus === 'loading' || agdaController.alsWorkerStatus === 'deactivating'}
+                    onchange={(e) => onDeploymentProfileChange(e.currentTarget.value)}>
+                    {#each deployProfiles as profile}
+                      <option value={profile.id}>{profile.label}</option>
+                    {/each}
+                  </select>
+                </label>
+              </div>
               <dl class="settings-runtime-list">
                 {#each runtimeSummary() as item}
                   <div>

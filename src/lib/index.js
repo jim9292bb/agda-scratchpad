@@ -125,7 +125,7 @@ export function createWritableByteStream(writer) {
 }
 
 /**
- * @typedef {{ wasmSource: import('$lib/worker/types').WASMSource, stdinWaker: MessagePort, stdin: SharedArrayBuffer, stdout: SharedArrayBuffer, sourceSab: SharedArrayBuffer, stdlibZip: ArrayBuffer, cubicalZip: ArrayBuffer, dataZip?: ArrayBuffer, stdlibAgdaiZip?: ArrayBuffer, cubicalAgdaiZip?: ArrayBuffer, agdaiFetchSab?: SharedArrayBuffer, agdaVersion: string }} WASIShimWorkerInitObject
+ * @typedef {{ wasmSource: import('$lib/worker/types').WASMSource, stdinWaker: MessagePort, stdin: SharedArrayBuffer, stdout: SharedArrayBuffer, sourceSab: SharedArrayBuffer, libraries: import('$lib/worker/types').LibraryToLoad[], dataZip?: ArrayBuffer, agdaiFetchSab?: SharedArrayBuffer, agdaVersion: string }} WASIShimWorkerInitObject
  */
 
 /**
@@ -141,16 +141,14 @@ export function makeWasiShimLspWorker(initObject, workerPreCallback) {
   const endpoint = Comlink.wrap(worker)
   workerPreCallback?.(worker)
 
-  const { wasmSource, stdinWaker, stdlibZip, cubicalZip, dataZip, stdlibAgdaiZip, cubicalAgdaiZip } = initObject
+  const { wasmSource, stdinWaker, libraries, dataZip } = initObject
 
   const transferables = [
     ...(wasmSource.type === 'stream' ? [wasmSource.stream] : []),
     stdinWaker,
-    stdlibZip,
-    cubicalZip,
+    ...libraries.map(lib => lib.zip),
+    ...libraries.flatMap(lib => lib.agdaiZip ? [lib.agdaiZip] : []),
     ...(dataZip ? [dataZip] : []),
-    ...(stdlibAgdaiZip ? [stdlibAgdaiZip] : []),
-    ...(cubicalAgdaiZip ? [cubicalAgdaiZip] : []),
   ]
 
   const initPromise = endpoint.init(Comlink.transfer(initObject, transferables))

@@ -6,8 +6,6 @@
 
 import { asset } from '$app/paths'
 
-const AGDA_VERSION = '2.8.0'
-
 /** @type {{ graph: Record<string, string[]>, libOf: Record<string, string> } | null} */
 let manifest = null
 let manifestLoading = false
@@ -40,13 +38,13 @@ function collectDeps(mod, graph, visited = new Set()) {
 
 /**
  * @param {string} mod  e.g. "Data.Nat.Base"
- * @param {string} lib  "s" = stdlib, "c" = cubical
+ * @param {import('$lib/runtime/interface').ResolvedLibrary} lib
  */
 function modToAgdaiPath(mod, lib) {
+  if (!lib.agdaiCacheVersion) return null
   const rel = mod.replaceAll('.', '/')
-  if (lib === 's') return `stdlib/_build/${AGDA_VERSION}/agda/src/${rel}.agdai`
-  if (lib === 'c') return `cubical/_build/${AGDA_VERSION}/agda/${rel}.agdai`
-  return null
+  const sub = lib.includeSubpath ? `${lib.includeSubpath}/` : ''
+  return `${lib.folderName}/_build/${lib.agdaiCacheVersion}/agda/${sub}${rel}.agdai`
 }
 
 /**
@@ -66,10 +64,17 @@ function parseTopLevelImports(src) {
  * Fire-and-forget: pre-fetch all .agdai files needed to type-check src.
  * @param {string} src  - current editor content
  * @param {(paths: string[]) => void} prefetchFn  - backend.prefetchAgdai
+ * @param {import('$lib/runtime/interface').ResolvedLibrary[]} activeLibraries
+ *   - the currently-active profile's resolved libraries; only modules
+ *     belonging to one of these are prefetched (the manifest itself may
+ *     cover more libraries than any one profile uses).
  */
-export function triggerPrefetch(src, prefetchFn) {
+export function triggerPrefetch(src, prefetchFn, activeLibraries) {
   if (!manifest) return
   const { graph, libOf } = manifest
+
+  /** @type {Map<string, import('$lib/runtime/interface').ResolvedLibrary>} */
+  const libByKey = new Map(activeLibraries.map(lib => [lib.libKey, lib]))
 
   const imports = parseTopLevelImports(src)
   const allDeps = new Set()
@@ -78,7 +83,7 @@ export function triggerPrefetch(src, prefetchFn) {
 
   const paths = []
   for (const mod of allDeps) {
-    const lib = libOf[mod]
+    const lib = libByKey.get(libOf[mod])
     if (!lib) continue
     const path = modToAgdaiPath(mod, lib)
     if (path) paths.push(path)

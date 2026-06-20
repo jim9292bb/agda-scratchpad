@@ -14,9 +14,13 @@ import { getAgdaDocumentVersion } from './agda/goal-state'
 import { createPerformanceTrace, formatDurationMs, formatPerformanceEntry } from './performance'
 import type { DriveProxyStats, PerformanceEntry, WASMLoadingProgress } from './worker/types'
 import { BrowserWasiShimRuntimeBackend } from './runtime/browser-wasi-shim'
-import { type SupportedAgdaVersion, type DriveHandle, type RuntimeBackend } from './runtime/interface'
+import {
+  deployProfiles, resolveProfileLibraries,
+  type SupportedAgdaVersion, type DriveHandle, type RuntimeBackend, type DeployProfile,
+} from './runtime/interface'
 
-export type { SupportedAgdaVersion, DriveHandle }
+export type { SupportedAgdaVersion, DriveHandle, DeployProfile }
+export { deployProfiles, resolveProfileLibraries }
 
 export const LS_DOC_KEY = 'agda-web-ide-beta:doc'
 const loadArgs: string[] = []
@@ -80,7 +84,7 @@ function formatDriveProxyStats(stats: DriveProxyStats): Record<string, unknown> 
 }
 
 export class AgdaController {
-  private _backend: RuntimeBackend
+  private _backend: RuntimeBackend | undefined
 
   editorView?: EditorView
   lspClient?: LSPClient
@@ -101,6 +105,14 @@ export class AgdaController {
   queryResults = $state<Array<{ id: number; label: string; content: string }>>([])
   private _nextQueryId = 0
 
+  /** Which deploy.config.mjs profile (ALS version + library set) is currently active.
+   *  Switching requires a session restart — see switchProfile(). */
+  selectedProfileId = $state<string>(deployProfiles[0]?.id ?? '')
+
+  get activeProfile(): DeployProfile {
+    return deployProfiles.find(p => p.id === this.selectedProfileId) ?? deployProfiles[0]
+  }
+
   appendQueryResult(label: string, content: string) {
     this.queryResults = [{ id: this._nextQueryId++, label, content }, ...this.queryResults]
   }
@@ -110,10 +122,18 @@ export class AgdaController {
   }
 
   get driveHandle(): DriveHandle {
-    return this._backend.getDriveHandle()
+    return this._ensureBackend().getDriveHandle()
   }
 
   get backend(): RuntimeBackend {
+    return this._ensureBackend()
+  }
+
+  private _ensureBackend(): RuntimeBackend {
+    if (!this._backend) {
+      this._backend = new BrowserWasiShimRuntimeBackend(
+        this.config.agdaBuffers, this.config.driveBuffers, this.activeProfile.alsVersion)
+    }
     return this._backend
   }
 
@@ -127,9 +147,7 @@ export class AgdaController {
       stdin: SharedArrayBuffer,
       stdout: SharedArrayBuffer,
     },
-    agdaVersion: SupportedAgdaVersion,
   }) {
-    this._backend = new BrowserWasiShimRuntimeBackend(config.agdaBuffers, config.driveBuffers, config.agdaVersion)
     this.lspClient = makeLspClient()
   }
 
@@ -160,12 +178,12 @@ export class AgdaController {
 
   async resetDriveProxyStats() {
     if (!this.driveIsCreated) return
-    await this._backend.resetDriveProxyStats()
+    await this._ensureBackend().resetDriveProxyStats()
   }
 
   async appendDriveProxyStats(label: string) {
     if (!this.driveIsCreated) return
-    const stats = await this._backend.getDriveProxyStats()
+    const stats = await this._ensureBackend().getDriveProxyStats()
     this.appendPerformanceEntries([{
       label,
       durationMs: 0,
@@ -178,7 +196,9 @@ export class AgdaController {
       throw new Error('WASM is already running')
     }
 
-    if (this._backend.isInitialized()) {
+    const backend = this._ensureBackend()
+
+    if (backend.isInitialized()) {
       console.warn('reusing worker')
       return this._startALSWASM()
     }
@@ -190,8 +210,9 @@ export class AgdaController {
     this.alsWorkerStatus = 'loading'
     this.performanceEntries = []
 
-    const port1 = await this._backend.init({
-      agdaVersion: this.config.agdaVersion,
+    const port1 = await backend.init({
+      agdaVersion: this.activeProfile.alsVersion,
+      libraries: resolveProfileLibraries(this.activeProfile),
       agdaBuffers: this.config.agdaBuffers,
       driveBuffers: this.config.driveBuffers,
       callbacks: {
@@ -220,11 +241,31 @@ export class AgdaController {
     return this.startALSWASM()
   }
 
+  /** Switches to a different deploy.config.mjs profile (ALS version + library set).
+   *  Always restarts: a new WASM instance and VFS are needed either way. */
+  async switchProfile(profileId: string) {
+    if (profileId === this.selectedProfileId) return
+    if (!deployProfiles.some(p => p.id === profileId)) {
+      throw new Error(`unknown deployment profile id: ${profileId}`)
+    }
+
+    if (this.alsWorkerStatus === 'active') {
+      await this.stopALSWASM()
+    }
+    this.terminateALSWASM()
+    this._backend = undefined
+    this.alsWorkerStatus = 'initial'
+    this.selectedProfileId = profileId
+
+    await new Promise(r => setTimeout(r))
+    return this.startALSWASM()
+  }
+
   async _startALSWASM() {
     this.alsWorkerStatus = 'active'
 
-    this._backend.resetBuffers()
-    this.runningWASM = this._backend.run()
+    this._ensureBackend().resetBuffers()
+    this.runningWASM = this._ensureBackend().run()
 
     this.lspClient!.connect(this.alsRouter!.transport)
     this.editorView!.dispatch({
@@ -246,7 +287,7 @@ export class AgdaController {
       throw new Error('EditorView not ready')
     }
 
-    const { stdinWriter, stdoutReader } = this._backend.getLSPStreams()
+    const { stdinWriter, stdoutReader } = this._ensureBackend().getLSPStreams()
     const lspClientReadable = createReadableByteStream(stdoutReader, stdinWaker)
     const lspClientWritable = createWritableByteStream(stdinWriter)
 
@@ -279,7 +320,7 @@ export class AgdaController {
 
   terminateALSWASM() {
     console.log('attempting to terminate the worker')
-    this._backend.terminate()
+    this._backend?.terminate()
     this.wasmLoadingProgress = null
     this.wasmLibraryFetchProgress = null
     this.runningWASM = undefined
@@ -308,7 +349,7 @@ export class AgdaController {
 
     this.driveIsLocked = true
     try {
-      await this.measurePerformance('Sync source to virtual filesystem', () => this._backend.syncSourceFile(doc), {
+      await this.measurePerformance('Sync source to virtual filesystem', () => this._ensureBackend().syncSourceFile(doc), {
         bytes: new TextEncoder().encode(doc).byteLength,
       })
     } finally {

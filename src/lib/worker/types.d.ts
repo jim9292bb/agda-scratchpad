@@ -2,6 +2,21 @@ export type WASMSource =
   | { type: 'stream', stream: ReadableStream<Uint8Array> }
   | { type: 'url', url: string }
 
+/** A library to extract into the WASI shim VFS at startup. See
+ *  ResolvedLibrary in src/lib/runtime/interface.ts, which the main thread
+ *  resolves a deploy.config.mjs profile's libraries into before fetching
+ *  each one's zip and constructing this. */
+export interface LibraryToLoad {
+  /** folder to extract this library under in the VFS, e.g. "stdlib" */
+  folderName: string
+  zip: ArrayBuffer
+  agdaiZip?: ArrayBuffer
+  archiveRootPrefix: string
+  includeSubpath: string
+  agdaLibFile: string
+  libraryName: string
+}
+
 export interface WASMLoadingProgress {
   source: WASMSource
   bytesLoaded: number

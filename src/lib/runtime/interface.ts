@@ -4,6 +4,7 @@ import type { WASMLoadingProgress, PerformanceEntry, DriveProxyStats } from '$li
 import { asset } from '$app/paths'
 import { DEPLOY_CONFIG } from '../../../deploy.config.mjs'
 import { ALS_CATALOG } from '../../../file-server/als-catalog.mjs'
+import { LIBRARY_CATALOG } from '../../../file-server/libraries.mjs'
 
 // ── Deployment profiles ───────────────────────────────────────────────────────
 //
@@ -15,6 +16,47 @@ import { ALS_CATALOG } from '../../../file-server/als-catalog.mjs'
 
 export { DEPLOY_CONFIG }
 export const deployProfiles = DEPLOY_CONFIG.profiles
+export type DeployProfile = (typeof deployProfiles)[number]
+
+/** A library catalog entry resolved with its source/agdai zip asset URLs (via asset()). */
+export interface ResolvedLibrary {
+  name: string
+  version: string
+  libKey: string
+  sourceZipAsset: string
+  agdaiZipAsset?: string
+  /** folder name to extract this library under in the VFS, e.g. "stdlib" */
+  folderName: string
+  archiveRootPrefix: string
+  includeSubpath: string
+  agdaLibFile: string
+  libraryName: string
+  /** Agda interface-format version the prebuilt .agdai cache was built with, if any. */
+  agdaiCacheVersion?: string
+}
+
+/** Resolves a profile's `libraries` references against file-server/libraries.mjs's catalog. */
+export function resolveProfileLibraries(profile: DeployProfile): ResolvedLibrary[] {
+  return profile.libraries.map(({ name, version }) => {
+    const entry = LIBRARY_CATALOG.find(l => l.name === name && l.version === version)
+    if (!entry) {
+      throw new Error(`deploy.config.mjs profile "${profile.id}" references ${name}@${version} with no matching file-server/libraries.mjs entry`)
+    }
+    return {
+      name: entry.name,
+      version: entry.version,
+      libKey: entry.libKey,
+      sourceZipAsset: asset(`/${entry.sourceZipName}`),
+      agdaiZipAsset: entry.agdaiZipName ? asset(`/${entry.agdaiZipName}`) : undefined,
+      folderName: entry.name,
+      archiveRootPrefix: entry.archiveRootPrefix,
+      includeSubpath: entry.includeSubpath,
+      agdaLibFile: entry.agdaLibFile,
+      libraryName: entry.libraryName,
+      agdaiCacheVersion: entry.agdaiCacheVersion,
+    }
+  })
+}
 
 // ── Agda version types and WASM manifest ─────────────────────────────────────
 //
@@ -86,6 +128,7 @@ export interface BackendCallbacks {
 
 export interface BackendInitOptions {
   agdaVersion: SupportedAgdaVersion
+  libraries: ResolvedLibrary[]
   agdaBuffers: { stdin: SharedArrayBuffer; stdout: SharedArrayBuffer }
   driveBuffers: { lock: SharedArrayBuffer; stdin: SharedArrayBuffer; stdout: SharedArrayBuffer }
   callbacks: BackendCallbacks

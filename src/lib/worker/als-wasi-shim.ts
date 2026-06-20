@@ -16,7 +16,7 @@ import {
 } from '@agda-web/browser_wasi_shim'
 import { SPSC } from 'spsc'
 import { SPSCWriter } from 'spsc/writer'
-import type { WASMSource } from './types'
+import type { WASMSource, LibraryToLoad } from './types'
 
 export {}
 
@@ -32,11 +32,8 @@ export interface WASIShimWorkerInitObject {
   stdin: SharedArrayBuffer
   stdout: SharedArrayBuffer
   sourceSab: SharedArrayBuffer
-  stdlibZip: ArrayBuffer
-  cubicalZip: ArrayBuffer
+  libraries: LibraryToLoad[]
   dataZip?: ArrayBuffer
-  stdlibAgdaiZip?: ArrayBuffer
-  cubicalAgdaiZip?: ArrayBuffer
   /** SharedArrayBuffer for on-demand .agdai network fetch via Atomics bridge */
   agdaiFetchSab?: SharedArrayBuffer
   agdaVersion: string
@@ -168,43 +165,37 @@ async function extractZipFast(
 }
 
 async function buildFilesystem(opts: {
-  stdlibZip: ArrayBuffer
-  cubicalZip: ArrayBuffer
+  libraries: LibraryToLoad[]
   dataZip?: ArrayBuffer
-  stdlibAgdaiZip?: ArrayBuffer
-  cubicalAgdaiZip?: ArrayBuffer
 }): Promise<{ root: Directory; sourceFile: File }> {
   const root = new Directory(new Map())
 
   const sourceFile = writeFileTo(root, 'source.agda', enc.encode(''))
 
   // All extractions are independent (different VFS dirs) — run in parallel
-  await Promise.all([
-    extractZipFast(root, opts.stdlibZip, 'stdlib', path => {
-      if (!path.match(/^agda-stdlib-[\d.]+\/src/) &&
-          !path.match(/^agda-stdlib-[\d.]+\/standard-library\.agda-lib$/)) return null
-      return path.replace(/^agda-stdlib-[\d.]+\//, '')
-    }),
-    opts.stdlibAgdaiZip
-      ? extractZipFast(root, opts.stdlibAgdaiZip, 'stdlib', path => path)
-      : Promise.resolve(),
-    extractZipFast(root, opts.cubicalZip, 'cubical', path => {
-      if (!path.match(/^cubical-[\d.]+\//)) return null
-      return path.replace(/^cubical-[\d.]+\//, '')
-    }),
-    opts.cubicalAgdaiZip
-      ? extractZipFast(root, opts.cubicalAgdaiZip, 'cubical', path => path)
-      : Promise.resolve(),
-    opts.dataZip
-      ? extractZipFast(root, opts.dataZip, '', path => path)
-      : Promise.resolve(),
-  ])
+  const tasks: Promise<void>[] = []
+  for (const lib of opts.libraries) {
+    tasks.push(extractZipFast(root, lib.zip, lib.folderName, path => {
+      if (!path.startsWith(`${lib.archiveRootPrefix}/`)) return null
+      const rel = path.slice(lib.archiveRootPrefix.length + 1)
+      if (!lib.includeSubpath) return rel  // `include: .` — keep everything
+      if (rel.startsWith(`${lib.includeSubpath}/`) || rel === lib.agdaLibFile) return rel
+      return null
+    }))
+    if (lib.agdaiZip) {
+      tasks.push(extractZipFast(root, lib.agdaiZip, lib.folderName, path => path))
+    }
+  }
+  if (opts.dataZip) {
+    tasks.push(extractZipFast(root, opts.dataZip, '', path => path))
+  }
+  await Promise.all(tasks)
 
   // library config files (for versions using --setup, these get overwritten by --setup)
   writeFileTo(root, 'home/root/.config/agda/libraries',
-    enc.encode('stdlib/standard-library.agda-lib\ncubical/cubical.agda-lib\n'))
+    enc.encode(opts.libraries.map(lib => `${lib.folderName}/${lib.agdaLibFile}\n`).join('')))
   writeFileTo(root, 'home/root/.config/agda/defaults',
-    enc.encode('standard-library\ncubical-0.9\n'))
+    enc.encode(opts.libraries.map(lib => `${lib.libraryName}\n`).join('')))
 
   return { root, sourceFile }
 }
@@ -381,17 +372,14 @@ async function init({
   stdin,
   stdout,
   sourceSab,
-  stdlibZip,
-  cubicalZip,
+  libraries,
   dataZip,
-  stdlibAgdaiZip,
-  cubicalAgdaiZip,
   agdaiFetchSab,
   agdaVersion,
 }: WASIShimWorkerInitObject) {
   const [module, { root, sourceFile }] = await Promise.all([
     compileWasm(wasmSource),
-    buildFilesystem({ stdlibZip, cubicalZip, dataZip, stdlibAgdaiZip, cubicalAgdaiZip }),
+    buildFilesystem({ libraries, dataZip }),
   ])
 
   if (agdaVersion === '2.8.0') {
