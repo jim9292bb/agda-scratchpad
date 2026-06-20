@@ -8,8 +8,9 @@ used to prefetch `.agdai` files in parallel.
 This is a clearly-separated subdirectory within this repo, not a standalone
 package. It may be split into its own repository later if there's real demand
 for forking just this piece; see ROADMAP.md "Curated Multi-Library Support"
-for the current plan to extend this to libraries beyond stdlib/cubical
-(agda-categories, plfa, agda-unimath, 1lab) before assuming a split is needed.
+for the current plan to extend this to libraries beyond stdlib/cubical/
+agda-categories — plfa, agda-unimath, 1lab — before assuming a split is
+needed.
 
 ## Configuring a deployment
 
@@ -37,9 +38,15 @@ to scope-check the library's generated `Everything.agda`).
 Adding a library/version that follows the same shape as stdlib/cubical (one
 `.agda-lib` at the source archive root) should only require a new catalog
 entry plus a reference to it from a `deploy.config.mjs` profile — see
-ROADMAP.md before adding agda-categories/plfa/agda-unimath/1lab, since their
-exact `.agda-lib` layout and type-theory compatibility with existing entries
+ROADMAP.md before adding plfa/agda-unimath/1lab, since their exact
+`.agda-lib` layout and type-theory compatibility with existing entries
 hasn't been confirmed yet.
+
+A library may also `depend:` on another configured library — agda-categories
+depends on `standard-library-2.3`, for example. `generate-manifest.mjs`
+extracts every selected library upfront and registers all of them together
+in one shared `--library-file` (not just the one being checked) so `depend:`
+resolves the same way it does in the browser runtime's VFS.
 
 ### `als-catalog.mjs`
 
