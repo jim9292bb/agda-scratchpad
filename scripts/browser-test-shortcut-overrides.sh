@@ -8,7 +8,7 @@ source "$SCRIPT_DIR/browser-common.sh"
 open_app
 
 ab eval "(() => {
-  localStorage.removeItem('agda-scratchpad.shortcut-overrides.v1')
+  localStorage.removeItem('agda-playground.shortcut-overrides.v1')
   return { ok: true }
 })()"
 ab wait 500 >/dev/null
@@ -52,7 +52,7 @@ ab eval "(async () => {
   save.click()
   await new Promise(r => setTimeout(r, 100))
 
-  const stored = JSON.parse(localStorage.getItem('agda-scratchpad.shortcut-overrides.v1') || '{}')
+  const stored = JSON.parse(localStorage.getItem('agda-playground.shortcut-overrides.v1') || '{}')
   if (stored.load !== 'Ctrl-c Ctrl-g') throw new Error('Load shortcut override was not stored')
   if (stored.give !== 'Ctrl-c Ctrl-y') throw new Error('Give shortcut override was not stored')
   if (stored['why-in-scope'] !== 'Ctrl-c Ctrl-u') throw new Error('Why in scope shortcut override was not stored')

@@ -28,7 +28,7 @@ open_app() {
   # Force a full reload so each test starts from a clean app state,
   # even when the dev server has hot-reloaded between test runs.
   # Clear shortcut overrides so tests don't inherit state from a previous test run.
-  ab eval "localStorage.removeItem('agda-scratchpad.shortcut-overrides.v1'); location.reload()"
+  ab eval "localStorage.removeItem('agda-playground.shortcut-overrides.v1'); location.reload()"
   ab wait --load networkidle
 }
 

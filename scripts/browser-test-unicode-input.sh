@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/browser-common.sh
 source "$SCRIPT_DIR/browser-common.sh"
 
-ab eval "(() => { localStorage.removeItem('agda-scratchpad.shortcut-overrides.v1'); return {ok:true} })()" 2>/dev/null || true
+ab eval "(() => { localStorage.removeItem('agda-playground.shortcut-overrides.v1'); return {ok:true} })()" 2>/dev/null || true
 open_app
 
 # ── Helpers ──────────────────────────────────────────────────────────────────

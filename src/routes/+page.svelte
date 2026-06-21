@@ -102,7 +102,7 @@ const settingsSegments = [
 ]
 
 const defaultSource = '{-# OPTIONS --cubical --guardedness #-}\n\nopen import Cubical.Foundations.Prelude\n'
-const LS_SHORTCUT_OVERRIDES_KEY = 'agda-scratchpad.shortcut-overrides.v1'
+const LS_SHORTCUT_OVERRIDES_KEY = 'agda-playground.shortcut-overrides.v1'
 const agdaShortcutIds = new Set(agdaShortcutRegistry.map(shortcut => shortcut.id))
 
 /** @returns {Record<string, string>} */
