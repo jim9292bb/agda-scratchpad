@@ -1404,7 +1404,7 @@ $effect(() => {
         <h2 class="about-title">Agda Playground</h2>
         <button type="button" class="about-close" aria-label="Close" onclick={() => { aboutPanelVisible = false }}>✕</button>
       </div>
-      <p class="about-desc">A browser-hosted single-file Agda scratchpad for demonstrations, learning, and practice.</p>
+      <p class="about-desc">A browser-hosted single-file Agda playground for demonstrations, learning, and practice.</p>
       <dl class="about-meta">
         {#each runtimeSummary() as item}
           <div class="about-meta-row"><dt>{item.label}</dt><dd>{item.value}</dd></div>
@@ -1453,11 +1453,11 @@ $effect(() => {
           {#if selectedSettingsSegment === 'general'}
             <div id="settings-panel-general" class="settings-section settings-overview" role="tabpanel" aria-labelledby="general-settings-title">
               <h3 id="general-settings-title">General</h3>
-              <p class="settings-note">Global scratchpad behavior for demos and practice sessions.</p>
+              <p class="settings-note">Global playground behavior for demos and practice sessions.</p>
               <div class="settings-option-grid">
                 <div class="settings-option">
                   <strong>Source buffer</strong>
-                  <span>Single-file `/source.agda` scratchpad</span>
+                  <span>Single-file `/source.agda` playground</span>
                 </div>
                 <div class="settings-option">
                   <strong>Persistence</strong>
