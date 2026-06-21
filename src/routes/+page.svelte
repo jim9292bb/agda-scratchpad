@@ -1131,7 +1131,7 @@ $effect(() => {
   <section class="editor-section">
     <header class="header">
       <div class="header-left">
-        <span class="header-title">Agda Scratchpad</span>
+        <span class="header-title">Agda Playground</span>
         {@render headerExamplePicker()}
       </div>
       <div class="header-actions">
@@ -1399,9 +1399,9 @@ $effect(() => {
 {#snippet aboutPanel()}
   {#if aboutPanelVisible}
     <div class="about-backdrop" role="presentation" onclick={() => { aboutPanelVisible = false }}></div>
-    <div class="about-panel" role="dialog" aria-modal="true" aria-label="About Agda Scratchpad">
+    <div class="about-panel" role="dialog" aria-modal="true" aria-label="About Agda Playground">
       <div class="about-header">
-        <h2 class="about-title">Agda Scratchpad</h2>
+        <h2 class="about-title">Agda Playground</h2>
         <button type="button" class="about-close" aria-label="Close" onclick={() => { aboutPanelVisible = false }}>✕</button>
       </div>
       <p class="about-desc">A browser-hosted single-file Agda scratchpad for demonstrations, learning, and practice.</p>
@@ -1428,7 +1428,7 @@ $effect(() => {
       aria-labelledby="settings-panel-title">
       <header class="settings-panel-header">
         <div>
-          <h2 id="settings-panel-title">Scratchpad Settings</h2>
+          <h2 id="settings-panel-title">Playground Settings</h2>
           <p>Configure the browser IDE experience. These settings apply to the whole page.</p>
         </div>
         <button type="button" class="settings-close-button" aria-label="Close settings" onclick={closeSettingsPanel}>Close</button>

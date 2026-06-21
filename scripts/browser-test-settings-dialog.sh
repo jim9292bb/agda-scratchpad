@@ -52,7 +52,7 @@ ab eval "(async () => {
   }
 
   const title = document.querySelector('#settings-panel-title')
-  if (!title || title.textContent.trim() !== 'Scratchpad Settings') {
+  if (!title || title.textContent.trim() !== 'Playground Settings') {
     throw new Error('Settings dialog title should describe whole-page settings')
   }
 
