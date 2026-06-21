@@ -1,7 +1,7 @@
 # agda-mode-vscode Mapping
 
 This document records the `banacorn/agda-mode-vscode` behavior already researched
-for this browser-hosted single-file Agda scratchpad IDE. Use it before searching
+for this browser-hosted single-file Agda playground IDE. Use it before searching
 `../references/`.
 
 ## References
@@ -44,7 +44,7 @@ for this browser-hosted single-file Agda scratchpad IDE. Use it before searching
 
 - `C-c C-.` falls back to `Cmd_goal_type_context` when the active goal content is empty.
 - Commands that need content use the command input panel when the active goal or selection is empty.
-- `C-c C-z` is naturally prompt-based in agda-mode-vscode. In this scratchpad, it uses selected text or the command input panel.
+- `C-c C-z` is naturally prompt-based in agda-mode-vscode. In this playground, it uses selected text or the command input panel.
 - `C-c C-o` and `C-c C-w` support top-level selected text when the cursor is not inside a goal.
 - `C-u` normalization prefix variants are not implemented yet; they are tracked in the roadmap.
 - Always keep command string construction in `src/lib/agda/commands.js`.

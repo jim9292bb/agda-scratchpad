@@ -1,6 +1,6 @@
 # Project Goal
 
-This project is a browser-hosted single-file Agda scratchpad for demonstration,
+This project is a browser-hosted single-file Agda playground for demonstration,
 learning, and practice.
 
 It takes a similar approach to the JSCoq scratchpad:
@@ -48,7 +48,7 @@ The core unit of work is one source buffer backed by `/source.agda`.
 
 Library support should be treated as runtime environment setup, not as a file
 management feature. Cubical Agda and the standard library are useful because
-they make examples richer, but the UI should remain a scratchpad rather than a
+they make examples richer, but the UI should remain a playground rather than a
 project editor.
 
 When considering new features, prefer the option that improves single-file
@@ -63,7 +63,7 @@ development.
 4. Good diagnostics and query output.
 5. Unicode input suitable for Agda practice.
 6. Browser regression coverage for common teaching examples.
-7. UI polish that keeps the scratchpad simple.
+7. UI polish that keeps the playground simple.
 
 ## Reference Behavior
 

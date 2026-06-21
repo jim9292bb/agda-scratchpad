@@ -1,6 +1,6 @@
 # Runtime / Filesystem Experiments
 
-This directory is an isolated benchmark harness for ALS WASM runtime and virtual filesystem experiments. It does not change the main Agda Scratchpad runtime.
+This directory is an isolated benchmark harness for ALS WASM runtime and virtual filesystem experiments. It does not change the main Agda Playground runtime.
 
 ## Goal
 

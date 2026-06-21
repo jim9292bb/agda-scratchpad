@@ -1,6 +1,6 @@
-# Agda Scratchpad Roadmap
+# Agda Playground Roadmap
 
-This roadmap tracks work for a browser-hosted, single-file Agda scratchpad for
+This roadmap tracks work for a browser-hosted, single-file Agda playground for
 teaching, demonstrations, and practice. The project takes a similar approach to the
 JSCoq scratchpad: focused interaction with one source buffer, not development of
 a multi-file Agda project.
@@ -17,7 +17,7 @@ For the current branch handoff and next runtime migration task, read
 
 ## Scope Boundaries
 
-- [x] Preserve the single-file scratchpad model backed by `/source.agda`.
+- [x] Preserve the single-file playground model backed by `/source.agda`.
 - [x] Treat Cubical Agda and the standard library as preloaded runtime assets, not as project-management features.
 - [ ] Do not add multi-file editing.
 - [ ] Do not add a file explorer.
@@ -311,7 +311,7 @@ Agda shortcuts.
 ## Goal Queries and Exploration
 
 Goal: learners should be able to inspect goal type, context, inferred types,
-normal forms, scope, and module contents without leaving the scratchpad.
+normal forms, scope, and module contents without leaving the playground.
 
 - [x] Implement `C-c C-t` Goal type using `Cmd_goal_type`.
 - [x] Implement `C-c C-e` Context using `Cmd_context`.
@@ -412,7 +412,7 @@ external editor setup.
 ## Normalization and Command Variants
 
 Goal: expose useful Agda command variants without copying VSCode's exact prefix
-UI when it does not fit the browser scratchpad.
+UI when it does not fit the browser playground.
 
 - [ ] Support AsIs normalization.
 - [ ] Support Simplified normalization.
@@ -434,7 +434,7 @@ single-file exercises.
 - [ ] Display constraints in a structured panel.
 - [ ] Handle Agda version differences in command syntax.
 
-## Scratchpad UX and Teaching Examples
+## Playground UX and Teaching Examples
 
 Goal: the default experience should support demos and short practice sessions.
 
@@ -448,7 +448,7 @@ Goal: the default experience should support demos and short practice sessions.
 
 ## Browser Regression Suite
 
-Goal: common scratchpad workflows should be repeatable by AI coding agents and humans.
+Goal: common playground workflows should be repeatable by AI coding agents and humans.
 
 - [x] Add reusable Agda fixtures under `test-fixtures/agda/`.
 - [x] Add shared `agent-browser` helper functions.
