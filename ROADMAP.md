@@ -73,8 +73,14 @@ runtime architecture.
 - [x] Add a main-app runtime backend selector scaffold.
 - [x] Add a behavior-preserving runtime backend abstraction around the current `runno-proxy-current` path.
 - [x] Port `browser-wasi-shim-memfs` into the main app behind the runtime backend selector.
-- [ ] Browser-test library loading with both runtime backends.
-- [ ] Decide whether `browser-wasi-shim-overlay-snapshot` is worth porting after the simpler memfs backend works.
+- [x] Browser-test library loading with both runtime backends. — moot:
+      `runno-proxy-current` was fully removed; `browser-wasi-shim-memfs` is
+      the sole backend (no selector exists in the UI anymore), so there's
+      only one backend to browser-test — already covered by the regular
+      `test:browser:libraries`/`test:browser:library-cache-profile` suites.
+- [x] Decide whether `browser-wasi-shim-overlay-snapshot` is worth porting
+      after the simpler memfs backend works. — decided no: memfs became the
+      sole backend; overlay-snapshot was never ported into the main app.
 
 ## Curated Multi-Library Support
 
@@ -325,9 +331,14 @@ normal forms, scope, and module contents without leaving the playground.
 - [x] Implement `C-c C-o` Module contents using `Cmd_show_module_contents`.
 - [x] Implement `C-c C-w` Why in scope using `Cmd_why_in_scope`.
 - [x] Extract query command construction into `src/lib/agda/commands.js`.
-- [ ] Move query results from the raw log into a structured Queries panel.
-- [ ] Render query results without losing Agda formatting.
-- [ ] Browser-test query shortcuts with reusable fixtures.
+- [x] Move query results from the raw log into a structured Queries panel.
+      (`.queries-panel`/`queriesPanel()` snippet in `+page.svelte`, backed by
+      `agdaController.queryResults`.)
+- [x] Render query results without losing Agda formatting. (`<pre
+      class="query-result-content">` preserves whitespace.)
+- [x] Browser-test query shortcuts with reusable fixtures.
+      (`scripts/browser-test-query-shortcuts.sh` uses
+      `test-fixtures/agda/query-bool.agda`.)
 
 ## Goals Panel and Navigation
 
