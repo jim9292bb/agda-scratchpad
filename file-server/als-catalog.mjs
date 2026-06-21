@@ -11,7 +11,7 @@ const NIGHTLY = 'https://github.com/agda-web/agda-language-server/releases/downl
 // agda-data.zip currently only contains a .agdai cache built for Agda 2.8.0's
 // interface format (see src/lib/runtime/interface.ts); other versions still
 // list it below to preserve existing behavior, but it won't speed them up.
-const DATA_ZIP_URL = 'https://github.com/jim9292bb/agda-scratchpad/releases/download/cache-2.8.0/agda-data.zip'
+const DATA_ZIP_URL = 'https://github.com/jim9292bb/agda-playground/releases/download/cache-2.8.0/agda-data.zip'
 
 export const ALS_CATALOG = [
   {

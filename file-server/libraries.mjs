@@ -37,7 +37,7 @@
  * compatibility with existing entries hasn't been confirmed yet.
  */
 
-const CACHE_2_8_0 = 'https://github.com/jim9292bb/agda-scratchpad/releases/download/cache-2.8.0'
+const CACHE_2_8_0 = 'https://github.com/jim9292bb/agda-playground/releases/download/cache-2.8.0'
 
 export const LIBRARY_CATALOG = [
   {

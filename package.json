@@ -1,5 +1,5 @@
 {
-  "name": "agda-scratchpad",
+  "name": "agda-playground",
   "version": "0.0.1",
   "description": "Browser-hosted single-file Agda scratchpad for demonstrations, learning, and practice",
   "author": "qbane",
@@ -54,7 +54,7 @@
     "node": ">=18.0.0 <25.0.0"
   },
   "dependencies": {
-    "@agda-web/browser_wasi_shim": "https://github.com/jim9292bb/agda-scratchpad/releases/download/deps/agda-web-browser_wasi_shim-0.4.2.tgz",
+    "@agda-web/browser_wasi_shim": "https://github.com/jim9292bb/agda-playground/releases/download/deps/agda-web-browser_wasi_shim-0.4.2.tgz",
     "@andy0130tw/vscode-jsonrpc-esm": "^9.0.0-next-esm.9",
     "@codemirror/commands": "^6.10.2",
     "@codemirror/language": "^6.12.2",

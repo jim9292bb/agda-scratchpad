@@ -1,7 +1,7 @@
-# Agda Scratchpad
+# Agda Playground
 
 A browser-hosted, single-file Agda scratchpad for demonstrations, learning, and
-practice. [Try it live](https://jim9292bb.github.io/agda-scratchpad/).
+practice. [Try it live](https://jim9292bb.github.io/agda-playground/).
 
 The project takes a similar approach to the [JSCoq scratchpad](https://coq.vercel.app/scratchpad.html): open a browser, write
 or paste a small Agda example, load it with Agda/ALS, and interact with goals,
