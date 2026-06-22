@@ -19,7 +19,7 @@ needed.
 Edit **`../deploy.config.mjs`** (repo root) — add or edit a `profiles[]`
 entry referencing libraries/ALS versions already in the catalogs below by
 `name`+`version`. See that file's comments for the schema. Then run
-`npm run setup && npm run build`.
+`npm run download-assets && npm run setup && npm run build`.
 
 ### Add a library that isn't in the catalog yet
 
@@ -33,7 +33,8 @@ entry referencing libraries/ALS versions already in the catalogs below by
    every selected library together, so `depend:` resolves the same way in
    both places.
 3. Reference the new entry from a `deploy.config.mjs` profile.
-4. Run `npm run setup`, then regenerate the dependency manifest (below).
+4. Run `npm run download-assets && npm run setup`, then regenerate the
+   dependency manifest (below).
 
 Check [ROADMAP.md](../ROADMAP.md) before adding plfa/agda-unimath/1lab — their exact
 `.agda-lib` layout and type-theory compatibility with existing entries
@@ -52,15 +53,18 @@ library/ALS compatibility table — each profile *is* a validated
 To use a private library, a custom fork, or a prebuilt `.agdai` cache you
 built yourself instead of the catalog's download, place the
 correctly-named file in `file-server/library/` or `file-server/als/` by
-hand, then run `npm run setup` as usual.
+hand, then run `npm run setup` directly — there's no need to run
+`npm run download-assets` at all.
 
-This works because `npm run setup`'s download step skips any file that's
-already present in those two directories, then syncs everything in them
-into `static/library/`/`static/als/` for serving — so a manually-placed
-file and a catalog download end up in the exact same place, and everything
-downstream (extraction, manifest generation, the runtime's fetch URLs)
-can't tell which one happened. Both directories are gitignored; nothing in
-them is committed.
+This works because downloading and "prepare `static/` for serving" are
+two separate commands: `npm run setup` only ever reads whatever's already
+in `file-server/{library,als}/` and syncs it into
+`static/library/`/`static/als/`, so a manually-placed file ends up served
+exactly the same way a catalog download would. (`npm run download-assets`
+is also safe to run on top of manually-placed files — it skips anything
+that's already there — if you only want to supply some files yourself and
+let the catalog fill in the rest.) Both `file-server/library/` and
+`file-server/als/` are gitignored; nothing in them is committed.
 
 ### Regenerate the dependency manifest
 
@@ -96,9 +100,12 @@ still produces a correct result, just slower — see
 ### Scripts
 
 - **`print-download-list.mjs`** — prints `URL<TAB>filename<TAB>subdir`
-  tuples (`subdir` is `library` or `als`) for everything `npm run setup`
-  needs to download. Consumed by `scripts/download-assets.sh`; not meant
-  to be run standalone.
+  tuples (`subdir` is `library` or `als`) for every library/ALS file the
+  currently-configured `deploy.config.mjs` needs. Consumed by both
+  `scripts/download-assets.sh` (to know what to fetch) and
+  `scripts/setup-assets.sh` (to verify everything needed actually landed
+  in `static/{library,als}/` before declaring success); not meant to be
+  run standalone.
 - **`extract-agdai.mjs`** — extracts each configured library's prebuilt
   `.agdai` cache zip (from `static/library/`) into `static/agdai/<name>/`,
   so individual `.agdai` files can be served on demand. Runs automatically

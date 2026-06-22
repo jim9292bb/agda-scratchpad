@@ -23,6 +23,9 @@ jobs:
       run: npm ci
 
     - name: Download assets
+      run: npm run download-assets
+
+    - name: Prepare static assets
       run: npm run setup
 
     - name: Build

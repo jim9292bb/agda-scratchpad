@@ -6,7 +6,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "setup": "scripts/download-assets.sh",
+    "setup": "scripts/setup-assets.sh",
+    "download-assets": "scripts/download-assets.sh",
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",

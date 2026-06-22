@@ -54,18 +54,24 @@ Node.js 18–24 (the `engines` field in `package.json` specifies `>=18.0.0 <25.0
 ### First-time setup
 
 ```sh
-npm install         # install dependencies
-npm run setup       # download ALS WASM binaries and library archives (~300 MB download,
-                     # ~600 MB on disk after extraction)
+npm install              # install dependencies
+npm run download-assets  # download ALS WASM binaries and library archives (~300 MB)
+npm run setup            # prepare static/ for serving (~600 MB on disk after extraction)
 ```
 
-`npm run setup` fetches:
+`npm run download-assets` fetches:
 - ALS WASM binaries (Agda 2.6, 2.7, 2.8) from [agda-web/agda-language-server](https://github.com/agda-web/agda-language-server/releases/tag/nightly-20260407)
 - Standard library and Cubical source zips from upstream Agda releases
-- Pre-built `.agdai` cache zips for Agda 2.8.0, extracted into `static/agdai/` so
-  individual `.agdai` files can be fetched on demand at runtime (see
-  `static/agdai-manifest.json`, committed to the repo, for the dependency
-  manifest used to prefetch them)
+- Pre-built `.agdai` cache zips for Agda 2.8.0
+
+— into `file-server/library/`/`file-server/als/`. `npm run setup` then
+syncs them into `static/library/`/`static/als/` for serving, and extracts
+the `.agdai` cache into `static/agdai/` so individual `.agdai` files can
+be fetched on demand at runtime (see `static/agdai-manifest.json`,
+committed to the repo, for the dependency manifest used to prefetch them).
+A self-deployer can skip `npm run download-assets` and place their own
+files in `file-server/library/`/`file-server/als/` instead — see
+[file-server/README.md](file-server/README.md).
 
 ### Common commands
 
@@ -102,7 +108,7 @@ For roadmap details, see [PROJECT_GOAL.md](PROJECT_GOAL.md) and [ROADMAP.md](ROA
 Tooling and dependencies this project builds on:
 
 - [agda-web/als-demo](https://github.com/agda-web/als-demo) — upstream project this is forked from
-- [agda-web/agda-language-server](https://github.com/agda-web/agda-language-server) — source of the ALS WASM binaries downloaded by `npm run setup`
+- [agda-web/agda-language-server](https://github.com/agda-web/agda-language-server) — source of the ALS WASM binaries downloaded by `npm run download-assets`
 - [banacorn/agda-mode-vscode](https://github.com/banacorn/agda-mode-vscode) — reference for Agda interaction commands and shortcut behavior
 - [agda-web/browser_wasi_shim](https://github.com/agda-web/browser_wasi_shim) — browser WASI shim used by the runtime backend
 
