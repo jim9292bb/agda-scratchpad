@@ -14,130 +14,98 @@ needed.
 
 ## Configuring a deployment
 
-**`../deploy.config.mjs`** (repo root) is the single file a self-deployer
-edits to choose which ALS/Agda versions and library combinations their
-deployment bundles. See that file's comments for the schema. Everything in
-this directory reads from it (via `resolve-deploy-config.mjs`) rather than
-hardcoding a specific combination — the default config reproduces this
-project's own deployment unchanged.
+### Use an existing library/ALS combination
 
-## Where library/ALS files live: `library/` and `als/`
+Edit **`../deploy.config.mjs`** (repo root) — add or edit a `profiles[]`
+entry referencing libraries/ALS versions already in the catalogs below by
+`name`+`version`. See that file's comments for the schema. Then run
+`npm run setup && npm run build`.
 
-`npm run setup` downloads the source zips, prebuilt `.agdai` cache zips, and
-ALS WASM binaries that `deploy.config.mjs`'s profiles need into two
-directories right here — `file-server/library/` and `file-server/als/` —
-never directly into `static/`. Both are gitignored; nothing in them is
-committed.
+### Add a library that isn't in the catalog yet
 
-These two directories are the **single input location** regardless of how a
-file got there. `npm run setup`'s download step (`print-download-list.mjs` +
-`scripts/download-assets.sh`) is the default, CI-guaranteed way to fill
-them — but it skips any file that's already present, so a self-deployer who
-wants to supply a library or ALS build that isn't in the curated catalog
-(a private library, a custom fork, a different prebuilt `.agdai` cache) can
-just place the correctly-named file in `file-server/library/` or
-`file-server/als/` by hand first. Either way, `npm run setup`'s final step
-copies everything from `file-server/{library,als}/` into mirrored
-`static/{library,als}/` directories, which is what actually gets served —
-`static/` itself is pure build output; nothing in it should be hand-edited.
+1. Add an entry to `libraries.mjs` — `name`, `version`, `libKey`,
+   `sourceArchiveUrl`/`sourceZipName`, optionally `agdaiZipUrl`/`agdaiZipName`,
+   and `optionsPragma`. See the comments at the top of that file for what
+   each field means.
+2. If the library `depend:`s on another configured library (e.g.
+   agda-categories depends on `standard-library-2.3`), no extra step is
+   needed — `generate-manifest.mjs` and the browser runtime both register
+   every selected library together, so `depend:` resolves the same way in
+   both places.
+3. Reference the new entry from a `deploy.config.mjs` profile.
+4. Run `npm run setup`, then regenerate the dependency manifest (below).
 
-## Catalogs
-
-### `libraries.mjs`
-
-Catalog of every library *version* this project knows how to build a
-`.agdai` cache and dependency manifest for. `deploy.config.mjs`'s
-`profiles[].libraries` reference entries here by `name`+`version`. Each entry
-needs: `name`, `version`, `libKey` (short tag stored in the manifest),
-`sourceArchiveUrl`/`sourceZipName` (where to download the source from and
-what to call it locally), `agdaiZipUrl`/`agdaiZipName` (optional — a prebuilt
-`.agdai` cache; without one the library still works, just type-checks from
-source every load), and `optionsPragma` (the `{-# OPTIONS #-}` line needed
-to scope-check the library's generated `Everything.agda`).
-
-Adding a library/version that follows the same shape as stdlib/cubical (one
-`.agda-lib` at the source archive root) should only require a new catalog
-entry plus a reference to it from a `deploy.config.mjs` profile — see
-ROADMAP.md before adding plfa/agda-unimath/1lab, since their exact
+Check ROADMAP.md before adding plfa/agda-unimath/1lab — their exact
 `.agda-lib` layout and type-theory compatibility with existing entries
 hasn't been confirmed yet.
 
-A library may also `depend:` on another configured library — agda-categories
-depends on `standard-library-2.3`, for example. `generate-manifest.mjs`
-extracts every selected library upfront and registers all of them together
-in one shared `--library-file` (not just the one being checked) so `depend:`
-resolves the same way it does in the browser runtime's VFS.
+### Add or change an ALS/Agda version
 
-### `als-catalog.mjs`
+Add an entry to `als-catalog.mjs` (`version`, `wasmUrl`/`wasmFilename`,
+optionally `dataZipUrl`/`dataZipName`), then reference it from a
+`deploy.config.mjs` profile's `alsVersion`. There's no separate
+library/ALS compatibility table — each profile *is* a validated
+(`alsVersion`, `libraries`) pairing, so there's nothing to cross-reference.
 
-Catalog of ALS/Agda WASM builds this project knows how to fetch and run.
-`deploy.config.mjs`'s `profiles[].alsVersion` references an entry here by
-version. There's no separate library/ALS compatibility table — each profile
-*is* a validated (alsVersion, libraries) pairing, so there's nothing to
-cross-reference.
+### Supply your own library/ALS files instead of downloading
 
-### `resolve-deploy-config.mjs`
+`npm run setup` downloads everything `deploy.config.mjs`'s profiles need
+into `file-server/library/` and `file-server/als/`, then syncs them into
+`static/library/`/`static/als/` for serving — but it skips any file
+that's already present. To use a private library, a custom fork, or a
+prebuilt `.agdai` cache you built yourself instead of the catalog's
+download, place the correctly-named file in `file-server/library/` or
+`file-server/als/` by hand before running `npm run setup`. Both
+directories are gitignored; nothing in them is committed. Everything
+downstream (extraction, manifest generation, the runtime's fetch URLs)
+reads from the same `static/{library,als}/` location regardless of how
+the file got there.
 
-Resolves `deploy.config.mjs` against both catalogs above, validating every
-reference up front (a typo fails fast with a clear error). Exports
-`getSelectedLibraries()` and `getSelectedAlsVersions()` — deduplicated across
-all configured profiles — used by the scripts below instead of reading the
-catalogs or config directly.
+### Regenerate the dependency manifest
 
-## Scripts
-
-### `print-download-list.mjs`
-
-Prints `URL<TAB>filename<TAB>subdir` tuples for everything `npm run setup`
-needs to download for the *currently configured* ALS versions and
-libraries (`subdir` is `library` or `als`, telling the shell script which
-of `file-server/library/`/`file-server/als/` a file belongs in). Consumed
-by `scripts/download-assets.sh`; not meant to be run standalone.
-
-### `extract-agdai.mjs`
-
-Extracts each configured library's prebuilt `.agdai` cache zip (from
-`static/library/`, synced there by `npm run setup`) into
-`static/agdai/<name>/`, so individual `.agdai` files can be served on
-demand. Runs automatically as part of `npm run setup`
-(see `scripts/download-assets.sh`); only needs Node.js.
+Run after `npm run setup` whenever a configured library's version, the
+Agda version, or which libraries are selected changes:
 
 ```sh
-node file-server/extract-agdai.mjs
-```
-
-### `generate-manifest.mjs`
-
-Generates `static/agdai-manifest.json`: a module dependency graph across all
-configured libraries, used by the browser runtime (`src/lib/agda/prefetch.js`)
-to fetch all `.agdai` files a source buffer needs in parallel, instead of one
-at a time as ALS requests them during `Cmd_load`.
-
-**This is a maintenance script, not part of the regular build.** Run it
-manually and commit the resulting `static/agdai-manifest.json` whenever a
-configured library's version or the Agda version changes, or when
-`deploy.config.mjs` changes which libraries are selected.
-
-Prerequisites:
-
-- `npm run setup` has been run (provides the source archives and `.agdai`
-  cache zips).
-- `node file-server/extract-agdai.mjs` has been run (provides
-  `static/agdai/`).
-- A **native** `agda` binary on `PATH` (not the WASM build). It doesn't need
-  to match the bundled `.agdai` cache's interface format version — if it
-  doesn't, the script still produces a correct result, just slower, because
-  Agda falls back to a full recompile from source for any module whose cached
-  interface it can't reuse.
-
-```sh
+node file-server/extract-agdai.mjs    # if not already run by npm run setup
 node file-server/generate-manifest.mjs
 ```
 
-### `zip-utils.mjs`
+Commit the resulting `static/agdai-manifest.json`. Requires a **native**
+`agda` binary on `PATH` (not the WASM build) — see `generate-manifest.mjs`'s
+own header comment for what happens if its interface format version
+doesn't match the bundled `.agdai` cache (still correct, just slower).
 
-Shared minimal ZIP extraction helper (no external dependency) used by both
-scripts above.
+## Reference
+
+### Catalogs
+
+- **`libraries.mjs`** — every library *version* this project knows how to
+  build a `.agdai` cache and dependency manifest for.
+- **`als-catalog.mjs`** — every ALS/Agda WASM build this project knows how
+  to fetch and run.
+- **`resolve-deploy-config.mjs`** — resolves `deploy.config.mjs` against
+  both catalogs above, validating every reference up front (a typo fails
+  fast with a clear error). Exports `getSelectedLibraries()` and
+  `getSelectedAlsVersions()` — deduplicated across all configured profiles
+  — used by the scripts below instead of reading the catalogs or config
+  directly.
+
+### Scripts
+
+- **`print-download-list.mjs`** — prints `URL<TAB>filename<TAB>subdir`
+  tuples (`subdir` is `library` or `als`) for everything `npm run setup`
+  needs to download. Consumed by `scripts/download-assets.sh`; not meant
+  to be run standalone.
+- **`extract-agdai.mjs`** — extracts each configured library's prebuilt
+  `.agdai` cache zip (from `static/library/`) into `static/agdai/<name>/`,
+  so individual `.agdai` files can be served on demand. Runs automatically
+  as part of `npm run setup`.
+- **`generate-manifest.mjs`** — generates `static/agdai-manifest.json`. A
+  maintenance script, not part of the regular build — see "Regenerate the
+  dependency manifest" above.
+- **`zip-utils.mjs`** — shared minimal ZIP extraction helper (no external
+  dependency) used by both scripts above.
 
 ## How the manifest is used at runtime
 

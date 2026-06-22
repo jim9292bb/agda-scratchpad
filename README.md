@@ -32,6 +32,18 @@ Out of scope:
 
 See `PROJECT_GOAL.md` for the full product positioning.
 
+## Configuring your deployment
+
+Self-deployers (forking this repo to host their own version) configure
+which Agda/ALS version and library combinations to bundle in
+**`deploy.config.mjs`** (repo root) — see that file's comments for the
+schema. The default reproduces this project's own deployment unchanged.
+
+See `file-server/README.md` for: adding a library or ALS version that
+isn't in the catalog yet, supplying your own library/ALS files instead of
+the automated download, and regenerating the dependency manifest after a
+catalog change.
+
 ## Development
 
 ### Prerequisites
