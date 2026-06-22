@@ -65,17 +65,18 @@ them is committed.
 ### Regenerate the dependency manifest
 
 Run after `npm run setup` whenever a configured library's version, the
-Agda version, or which libraries are selected changes:
+Agda version, or which libraries are selected changes. Requires a
+**native** `agda` binary on `PATH` (not the WASM build):
 
 ```sh
 node file-server/extract-agdai.mjs    # if not already run by npm run setup
 node file-server/generate-manifest.mjs
 ```
 
-Commit the resulting `static/agdai-manifest.json`. Requires a **native**
-`agda` binary on `PATH` (not the WASM build) — see `generate-manifest.mjs`'s
-own header comment for what happens if its interface format version
-doesn't match the bundled `.agdai` cache (still correct, just slower).
+Commit the resulting `static/agdai-manifest.json`. (If the native `agda`'s
+interface format version doesn't match the bundled `.agdai` cache, this
+still produces a correct result, just slower — see
+`generate-manifest.mjs`'s own header comment.)
 
 ## Reference
 
