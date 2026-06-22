@@ -1393,6 +1393,20 @@ $effect(() => {
       </button>
       </div>
     </div>
+    {#if deployProfiles.length > 1}
+      <div class="control-card-profile-row">
+        <label for="control-card-profile-select">Profile</label>
+        <select
+          id="control-card-profile-select"
+          value={agdaController.selectedProfileId}
+          disabled={agdaController.alsWorkerStatus === 'loading' || agdaController.alsWorkerStatus === 'deactivating'}
+          onchange={(e) => onDeploymentProfileChange(e.currentTarget.value)}>
+          {#each deployProfiles as profile}
+            <option value={profile.id}>{profile.label}</option>
+          {/each}
+        </select>
+      </div>
+    {/if}
   </div>
 {/snippet}
 
@@ -1495,20 +1509,14 @@ $effect(() => {
           {:else if selectedSettingsSegment === 'runtime'}
             <div id="settings-panel-runtime" class="settings-section" role="tabpanel" aria-labelledby="runtime-settings-title">
               <h3 id="runtime-settings-title">Runtime and libraries</h3>
-              <p class="settings-note">Choose which Agda/ALS version and library set this session uses. Switching restarts the worker.</p>
-              <div class="settings-option-grid">
-                <label class="settings-field">
-                  <span>Deployment profile</span>
-                  <select
-                    value={agdaController.selectedProfileId}
-                    disabled={deployProfiles.length < 2 || agdaController.alsWorkerStatus === 'loading' || agdaController.alsWorkerStatus === 'deactivating'}
-                    onchange={(e) => onDeploymentProfileChange(e.currentTarget.value)}>
-                    {#each deployProfiles as profile}
-                      <option value={profile.id}>{profile.label}</option>
-                    {/each}
-                  </select>
-                </label>
-              </div>
+              <p class="settings-note">
+                {#if deployProfiles.length > 1}
+                  Switch the deployment profile from the "Profile" selector below the ALS status card. Switching restarts the worker.
+                {:else}
+                  This deployment has a single configured profile.
+                {/if}
+              </p>
+              <p class="settings-note">Active profile: <strong>{agdaController.activeProfile.label}</strong></p>
               <dl class="settings-runtime-list">
                 {#each runtimeSummary() as item}
                   <div>
@@ -1794,6 +1802,25 @@ $effect(() => {
   align-items: center;
   gap: 4px;
   margin-left: auto;
+}
+
+.control-card-profile-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--quiet-neutral-stroke-softer);
+  font-size: 0.85em;
+}
+
+.control-card-profile-row label {
+  color: var(--quiet-neutral-text-softer, inherit);
+  flex-shrink: 0;
+}
+
+.control-card-profile-row select {
+  flex: 1;
+  min-width: 0;
 }
 
 .control-btn {

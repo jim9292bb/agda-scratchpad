@@ -8,29 +8,13 @@ source "$SCRIPT_DIR/browser-common.sh"
 open_app
 
 ab eval "(async () => {
-  const settingsBtn = Array.from(document.querySelectorAll('button'))
-    .find(b => (b.getAttribute('aria-label') || '').trim() === 'Settings')
-  if (!settingsBtn) throw new Error('Settings button (aria-label) not found')
-  settingsBtn.click()
-  await new Promise(r => setTimeout(r, 150))
-
-  const runtimeTab = Array.from(document.querySelectorAll('.settings-segmented-control button'))
-    .find(b => b.textContent.trim() === 'Runtime')
-  if (!runtimeTab) throw new Error('Runtime settings segment not found')
-  runtimeTab.click()
-  await new Promise(r => setTimeout(r, 150))
-
-  const select = document.querySelector('#settings-panel-runtime select')
-  if (!select) throw new Error('Deployment profile select not found')
+  const select = document.querySelector('#control-card-profile-select')
+  if (!select) throw new Error('Profile select not found below the ALS control card')
   const option = Array.from(select.options).find(o => o.value.includes('agda-categories'))
   if (!option) throw new Error('agda-categories profile option not found in select')
   select.value = option.value
   select.dispatchEvent(new Event('change', { bubbles: true }))
   await new Promise(r => setTimeout(r, 150))
-
-  const closeBtn = Array.from(document.querySelectorAll('button'))
-    .find(b => (b.getAttribute('aria-label') || '').trim() === 'Close settings' || b.textContent.trim() === 'Close')
-  if (closeBtn) closeBtn.click()
   return { ok: true, selected: option.value }
 })()"
 
