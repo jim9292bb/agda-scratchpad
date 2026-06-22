@@ -46,8 +46,8 @@ export function resolveProfileLibraries(profile: DeployProfile): ResolvedLibrary
       name: entry.name,
       version: entry.version,
       libKey: entry.libKey,
-      sourceZipAsset: asset(`/${entry.sourceZipName}`),
-      agdaiZipAsset: entry.agdaiZipName ? asset(`/${entry.agdaiZipName}`) : undefined,
+      sourceZipAsset: asset(`/library/${entry.sourceZipName}`),
+      agdaiZipAsset: entry.agdaiZipName ? asset(`/library/${entry.agdaiZipName}`) : undefined,
       folderName: entry.name,
       archiveRootPrefix: entry.archiveRootPrefix,
       includeSubpath: entry.includeSubpath,
@@ -79,8 +79,8 @@ for (const version of supportedAgdaVersions) {
     throw new Error(`deploy.config.mjs lists ALS version "${version}" with no matching file-server/als-catalog.mjs entry`)
   }
   agdaVersionMap[version] = {
-    path: asset(`/${entry.wasmFilename}`),
-    dataPath: entry.dataZipName ? asset(`/${entry.dataZipName}`) : undefined,
+    path: asset(`/als/${entry.wasmFilename}`),
+    dataPath: entry.dataZipName ? asset(`/als/${entry.dataZipName}`) : undefined,
   }
 }
 

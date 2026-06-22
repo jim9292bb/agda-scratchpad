@@ -416,9 +416,9 @@ async function runRunnoDirectFs(fixture, options = {}) {
     workerData: {
       stdin: stdinSab,
       source,
-      wasmPath: join(appRoot, 'static', 'als-2.8ext.wasm'),
-      stdlibZipPath: join(appRoot, 'static', 'agda-stdlib-2.3.zip'),
-      cubicalZipPath: join(appRoot, 'static', 'agda-cubical-0.9.zip'),
+      wasmPath: join(appRoot, 'static', 'als', 'als-2.8ext.wasm'),
+      stdlibZipPath: join(appRoot, 'static', 'library', 'agda-stdlib-2.3.zip'),
+      cubicalZipPath: join(appRoot, 'static', 'library', 'agda-cubical-0.9.zip'),
       debug: options.debug,
     },
   })
@@ -549,13 +549,13 @@ async function runBrowserWasiShimWorker(fixture, options = {}, workerFile, runti
     workerData: {
       stdin: stdinSab,
       source,
-      wasmPath: join(appRoot, 'static', 'als-2.8ext.wasm'),
-      stdlibZipPath: join(appRoot, 'static', 'agda-stdlib-2.3.zip'),
-      cubicalZipPath: join(appRoot, 'static', 'agda-cubical-0.9.zip'),
+      wasmPath: join(appRoot, 'static', 'als', 'als-2.8ext.wasm'),
+      stdlibZipPath: join(appRoot, 'static', 'library', 'agda-stdlib-2.3.zip'),
+      cubicalZipPath: join(appRoot, 'static', 'library', 'agda-cubical-0.9.zip'),
       stdlibAgdaiZipPath: options.prebuiltAgdai
         ? join(appRoot, 'experiments', 'build-library', 'results', 'stdlib-agdai.zip')
         : null,
-      dataZipPath: join(appRoot, 'static', 'agda-data.zip'),
+      dataZipPath: join(appRoot, 'static', 'als', 'agda-data.zip'),
       debug: options.debug,
     },
   })
@@ -623,8 +623,8 @@ async function runRunnoProxyCurrent(fixture, options = {}) {
     workerData: {
       stdin: driveStdin,
       stdout: driveStdout,
-      stdlibZipPath: join(appRoot, 'static', 'agda-stdlib-2.3.zip'),
-      cubicalZipPath: join(appRoot, 'static', 'agda-cubical-0.9.zip'),
+      stdlibZipPath: join(appRoot, 'static', 'library', 'agda-stdlib-2.3.zip'),
+      cubicalZipPath: join(appRoot, 'static', 'library', 'agda-cubical-0.9.zip'),
       pathStatCache: options.pathStatCache,
       debug: options.debug,
     },
@@ -640,7 +640,7 @@ async function runRunnoProxyCurrent(fixture, options = {}) {
     workerData: {
       stdin: agdaStdin,
       stdout: agdaStdout,
-      wasmPath: join(appRoot, 'static', 'als-2.8ext.wasm'),
+      wasmPath: join(appRoot, 'static', 'als', 'als-2.8ext.wasm'),
       debug: options.debug,
       drive: {
         lock: driveLock,

@@ -457,8 +457,8 @@ export async function runVscodeWasmMemfs(fixture, options = {}) {
 
   const setupStart = nowMs()
   await Promise.all([
-    unzipToMemfs(memfsRoot, await readFile(join(appRoot, 'static', 'agda-stdlib-2.3.zip')), 'agda-stdlib-2.3'),
-    unzipToMemfs(memfsRoot, await readFile(join(appRoot, 'static', 'agda-cubical-0.9.zip')), 'cubical-0.9'),
+    unzipToMemfs(memfsRoot, await readFile(join(appRoot, 'static', 'library', 'agda-stdlib-2.3.zip')), 'agda-stdlib-2.3'),
+    unzipToMemfs(memfsRoot, await readFile(join(appRoot, 'static', 'library', 'agda-cubical-0.9.zip')), 'cubical-0.9'),
     writeTextFile(memfsRoot, '/home/user/.config/agda/libraries', ['/standard-library.agda-lib', '/cubical.agda-lib'].join('\n')),
     writeTextFile(memfsRoot, '/home/user/.config/agda/defaults', ['standard-library', 'cubical-0.9'].join('\n')),
     writeTextFile(memfsRoot, '/source.agda', source),
@@ -467,7 +467,7 @@ export async function runVscodeWasmMemfs(fixture, options = {}) {
 
   let process
   try {
-    process = await wasmApi.createProcess('als', WebAssembly.compile(await readFile(join(appRoot, 'static', 'als-2.8ext.wasm'))), {
+    process = await wasmApi.createProcess('als', WebAssembly.compile(await readFile(join(appRoot, 'static', 'als', 'als-2.8ext.wasm'))), {
       initial: 1,
       maximum: 1,
       shared: true,

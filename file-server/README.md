@@ -21,6 +21,26 @@ this directory reads from it (via `resolve-deploy-config.mjs`) rather than
 hardcoding a specific combination — the default config reproduces this
 project's own deployment unchanged.
 
+## Where library/ALS files live: `library/` and `als/`
+
+`npm run setup` downloads the source zips, prebuilt `.agdai` cache zips, and
+ALS WASM binaries that `deploy.config.mjs`'s profiles need into two
+directories right here — `file-server/library/` and `file-server/als/` —
+never directly into `static/`. Both are gitignored; nothing in them is
+committed.
+
+These two directories are the **single input location** regardless of how a
+file got there. `npm run setup`'s download step (`print-download-list.mjs` +
+`scripts/download-assets.sh`) is the default, CI-guaranteed way to fill
+them — but it skips any file that's already present, so a self-deployer who
+wants to supply a library or ALS build that isn't in the curated catalog
+(a private library, a custom fork, a different prebuilt `.agdai` cache) can
+just place the correctly-named file in `file-server/library/` or
+`file-server/als/` by hand first. Either way, `npm run setup`'s final step
+copies everything from `file-server/{library,als}/` into mirrored
+`static/{library,als}/` directories, which is what actually gets served —
+`static/` itself is pure build output; nothing in it should be hand-edited.
+
 ## Catalogs
 
 ### `libraries.mjs`
@@ -68,15 +88,18 @@ catalogs or config directly.
 
 ### `print-download-list.mjs`
 
-Prints `URL<TAB>filename` pairs for everything `npm run setup` needs to
-download for the *currently configured* ALS versions and libraries.
-Consumed by `scripts/download-assets.sh`; not meant to be run standalone.
+Prints `URL<TAB>filename<TAB>subdir` tuples for everything `npm run setup`
+needs to download for the *currently configured* ALS versions and
+libraries (`subdir` is `library` or `als`, telling the shell script which
+of `file-server/library/`/`file-server/als/` a file belongs in). Consumed
+by `scripts/download-assets.sh`; not meant to be run standalone.
 
 ### `extract-agdai.mjs`
 
-Extracts each configured library's prebuilt `.agdai` cache zip (downloaded
-by `npm run setup`) into `static/agdai/<name>/`, so individual `.agdai`
-files can be served on demand. Runs automatically as part of `npm run setup`
+Extracts each configured library's prebuilt `.agdai` cache zip (from
+`static/library/`, synced there by `npm run setup`) into
+`static/agdai/<name>/`, so individual `.agdai` files can be served on
+demand. Runs automatically as part of `npm run setup`
 (see `scripts/download-assets.sh`); only needs Node.js.
 
 ```sh

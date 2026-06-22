@@ -11,7 +11,7 @@ runtime).
 
 ## Agda compiler
 
-**Used as:** The ALS WASM binaries (`static/als-*.wasm`, downloaded by `npm run setup`
+**Used as:** The ALS WASM binaries (`static/als/als-*.wasm`, downloaded by `npm run setup`
 from [agda-web/agda-language-server](https://github.com/agda-web/agda-language-server))
 are built from the Agda compiler. The binaries are served to every visitor of the
 deployed site.
@@ -52,7 +52,7 @@ SOFTWARE.
 
 ## Agda Language Server (ALS)
 
-**Used as:** The ALS WASM binaries (`static/als-*.wasm`) are built from this project
+**Used as:** The ALS WASM binaries (`static/als/als-*.wasm`) are built from this project
 and served to every visitor of the deployed site.
 
 **Source:** [banacorn/agda-language-server](https://github.com/banacorn/agda-language-server)
@@ -88,7 +88,7 @@ SOFTWARE.
 
 ## Agda standard library
 
-**Used as:** `static/agda-stdlib-2.3.zip` (source archive) and the `.agdai` cache
+**Used as:** `static/library/agda-stdlib-2.3.zip` (source archive) and the `.agdai` cache
 derived from it. Both are downloaded by `npm run setup` and fetched into the
 browser at runtime for every visitor of the deployed site.
 
@@ -129,7 +129,7 @@ SOFTWARE.
 
 ## Cubical Agda library
 
-**Used as:** `static/agda-cubical-0.9.zip` (source archive) and the `.agdai` cache
+**Used as:** `static/library/agda-cubical-0.9.zip` (source archive) and the `.agdai` cache
 derived from it. Both are downloaded by `npm run setup` and fetched into the
 browser at runtime for every visitor of the deployed site.
 

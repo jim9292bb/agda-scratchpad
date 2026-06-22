@@ -87,7 +87,7 @@ async function extractLibrarySource(lib, workDir) {
   console.log(`[${lib.name}@${lib.version}] extracting source archive...`)
   const extractDir = join(workDir, lib.name)
   await mkdir(extractDir, { recursive: true })
-  await extractZip(join(STATIC, lib.sourceZipName), extractDir)
+  await extractZip(join(STATIC, 'library', lib.sourceZipName), extractDir)
   const libRoot = join(extractDir, await findSoleSubdir(extractDir))
 
   const agdaLibFile = (await readdir(libRoot)).find(f => f.endsWith('.agda-lib'))

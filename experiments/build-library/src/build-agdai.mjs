@@ -31,9 +31,9 @@ const ROOT   = join(__dirname, '..')
 const STATIC = join(__dirname, '../../../static')
 const RESULTS = join(ROOT, 'results')
 
-const STDLIB_ZIP          = join(STATIC, 'agda-stdlib-2.3.zip')
-const CUBICAL_ZIP         = join(STATIC, 'agda-cubical-0.9.zip')
-const AGDA_CATEGORIES_ZIP = join(STATIC, 'agda-categories-0.3.0.zip')
+const STDLIB_ZIP          = join(STATIC, 'library', 'agda-stdlib-2.3.zip')
+const CUBICAL_ZIP         = join(STATIC, 'library', 'agda-cubical-0.9.zip')
+const AGDA_CATEGORIES_ZIP = join(STATIC, 'library', 'agda-categories-0.3.0.zip')
 
 const cliArgs = process.argv.slice(2)
 const stdlibOnly     = cliArgs.includes('--stdlib-only')

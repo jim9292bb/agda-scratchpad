@@ -24,7 +24,7 @@ async function main() {
       continue
     }
     console.log(`Extracting ${lib.agdaiZipName}...`)
-    const count = await extractZip(join(STATIC, lib.agdaiZipName), join(OUT, lib.name))
+    const count = await extractZip(join(STATIC, 'library', lib.agdaiZipName), join(OUT, lib.name))
     console.log(`  ${count} files`)
   }
 
