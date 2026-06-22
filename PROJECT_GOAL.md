@@ -36,7 +36,7 @@ It should not prioritize:
   set of well-known libraries (e.g. agda-categories, plfa, agda-unimath,
   1lab, in addition to stdlib/cubical) is a planned, scoped exception, since
   every option in that set is still built and served from this project's own
-  trusted origin; see "Curated Multi-Library Support" in `ROADMAP.md`;
+  trusted origin; see "Curated Multi-Library Support" in [ROADMAP.md](ROADMAP.md);
 - version switching unless multiple WASM runtimes are intentionally supported;
 - full VSCode feature parity;
 - compiling or deploying Agda projects;

@@ -7,8 +7,8 @@ used to prefetch `.agdai` files in parallel.
 
 This is a clearly-separated subdirectory within this repo, not a standalone
 package. It may be split into its own repository later if there's real demand
-for forking just this piece; see ROADMAP.md "Curated Multi-Library Support"
-for the current plan to extend this to libraries beyond stdlib/cubical/
+for forking just this piece; see [ROADMAP.md](../ROADMAP.md) "Curated
+Multi-Library Support" for the current plan to extend this to libraries beyond stdlib/cubical/
 agda-categories — plfa, agda-unimath, 1lab — before assuming a split is
 needed.
 
@@ -35,7 +35,7 @@ entry referencing libraries/ALS versions already in the catalogs below by
 3. Reference the new entry from a `deploy.config.mjs` profile.
 4. Run `npm run setup`, then regenerate the dependency manifest (below).
 
-Check ROADMAP.md before adding plfa/agda-unimath/1lab — their exact
+Check [ROADMAP.md](../ROADMAP.md) before adding plfa/agda-unimath/1lab — their exact
 `.agda-lib` layout and type-theory compatibility with existing entries
 hasn't been confirmed yet.
 

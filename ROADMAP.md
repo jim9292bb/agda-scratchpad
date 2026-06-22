@@ -9,11 +9,9 @@ a multi-file Agda project.
 shortcut semantics, and request/response handling. It is not the product
 roadmap, and this project does not aim for complete VSCode parity.
 
-Use `PROJECT_GOAL.md` for product scope and `docs/AGDA_MODE_VSCODE_MAPPING.md`
-for researched Agda command mappings.
-
-For the current branch handoff and next runtime migration task, read
-`DEVELOPMENT_HANDOFF.md`.
+Use [PROJECT_GOAL.md](PROJECT_GOAL.md) for product scope and
+[docs/AGDA_MODE_VSCODE_MAPPING.md](docs/AGDA_MODE_VSCODE_MAPPING.md) for
+researched Agda command mappings.
 
 ## Scope Boundaries
 
@@ -504,8 +502,8 @@ depend on agent-specific tooling.
 
 ## References
 
-- `PROJECT_GOAL.md`
-- `docs/AGDA_MODE_VSCODE_MAPPING.md`
+- [PROJECT_GOAL.md](PROJECT_GOAL.md)
+- [docs/AGDA_MODE_VSCODE_MAPPING.md](docs/AGDA_MODE_VSCODE_MAPPING.md)
 - https://coq.vercel.app/scratchpad.html
 - https://github.com/banacorn/agda-mode-vscode/blob/master/package.json
 - https://github.com/banacorn/agda-mode-vscode/blob/master/src/Request.res
