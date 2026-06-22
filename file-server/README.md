@@ -49,17 +49,18 @@ library/ALS compatibility table — each profile *is* a validated
 
 ### Supply your own library/ALS files instead of downloading
 
-`npm run setup` downloads everything `deploy.config.mjs`'s profiles need
-into `file-server/library/` and `file-server/als/`, then syncs them into
-`static/library/`/`static/als/` for serving — but it skips any file
-that's already present. To use a private library, a custom fork, or a
-prebuilt `.agdai` cache you built yourself instead of the catalog's
-download, place the correctly-named file in `file-server/library/` or
-`file-server/als/` by hand before running `npm run setup`. Both
-directories are gitignored; nothing in them is committed. Everything
+To use a private library, a custom fork, or a prebuilt `.agdai` cache you
+built yourself instead of the catalog's download, place the
+correctly-named file in `file-server/library/` or `file-server/als/` by
+hand, then run `npm run setup` as usual.
+
+This works because `npm run setup`'s download step skips any file that's
+already present in those two directories, then syncs everything in them
+into `static/library/`/`static/als/` for serving — so a manually-placed
+file and a catalog download end up in the exact same place, and everything
 downstream (extraction, manifest generation, the runtime's fetch URLs)
-reads from the same `static/{library,als}/` location regardless of how
-the file got there.
+can't tell which one happened. Both directories are gitignored; nothing in
+them is committed.
 
 ### Regenerate the dependency manifest
 
