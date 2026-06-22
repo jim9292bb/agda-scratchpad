@@ -78,7 +78,6 @@ $effect(() => {
 function runtimeSummary() {
   const profile = agdaController.activeProfile
   return [
-    { label: 'Runtime backend', value: 'browser-wasi-shim-memfs' },
     { label: 'Agda runtime', value: `v${profile.alsVersion}` },
     ...profile.libraries.map(lib => ({ label: lib.name, value: `v${lib.version}` })),
   ]

@@ -10,10 +10,18 @@
  * combination — one ALS/Agda version plus the library set that goes with it.
  * There is deliberately no separate "pick an ALS version" + "pick a library
  * set" pair of independent choices: every option in `profiles` is valid by
- * construction, so the Settings UI only needs a single "Deployment profile"
- * selector and can never present an incompatible pairing.
+ * construction, so the UI only needs a single profile selector (shown below
+ * the ALS status card when more than one profile is configured) and can
+ * never present an incompatible pairing.
  *
- *   - id, label: identify the profile in the Settings UI / local storage.
+ *   - id: stable identifier, used for local storage; not shown to users —
+ *     safe to bake in exact versions, e.g. 'stdlib-2.3-cubical-0.9-als-2.8.0'.
+ *   - label: shown directly in the profile selector to end users, most of
+ *     whom are not expected to know Agda/ALS version numbers or what they
+ *     mean — keep it short and capability-focused (e.g. "Standard Library +
+ *     Cubical"), not a version-pinned string. Exact versions are already
+ *     surfaced separately in Settings → Runtime's read-only summary for
+ *     anyone who wants them.
  *   - alsVersion: must have a matching entry in file-server/als-catalog.mjs.
  *   - libraries: name+version pairs, each must have a matching entry in
  *     file-server/libraries.mjs.
@@ -32,7 +40,7 @@ export const DEPLOY_CONFIG = {
   profiles: [
     {
       id: 'stdlib-2.3-cubical-0.9-als-2.8.0',
-      label: 'Standard Library v2.3 + Cubical v0.9 (ALS 2.8.0)',
+      label: 'Standard Library + Cubical',
       alsVersion: '2.8.0',
       libraries: [
         { name: 'stdlib', version: '2.3' },
@@ -41,7 +49,7 @@ export const DEPLOY_CONFIG = {
     },
     {
       id: 'stdlib-2.3-agda-categories-0.3.0-als-2.8.0',
-      label: 'Standard Library v2.3 + agda-categories v0.3.0 (ALS 2.8.0)',
+      label: 'Standard Library + Category Theory',
       alsVersion: '2.8.0',
       libraries: [
         { name: 'stdlib', version: '2.3' },
