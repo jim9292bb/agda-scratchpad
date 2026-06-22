@@ -232,7 +232,7 @@ const basicTheme = EditorView.theme({
 function runAgdaShortcut(label, view, command) {
   void (async () => {
     if (agdaController.alsWorkerStatus !== 'active') {
-      textboxContent += `${label} failed: ALS is not active.\n`
+      textboxContent += `${label} failed: Agda is not active.\n`
       return
     }
 
@@ -262,7 +262,7 @@ function runAgdaShortcut(label, view, command) {
 function runAgdaShortcutWithInputPrompt(label, view, command) {
   void (async () => {
     if (agdaController.alsWorkerStatus !== 'active') {
-      textboxContent += `${label} failed: ALS is not active.\n`
+      textboxContent += `${label} failed: Agda is not active.\n`
       return
     }
 
@@ -288,7 +288,7 @@ function runAgdaShortcutWithInputPrompt(label, view, command) {
 function runLoadShortcut() {
   void (async () => {
     if (agdaController.alsWorkerStatus !== 'active') {
-      textboxContent += 'Load failed: ALS is not active.\n'
+      textboxContent += 'Load failed: Agda is not active.\n'
       return
     }
 
@@ -1485,7 +1485,7 @@ $effect(() => {
           {:else if selectedSettingsSegment === 'editor'}
             <div id="settings-panel-editor" class="settings-section" role="tabpanel" aria-labelledby="editor-settings-title">
               <h3 id="editor-settings-title">Editor</h3>
-              <p class="settings-note">Display and input options for the CodeMirror editor.</p>
+              <p class="settings-note">Display and input options for the editor.</p>
               <div class="settings-option-grid">
                 <label class="settings-field">
                   <span>Font</span>
@@ -1510,7 +1510,7 @@ $effect(() => {
               <h3 id="runtime-settings-title">Runtime and libraries</h3>
               <p class="settings-note">
                 {#if deployProfiles.length > 1}
-                  Switch the deployment profile from the "Profile" selector below the ALS status card. Switching restarts the worker.
+                  Switch the deployment profile from the "Profile" selector below the Agda status card. Switching restarts the worker.
                 {:else}
                   This deployment has a single configured profile.
                 {/if}
@@ -1528,7 +1528,7 @@ $effect(() => {
           {:else if selectedSettingsSegment === 'commands'}
             <div id="settings-panel-commands" class="settings-section" role="tabpanel" aria-labelledby="command-settings-title">
               <h3 id="command-settings-title">Commands and shortcuts</h3>
-              <p class="settings-note">Replace Agda chord shortcuts with values like <code>Ctrl-c Ctrl-g</code> or <code>Ctrl-c Space</code>. CodeMirror keymap fallbacks such as Cmd-Enter remain available.</p>
+              <p class="settings-note">Replace Agda chord shortcuts with values like <code>Ctrl-c Ctrl-g</code> or <code>Ctrl-c Space</code>. Built-in editor keyboard shortcuts such as Cmd-Enter remain available.</p>
               <div class="shortcut-settings-actions">
                 <button type="button" class="settings-action-button primary" disabled={!shortcutDraftValidation.valid} onclick={saveShortcutOverrides}>Save shortcuts</button>
                 <button type="button" class="settings-action-button" onclick={resetShortcutOverrides}>Reset to defaults</button>
@@ -1544,7 +1544,6 @@ $effect(() => {
                   <div class="shortcut-settings-row">
                     <div>
                       <strong>{shortcut.label}</strong>
-                      <span>{shortcut.id}</span>
                       <span>Default: {formatAgdaShortcutHelpBinding(shortcut)}</span>
                       <span>Effective: {formatAgdaShortcutHelpBinding(activeShortcut)}</span>
                     </div>
