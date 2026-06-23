@@ -1,37 +1,75 @@
 /**
- * Prints the list of (filename, destination subdir) pairs that need to
- * exist under static/{library,als}/ for this deployment's configured ALS
- * versions and libraries (deploy.config.mjs) to actually work.
+ * Verifies file-server/{library,als}/ contains everything the currently
+ * configured deploy.config.mjs needs, before scripts/setup-assets.sh zips
+ * and copies it into static/. Prints MISSING: lines for anything absent
+ * and exits non-zero if anything required is missing.
  *
- * Output: one "filename<TAB>subdir" pair per line, deduplicated by
- * filename. subdir is "library" or "als" — see scripts/setup-assets.sh
- * and file-server/README.md for what lives where.
+ * Per library: its .agda-lib file (required — confirms the library's
+ * source was placed at all) and its _build/ prebuilt .agdai cache
+ * (optional, like agdaiCacheVersion itself — without it the library still
+ * works, just without prefetching/caching).
  *
- * This does not say where to get those files from — see
- * file-server/README.md for the two ways: `npm run auto-configure`
- * (fetches this project's own shipped defaults) or placing them by hand.
- * Consumed by scripts/setup-assets.sh to verify everything needed is
- * actually present before declaring success.
+ * Per ALS version: its wasm file (required) and its agda-data/ directory
+ * (optional, mirroring dataZipName being optional on the catalog).
+ *
+ * The combined dependency graph (file-server/agdai-manifest.json) is
+ * always optional — prefetch.js already degrades gracefully without one.
+ *
+ * Usage: node file-server/print-required-files.mjs
  */
 
-import { getSelectedAlsVersions, getSelectedLibraries } from './resolve-deploy-config.mjs'
+import { access } from 'node:fs/promises'
+import { join } from 'node:path'
+import { REPO_ROOT, getSelectedAlsVersions, getSelectedLibraries } from './resolve-deploy-config.mjs'
 
-const seen = new Map()
-function add(filename, subdir) {
-  if (!filename) return
-  seen.set(filename, subdir)
+const FILE_SERVER = join(REPO_ROOT, 'file-server')
+
+async function exists(path) {
+  try {
+    await access(path)
+    return true
+  } catch {
+    return false
+  }
 }
 
-for (const als of getSelectedAlsVersions()) {
-  add(als.wasmFilename, 'als')
-  add(als.dataZipName, 'als')
+async function main() {
+  let missing = false
+
+  for (const lib of getSelectedLibraries()) {
+    const libRoot = join(FILE_SERVER, 'library', lib.name)
+    const agdaLibPath = join(libRoot, lib.agdaLibFile)
+    if (!(await exists(agdaLibPath))) {
+      console.error(`MISSING: file-server/library/${lib.name}/${lib.agdaLibFile}`)
+      missing = true
+    }
+    if (lib.agdaiCacheVersion && !(await exists(join(libRoot, '_build')))) {
+      console.log(`(optional, not found) file-server/library/${lib.name}/_build/ — no prebuilt .agdai cache, will type-check from source`)
+    }
+  }
+
+  for (const als of getSelectedAlsVersions()) {
+    const wasmPath = join(FILE_SERVER, 'als', als.wasmFilename)
+    if (!(await exists(wasmPath))) {
+      console.error(`MISSING: file-server/als/${als.wasmFilename}`)
+      missing = true
+    }
+    if (als.dataZipName && !(await exists(join(FILE_SERVER, 'als', 'agda-data')))) {
+      console.log('(optional, not found) file-server/als/agda-data/ — ALS will run without prebuilt Agda builtin data')
+    }
+  }
+
+  if (!(await exists(join(FILE_SERVER, 'agdai-manifest.json')))) {
+    console.log('(optional, not found) file-server/agdai-manifest.json — prefetch disabled, .agdai files still load on demand')
+  }
+
+  if (missing) {
+    console.error('')
+    console.error('Some required library/ALS files are missing. Either:')
+    console.error("  - run 'npm run auto-configure' to fetch this project's own shipped defaults, or")
+    console.error('  - place them by hand in file-server/library/<name>/ or file-server/als/ (see file-server/README.md)')
+    process.exit(1)
+  }
 }
 
-for (const lib of getSelectedLibraries()) {
-  add(lib.sourceZipName, 'library')
-  add(lib.agdaiZipName, 'library')
-}
-
-for (const [filename, subdir] of seen) {
-  console.log(`${filename}\t${subdir}`)
-}
+main()

@@ -6,41 +6,46 @@
  * by any configured profile are simply not built.
  *
  * This catalog is pure metadata — it does not say where to download a
- * library's files from. Whatever a configured entry needs
- * (`sourceZipName`, `agdaiZipName`) must already exist under
- * `static/library/` by the time `npm run setup` runs — either because
- * `npm run auto-configure` fetched this project's own shipped defaults
- * (a separate, hardcoded script — see `scripts/auto-configure.sh`), or
- * because you placed the file there by hand. See file-server/README.md.
+ * library's files from. What you place is a raw, unzipped library source
+ * tree at `file-server/library/<name>/` (plus an optional raw `_build/`
+ * with prebuilt `.agdai` files) — either by hand, or via
+ * `npm run auto-configure` for this project's own shipped defaults (a
+ * separate, hardcoded script — see `file-server/auto-configure.mjs`).
+ * `npm run setup` (`file-server/build-static-assets.mjs`) then zips that
+ * raw tree into `static/library/<sourceZipName>` — the filename fields
+ * below describe its *output*, not something you place yourself. See
+ * file-server/README.md.
  *
  * Each entry needs:
  *   - name, version: identify the entry; deploy.config.mjs references libraries
- *     by this pair.
+ *     by this pair. Also the expected directory name under
+ *     `file-server/library/`.
  *   - libKey: short tag stored in the runtime prefetch manifest.
- *   - sourceZipName: the expected filename under `static/library/`.
- *   - archiveRootPrefix: the single top-level folder inside the source
- *     archive (e.g. GitHub tag-archive zips extract into `<repo>-<tag>/`).
- *     Stripped when extracting into the VFS.
+ *   - sourceZipName: the zip filename `npm run setup` writes under
+ *     `static/library/`, fetched by the browser at runtime.
+ *   - archiveRootPrefix: the top-level wrapper folder name `npm run setup`
+ *     wraps the raw source tree in when zipping (reproducing the shape of
+ *     a GitHub tag-archive zip, e.g. `<repo>-<tag>/`) — stripped by the
+ *     browser when extracting into the VFS.
  *   - includeSubpath: matches the library's own `.agda-lib`'s `include:`
  *     field (empty string if `include: .`). Only paths under this subpath,
  *     plus agdaLibFile itself, are kept when extracting into the VFS.
- *   - agdaLibFile: the `.agda-lib` filename at the archive root.
+ *   - agdaLibFile: the `.agda-lib` filename at the library's root.
  *   - libraryName: the exact `name:` value declared inside that `.agda-lib`
  *     (used verbatim in the VFS's `~/.config/agda/libraries`/`defaults`).
- *   - agdaiZipName: the expected filename (under `static/library/`) of a
- *     prebuilt `.agdai` cache zip, tied to a specific ALS/Agda version it
- *     was compiled with (currently always 2.8.0 — see
- *     experiments/build-library). Optional: without it, the library still
- *     works, but type-checks from source on every load instead of using a
- *     cache.
+ *   - agdaiZipName: unused at runtime — kept only as a description of
+ *     which ALS/Agda version (`agdaiCacheVersion`) a placed `_build/` tree
+ *     was compiled with. Optional: without a `_build/` tree, the library
+ *     still works, but type-checks from source on every load instead of
+ *     using a cache.
  *   - optionsPragma: the `{-# OPTIONS #-}` line needed to scope-check the
- *     library's generated Everything.agda (file-server/generate-manifest.mjs
- *     only; not used at runtime, which reads the library's own flags via its
- *     registered `.agda-lib`).
+ *     library's generated Everything.agda
+ *     (file-server/prepare-dependency-graph.mjs only; not used at runtime,
+ *     which reads the library's own flags via its registered `.agda-lib`).
  *
  * Adding a library/version that follows the same shape as stdlib/cubical
- * (one `.agda-lib` at the source archive root) should only require a new
- * entry here plus the actual file under `static/library/` (see
+ * (one `.agda-lib` at the source root) should only require a new entry
+ * here plus the raw source placed under `file-server/library/<name>/` (see
  * file-server/README.md). See ROADMAP.md "Curated Multi-Library Support"
  * before adding plfa/agda-unimath/1lab — their exact `.agda-lib` layout and
  * type-theory compatibility with existing entries hasn't been confirmed yet.

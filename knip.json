@@ -3,8 +3,10 @@
   "entry": [
     "src/app.d.ts",
     "static/coi-serviceworker.js",
-    "file-server/extract-agdai.mjs",
-    "file-server/generate-manifest.mjs",
+    "file-server/build-static-assets.mjs",
+    "file-server/prepare-dependency-graph.mjs",
+    "file-server/dot-to-manifest.mjs",
+    "file-server/auto-configure.mjs",
     "file-server/print-required-files.mjs"
   ],
   "ignore": [

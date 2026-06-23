@@ -245,6 +245,38 @@ Done (agda-categories, second library proving the system generalizes):
       and rewritten as a hardcoded, non-catalog-driven fetch of exactly this
       project's own shipped defaults — used by this project's own CI
       (`npm run auto-configure`), not a generic/extensible mechanism.
+- [x] Switched `file-server/{library,als}/` from staging *compressed
+      archives* to staging **raw, unzipped files** — a deployer (or
+      `npm run auto-configure`, now `file-server/auto-configure.mjs`,
+      rewritten in Node to fetch-and-extract instead of fetch-and-leave-as-zip)
+      places a raw library source tree plus an optional raw `_build/`
+      `.agdai` cache under `file-server/library/<name>/`, and a raw wasm +
+      `agda-data/` directory under `file-server/als/`. `npm run setup`
+      (`file-server/build-static-assets.mjs`) is now responsible for
+      zipping whatever the browser runtime needs as a zip (library source,
+      `agda-data.zip` — both fetched and unzipped client-side, confirmed
+      via `src/lib/runtime/browser-wasi-shim.ts`/`als-wasi-shim.ts`) using
+      a new pure-Node `zipDirectory()` in `zip-utils.mjs`, wrapping the
+      source zip under `archiveRootPrefix` so the existing client-side
+      unzip-and-strip logic needs zero changes. `.agdai` cache files
+      (never fetched by the browser — confirmed `agdaiZipAsset` is
+      unused at runtime) are just copied as a tree, no zip step needed;
+      `extract-agdai.mjs` deleted as a result.
+- [x] Split `file-server/generate-manifest.mjs` (single script: build
+      Everything.agda, invoke native `agda --dependency-graph`, parse the
+      `.dot`, write `static/agdai-manifest.json`, committed to git) into
+      `prepare-dependency-graph.mjs` (everything except invoking `agda` —
+      prints the exact commands to run) and `dot-to-manifest.mjs` (pure
+      `.dot`-parsing, no `agda` needed, writes
+      `file-server/agdai-manifest.json`). The dependency graph is no
+      longer committed to git or auto-fetched for anything beyond this
+      project's own shipped defaults: self-deployers who change
+      `deploy.config.mjs` must produce their own via the two scripts above
+      and place the result themselves. This project's own default graph
+      (stdlib + cubical + agda-categories) is produced the same way by a
+      maintainer and uploaded to the `cache-2.8.0` GitHub Release, where
+      `npm run auto-configure` downloads it from (best-effort — missing it
+      just disables prefetching, doesn't fail the fetch).
 
 Not yet implemented:
 

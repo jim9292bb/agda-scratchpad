@@ -7,12 +7,15 @@
  * here — that's the single place deployers configure compatibility.
  *
  * This catalog is pure metadata — it does not say where to download a
- * WASM build from. Whatever a configured entry needs (`wasmFilename`,
- * `dataZipName`) must already exist under `static/als/` by the time
- * `npm run setup` runs — either because `npm run auto-configure` fetched
- * this project's own shipped defaults (a separate, hardcoded script — see
- * `scripts/auto-configure.sh`), or because you placed the file there by
- * hand. See file-server/README.md.
+ * WASM build from. What you place is `file-server/als/<wasmFilename>` (a
+ * single binary, unchanged) and a raw `file-server/als/agda-data/`
+ * directory — either by hand, or via `npm run auto-configure` for this
+ * project's own shipped defaults (a separate, hardcoded script — see
+ * `file-server/auto-configure.mjs`). `npm run setup`
+ * (`file-server/build-static-assets.mjs`) copies the wasm as-is and zips
+ * `agda-data/` into `static/als/<dataZipName>` — `dataZipName` describes
+ * that *output*, not something you place yourself. See
+ * file-server/README.md.
  */
 
 // agda-data.zip currently only contains a .agdai cache built for Agda 2.8.0's

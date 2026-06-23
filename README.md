@@ -40,10 +40,10 @@ which Agda/ALS version and library combinations to bundle in
 comments for the schema. The default reproduces this project's own
 deployment unchanged.
 
-See [file-server/README.md](file-server/README.md) for: adding a library
-or ALS version, supplying your own library/ALS files (the only way to use
-anything beyond this project's own shipped defaults), and regenerating
-the dependency manifest after a catalog change.
+See [file-server/README.md](file-server/README.md) for the full
+deployment flow: placing raw library/ALS files (the only way to use
+anything beyond this project's own shipped defaults), adding a library or
+ALS version, and regenerating the dependency graph.
 
 ## Development
 
@@ -62,17 +62,18 @@ npm run setup            # prepare static/ for serving (~600 MB on disk after ex
 `npm run auto-configure` fetches exactly this project's own shipped
 defaults — it's a hardcoded script, not driven by `deploy.config.mjs`:
 - ALS 2.8.0 WASM binary from [agda-web/agda-language-server](https://github.com/agda-web/agda-language-server/releases/tag/nightly-20260407)
-- Standard library 2.3 and Cubical 0.9 source zips from upstream Agda releases
-- Pre-built `.agdai` cache zips for Agda 2.8.0
+- Standard library 2.3, Cubical 0.9, and agda-categories 0.3.0 source
+  archives from upstream Agda releases
+- Pre-built `.agdai` cache zips and the dependency graph for Agda 2.8.0
 
-— into `file-server/library/`/`file-server/als/`. `npm run setup` then
-syncs them into `static/library/`/`static/als/` for serving, and extracts
-the `.agdai` cache into `static/agdai/` so individual `.agdai` files can
-be fetched on demand at runtime (see `static/agdai-manifest.json`,
-committed to the repo, for the dependency manifest used to prefetch them).
-A self-deployer who has changed `deploy.config.mjs` or wants different
-library/ALS versions must place their own files in
-`file-server/library/`/`file-server/als/` by hand instead — see
+— extracted raw (no zips) into `file-server/library/`/`file-server/als/`.
+`npm run setup` then zips/copies them into `static/library/`/`static/als/`
+for serving, and copies the prebuilt `.agdai` files into `static/agdai/`
+so individual `.agdai` files can be fetched on demand at runtime (see
+`static/agdai-manifest.json` for the dependency manifest used to prefetch
+them). A self-deployer who has changed `deploy.config.mjs` or wants
+different library/ALS versions must place their own raw files in
+`file-server/library/<name>/`/`file-server/als/` by hand instead — see
 [file-server/README.md](file-server/README.md).
 
 ### Common commands
