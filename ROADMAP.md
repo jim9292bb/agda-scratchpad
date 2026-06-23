@@ -26,6 +26,13 @@ researched Agda command mappings.
 - [ ] Do not add project/workspace configuration UI.
 - [ ] Do not port Agda executable download or version switching unless multiple WASM runtimes are intentionally supported.
 - [ ] Do not port VSCode-specific Markdown preview or editor-workspace keybindings.
+- [ ] Do not split `file-server/` into its own repository. `src/lib/runtime/interface.ts`
+      imports `file-server/libraries.mjs`/`als-catalog.mjs` directly at
+      build time, not just during CI — it's a build-time dependency of the
+      app, not standalone tooling that happens to live alongside it. A
+      split would trade that zero-friction same-repo import for npm/git
+      submodule version-pinning overhead, with no actual external consumer
+      to justify it.
 
 ## Runtime and Library Support
 

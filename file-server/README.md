@@ -7,11 +7,12 @@ under `static/agdai/`, and each library's own dependency manifest
 files in parallel.
 
 This is a clearly-separated subdirectory within this repo, not a standalone
-package. It may be split into its own repository later if there's real demand
-for forking just this piece; see [ROADMAP.md](../ROADMAP.md) "Curated
-Multi-Library Support" for the current plan to extend this to libraries beyond stdlib/cubical/
-agda-categories — plfa, agda-unimath, 1lab — before assuming a split is
-needed.
+package — and not a split-out-later candidate either: `src/lib/runtime/interface.ts`
+imports `libraries.mjs`/`als-catalog.mjs` directly at build time, not just
+during CI, so this stays in the same repo as the app it serves. See
+[ROADMAP.md](../ROADMAP.md) "Curated Multi-Library Support" for the
+current plan to extend this to libraries beyond stdlib/cubical/
+agda-categories — plfa, agda-unimath, 1lab.
 
 ## Deploying this project
 
