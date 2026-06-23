@@ -41,9 +41,9 @@ comments for the schema. The default reproduces this project's own
 deployment unchanged.
 
 See [file-server/README.md](file-server/README.md) for: adding a library
-or ALS version that isn't in the catalog yet, supplying your own
-library/ALS files instead of the automated download, and regenerating the
-dependency manifest after a catalog change.
+or ALS version, supplying your own library/ALS files (the only way to use
+anything beyond this project's own shipped defaults), and regenerating
+the dependency manifest after a catalog change.
 
 ## Development
 
@@ -55,13 +55,14 @@ Node.js 18–24 (the `engines` field in `package.json` specifies `>=18.0.0 <25.0
 
 ```sh
 npm install              # install dependencies
-npm run download-assets  # download ALS WASM binaries and library archives (~300 MB)
+npm run auto-configure   # fetch this project's own shipped default assets (~300 MB)
 npm run setup            # prepare static/ for serving (~600 MB on disk after extraction)
 ```
 
-`npm run download-assets` fetches:
-- ALS WASM binaries (Agda 2.6, 2.7, 2.8) from [agda-web/agda-language-server](https://github.com/agda-web/agda-language-server/releases/tag/nightly-20260407)
-- Standard library and Cubical source zips from upstream Agda releases
+`npm run auto-configure` fetches exactly this project's own shipped
+defaults — it's a hardcoded script, not driven by `deploy.config.mjs`:
+- ALS 2.8.0 WASM binary from [agda-web/agda-language-server](https://github.com/agda-web/agda-language-server/releases/tag/nightly-20260407)
+- Standard library 2.3 and Cubical 0.9 source zips from upstream Agda releases
 - Pre-built `.agdai` cache zips for Agda 2.8.0
 
 — into `file-server/library/`/`file-server/als/`. `npm run setup` then
@@ -69,8 +70,9 @@ syncs them into `static/library/`/`static/als/` for serving, and extracts
 the `.agdai` cache into `static/agdai/` so individual `.agdai` files can
 be fetched on demand at runtime (see `static/agdai-manifest.json`,
 committed to the repo, for the dependency manifest used to prefetch them).
-A self-deployer can skip `npm run download-assets` and place their own
-files in `file-server/library/`/`file-server/als/` instead — see
+A self-deployer who has changed `deploy.config.mjs` or wants different
+library/ALS versions must place their own files in
+`file-server/library/`/`file-server/als/` by hand instead — see
 [file-server/README.md](file-server/README.md).
 
 ### Common commands
@@ -108,7 +110,7 @@ For roadmap details, see [PROJECT_GOAL.md](PROJECT_GOAL.md) and [ROADMAP.md](ROA
 Tooling and dependencies this project builds on:
 
 - [agda-web/als-demo](https://github.com/agda-web/als-demo) — upstream project this is forked from
-- [agda-web/agda-language-server](https://github.com/agda-web/agda-language-server) — source of the ALS WASM binaries downloaded by `npm run download-assets`
+- [agda-web/agda-language-server](https://github.com/agda-web/agda-language-server) — source of the ALS WASM binary downloaded by `npm run auto-configure`
 - [banacorn/agda-mode-vscode](https://github.com/banacorn/agda-mode-vscode) — reference for Agda interaction commands and shortcut behavior
 - [agda-web/browser_wasi_shim](https://github.com/agda-web/browser_wasi_shim) — browser WASI shim used by the runtime backend
 

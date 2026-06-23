@@ -49,8 +49,8 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
-    - name: Download assets
-      run: npm run download-assets
+    - name: Auto-configure assets
+      run: npm run auto-configure
 
     - name: Prepare static assets
       run: npm run setup

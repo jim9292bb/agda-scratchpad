@@ -234,6 +234,17 @@ Done (agda-categories, second library proving the system generalizes):
       `scripts/browser-test-agda-categories-smoke.sh`'s fixture to use the
       deep import and assert no `Checking Categories\.` lines appear, so a
       regression of this path-prefix check is actually caught next time.
+- [x] Removed download URLs from `file-server/libraries.mjs`/`als-catalog.mjs`
+      entirely (`sourceArchiveUrl`, `agdaiZipUrl`, `wasmUrl`, `dataZipUrl`) —
+      both catalogs are now pure metadata; self-deployers can no longer
+      configure a download URL, only place files by hand in
+      `file-server/library/`/`file-server/als/`. `print-download-list.mjs`
+      (URL-driven) was replaced by `print-required-files.mjs` (just
+      filenames, for `scripts/setup-assets.sh`'s verification step).
+      `scripts/download-assets.sh` was renamed to `scripts/auto-configure.sh`
+      and rewritten as a hardcoded, non-catalog-driven fetch of exactly this
+      project's own shipped defaults — used by this project's own CI
+      (`npm run auto-configure`), not a generic/extensible mechanism.
 
 Not yet implemented:
 

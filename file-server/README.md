@@ -18,53 +18,59 @@ needed.
 
 Edit **`../deploy.config.mjs`** (repo root) — add or edit a `profiles[]`
 entry referencing libraries/ALS versions already in the catalogs below by
-`name`+`version`. See that file's comments for the schema. Then run
-`npm run download-assets && npm run setup && npm run build`.
+`name`+`version`. See that file's comments for the schema. If you haven't
+changed which libraries/ALS versions are selected, `npm run auto-configure`
+already has every file this project ships by default, so
+`npm run auto-configure && npm run setup && npm run build` is enough.
 
-### Add a library that isn't in the catalog yet
+### Add a library/ALS version, or supply your own files
 
-1. Add an entry to `libraries.mjs` — `name`, `version`, `libKey`,
-   `sourceArchiveUrl`/`sourceZipName`, optionally `agdaiZipUrl`/`agdaiZipName`,
-   and `optionsPragma`. See the comments at the top of that file for what
-   each field means.
+`libraries.mjs`/`als-catalog.mjs` are **pure metadata catalogs** — they
+describe how to register and use a library/ALS version (its `.agda-lib`
+name, include path, cache version, etc.), but never where to download it
+from. There is no "fill in a URL" option. Every file referenced by a
+catalog entry must be placed by hand into `file-server/library/` or
+`file-server/als/`, whether it's a brand-new library you're adding, a
+custom fork, or a prebuilt `.agdai` cache you built yourself.
+
+`npm run auto-configure` is the one exception, and it's deliberately
+narrow: it's a hardcoded script that fetches only the exact files this
+project's own shipped defaults need (stdlib 2.3, cubical 0.9,
+agda-categories 0.3.0, ALS 2.8.0). It doesn't read the catalogs or
+`deploy.config.mjs` — adding your own library/ALS version gets you
+nothing from it. See `scripts/auto-configure.sh`'s own header comment.
+
+To add a library/ALS version:
+
+1. Add an entry to `libraries.mjs` (`name`, `version`, `libKey`,
+   `sourceZipName`, `archiveRootPrefix`, `includeSubpath`, `agdaLibFile`,
+   `libraryName`, optionally `agdaiCacheVersion`/`agdaiZipName`, and
+   `optionsPragma`) or `als-catalog.mjs` (`version`, `wasmFilename`,
+   optionally `dataZipName`). See the comments at the top of each file for
+   what every field means. There's no separate library/ALS compatibility
+   table — each `deploy.config.mjs` profile *is* a validated
+   (`alsVersion`, `libraries`) pairing, so there's nothing to
+   cross-reference.
 2. If the library `depend:`s on another configured library (e.g.
    agda-categories depends on `standard-library-2.3`), no extra step is
    needed — `generate-manifest.mjs` and the browser runtime both register
    every selected library together, so `depend:` resolves the same way in
    both places.
 3. Reference the new entry from a `deploy.config.mjs` profile.
-4. Run `npm run download-assets && npm run setup`, then regenerate the
-   dependency manifest (below).
+4. Place the file(s) the catalog entry's `sourceZipName`/`agdaiZipName`/
+   `wasmFilename`/`dataZipName` point to into `file-server/library/` or
+   `file-server/als/` by hand, then run `npm run setup` — it only ever
+   reads whatever's already in `file-server/{library,als}/` and syncs it
+   into `static/library/`/`static/als/`, so a manually-placed file ends up
+   served exactly the same way as anything `auto-configure` fetches.
+5. Regenerate the dependency manifest (below).
+
+Both `file-server/library/` and `file-server/als/` are gitignored; nothing
+in them is committed.
 
 Check [ROADMAP.md](../ROADMAP.md) before adding plfa/agda-unimath/1lab — their exact
 `.agda-lib` layout and type-theory compatibility with existing entries
 hasn't been confirmed yet.
-
-### Add or change an ALS/Agda version
-
-Add an entry to `als-catalog.mjs` (`version`, `wasmUrl`/`wasmFilename`,
-optionally `dataZipUrl`/`dataZipName`), then reference it from a
-`deploy.config.mjs` profile's `alsVersion`. There's no separate
-library/ALS compatibility table — each profile *is* a validated
-(`alsVersion`, `libraries`) pairing, so there's nothing to cross-reference.
-
-### Supply your own library/ALS files instead of downloading
-
-To use a private library, a custom fork, or a prebuilt `.agdai` cache you
-built yourself instead of the catalog's download, place the
-correctly-named file in `file-server/library/` or `file-server/als/` by
-hand, then run `npm run setup` directly — there's no need to run
-`npm run download-assets` at all.
-
-This works because downloading and "prepare `static/` for serving" are
-two separate commands: `npm run setup` only ever reads whatever's already
-in `file-server/{library,als}/` and syncs it into
-`static/library/`/`static/als/`, so a manually-placed file ends up served
-exactly the same way a catalog download would. (`npm run download-assets`
-is also safe to run on top of manually-placed files — it skips anything
-that's already there — if you only want to supply some files yourself and
-let the catalog fill in the rest.) Both `file-server/library/` and
-`file-server/als/` are gitignored; nothing in them is committed.
 
 ### Regenerate the dependency manifest
 
@@ -87,9 +93,11 @@ still produces a correct result, just slower — see
 ### Catalogs
 
 - **`libraries.mjs`** — every library *version* this project knows how to
-  build a `.agdai` cache and dependency manifest for.
+  build a `.agdai` cache and dependency manifest for. Pure metadata — no
+  download URLs; see "Add a library/ALS version, or supply your own
+  files" above.
 - **`als-catalog.mjs`** — every ALS/Agda WASM build this project knows how
-  to fetch and run.
+  to fetch and run. Also pure metadata.
 - **`resolve-deploy-config.mjs`** — resolves `deploy.config.mjs` against
   both catalogs above, validating every reference up front (a typo fails
   fast with a clear error). Exports `getSelectedLibraries()` and
@@ -99,13 +107,14 @@ still produces a correct result, just slower — see
 
 ### Scripts
 
-- **`print-download-list.mjs`** — prints `URL<TAB>filename<TAB>subdir`
-  tuples (`subdir` is `library` or `als`) for every library/ALS file the
-  currently-configured `deploy.config.mjs` needs. Consumed by both
-  `scripts/download-assets.sh` (to know what to fetch) and
-  `scripts/setup-assets.sh` (to verify everything needed actually landed
-  in `static/{library,als}/` before declaring success); not meant to be
-  run standalone.
+- **`print-required-files.mjs`** — prints `filename<TAB>subdir` pairs
+  (`subdir` is `library` or `als`) for every library/ALS file the
+  currently-configured `deploy.config.mjs` needs. Consumed by
+  `scripts/setup-assets.sh` to verify everything needed actually landed in
+  `static/{library,als}/` before declaring success; not meant to be run
+  standalone. Has no notion of where those files come from — that's
+  `scripts/auto-configure.sh`'s job for this project's own defaults, or
+  manual placement for anything else.
 - **`extract-agdai.mjs`** — extracts each configured library's prebuilt
   `.agdai` cache zip (from `static/library/`) into `static/agdai/<name>/`,
   so individual `.agdai` files can be served on demand. Runs automatically

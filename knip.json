@@ -5,7 +5,7 @@
     "static/coi-serviceworker.js",
     "file-server/extract-agdai.mjs",
     "file-server/generate-manifest.mjs",
-    "file-server/print-download-list.mjs"
+    "file-server/print-required-files.mjs"
   ],
   "ignore": [
     "experiments/**"

@@ -7,7 +7,7 @@
   "private": true,
   "scripts": {
     "setup": "scripts/setup-assets.sh",
-    "download-assets": "scripts/download-assets.sh",
+    "auto-configure": "scripts/auto-configure.sh",
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
