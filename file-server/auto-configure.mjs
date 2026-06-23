@@ -102,8 +102,23 @@ async function main() {
     console.log("Fetching this project's own shipped default assets...")
 
     // library/<name>/ — stdlib 2.3, cubical 0.9, agda-categories 0.3.0:
-    // source archives (wrapper-stripped) and prebuilt .agdai caches
-    // (already laid out as _build/<version>/agda/... inside the zip).
+    // source archives (wrapper-stripped), prebuilt .agdai caches (already
+    // laid out as _build/<version>/agda/... inside the zip), and each
+    // library's own dependency graph — maintainer-produced
+    // (file-server/prepare-dependency-graph.mjs + dot-to-manifest.mjs),
+    // uploaded to the same release. Self-deployers who change
+    // deploy.config.mjs get nothing here and must produce their own (see
+    // file-server/README.md). The manifest fetch is best-effort per
+    // library: prefetching is optional, so a missing release asset
+    // shouldn't fail the whole fetch.
+    async function fetchManifest(name) {
+      try {
+        await fetchFile(`${RELEASE}/${name}-manifest.json`, join(FILE_SERVER, 'library', name, 'agdai-manifest.json'))
+      } catch (err) {
+        console.warn(`  could not fetch ${name}-manifest.json (prefetching will be disabled for ${name}): ${err.message}`)
+      }
+    }
+
     await fetchSource(
       'https://github.com/agda/agda-stdlib/archive/refs/tags/v2.3.zip',
       join(FILE_SERVER, 'library', 'stdlib'), workDir)
@@ -111,6 +126,7 @@ async function main() {
       `${RELEASE}/stdlib-agdai.zip`,
       join(FILE_SERVER, 'library', 'stdlib'), workDir,
       join(FILE_SERVER, 'library', 'stdlib', '_build'))
+    await fetchManifest('stdlib')
 
     await fetchSource(
       'https://github.com/agda/cubical/archive/refs/tags/v0.9.zip',
@@ -119,6 +135,7 @@ async function main() {
       `${RELEASE}/cubical-agdai.zip`,
       join(FILE_SERVER, 'library', 'cubical'), workDir,
       join(FILE_SERVER, 'library', 'cubical', '_build'))
+    await fetchManifest('cubical')
 
     await fetchSource(
       'https://github.com/agda/agda-categories/archive/refs/tags/v0.3.0.zip',
@@ -127,6 +144,7 @@ async function main() {
       `${RELEASE}/agda-categories-agdai.zip`,
       join(FILE_SERVER, 'library', 'agda-categories'), workDir,
       join(FILE_SERVER, 'library', 'agda-categories', '_build'))
+    await fetchManifest('agda-categories')
 
     // als/ — ALS 2.8.0 wasm (flat file) and the Agda builtins data
     // directory (already laid out relative to the VFS root inside the zip).
@@ -136,18 +154,6 @@ async function main() {
     await fetchFlatZip(
       `${RELEASE}/agda-data.zip`,
       join(FILE_SERVER, 'als', 'agda-data'), workDir)
-
-    // The combined dependency graph for this project's own default
-    // profile — maintainer-produced (file-server/prepare-dependency-graph.mjs
-    // + dot-to-manifest.mjs), uploaded to the same release. Self-deployers
-    // who change deploy.config.mjs get nothing here and must produce
-    // their own (see file-server/README.md). Best-effort: prefetching is
-    // optional, so a missing release asset shouldn't fail the whole fetch.
-    try {
-      await fetchFile(`${RELEASE}/agdai-manifest.json`, join(FILE_SERVER, 'agdai-manifest.json'))
-    } catch (err) {
-      console.warn(`  could not fetch agdai-manifest.json (prefetching will be disabled): ${err.message}`)
-    }
 
     console.log('Done. Run `npm run setup` next to prepare static/ for serving.')
   } finally {

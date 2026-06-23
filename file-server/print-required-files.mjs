@@ -12,8 +12,9 @@
  * Per ALS version: its wasm file (required) and its agda-data/ directory
  * (optional, mirroring dataZipName being optional on the catalog).
  *
- * The combined dependency graph (file-server/agdai-manifest.json) is
- * always optional — prefetch.js already degrades gracefully without one.
+ * Each library's own dependency graph
+ * (file-server/library/<name>/agdai-manifest.json) is always optional —
+ * prefetch.js degrades gracefully per library without one.
  *
  * Usage: node file-server/print-required-files.mjs
  */
@@ -46,6 +47,9 @@ async function main() {
     if (lib.agdaiCacheVersion && !(await exists(join(libRoot, '_build')))) {
       console.log(`(optional, not found) file-server/library/${lib.name}/_build/ — no prebuilt .agdai cache, will type-check from source`)
     }
+    if (!(await exists(join(libRoot, 'agdai-manifest.json')))) {
+      console.log(`(optional, not found) file-server/library/${lib.name}/agdai-manifest.json — prefetch disabled for this library, .agdai files still load on demand`)
+    }
   }
 
   for (const als of getSelectedAlsVersions()) {
@@ -57,10 +61,6 @@ async function main() {
     if (als.dataZipName && !(await exists(join(FILE_SERVER, 'als', 'agda-data')))) {
       console.log('(optional, not found) file-server/als/agda-data/ — ALS will run without prebuilt Agda builtin data')
     }
-  }
-
-  if (!(await exists(join(FILE_SERVER, 'agdai-manifest.json')))) {
-    console.log('(optional, not found) file-server/agdai-manifest.json — prefetch disabled, .agdai files still load on demand')
   }
 
   if (missing) {

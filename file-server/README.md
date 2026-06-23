@@ -2,8 +2,9 @@
 
 Tooling that prepares the static assets the browser app fetches at runtime:
 ALS WASM binaries, library source archives, the per-module `.agdai` cache
-under `static/agdai/`, and the dependency manifest (`static/agdai-manifest.json`)
-used to prefetch `.agdai` files in parallel.
+under `static/agdai/`, and each library's own dependency manifest
+(`static/agdai/<name>/agdai-manifest.json`) used to prefetch `.agdai`
+files in parallel.
 
 This is a clearly-separated subdirectory within this repo, not a standalone
 package. It may be split into its own repository later if there's real demand
@@ -47,10 +48,10 @@ file-server/
       <agdaLibFile>                   # at whatever depth the library uses
       src/...                         # wherever includeSubpath points — raw .agda source
       _build/<agdaiCacheVersion>/agda/...   # optional: raw prebuilt .agdai files
+      agdai-manifest.json             # optional: this library's own dependency graph (see below)
   als/
     <wasmFilename>                    # a single binary file
     agda-data/                        # raw extracted Agda builtin data (optional)
-  agdai-manifest.json                 # optional: the dependency graph (see below)
 ```
 
 No zips anywhere in `file-server/` — `npm run setup` is what zips a
@@ -98,38 +99,57 @@ hasn't been confirmed yet.
 
 ### Regenerating the dependency graph
 
-The dependency graph (`file-server/agdai-manifest.json`, copied to
-`static/agdai-manifest.json` by `npm run setup`) is never auto-fetched for
-libraries/ALS versions you've added or changed — `npm run auto-configure`
-only ever supplies this project's own shipped default graph. Producing
-your own is split into two steps so the half that needs a native `agda`
-binary is as small as possible:
+Each library has its own dependency graph
+(`file-server/library/<name>/agdai-manifest.json`, copied to
+`static/agdai/<name>/agdai-manifest.json` by `npm run setup`) — never one
+combined file. A session only ever loads the graphs for its active
+profile's libraries, so adding a library later never touches an existing
+one's manifest. These are never auto-fetched for libraries/ALS versions
+you've added or changed — `npm run auto-configure` only ever supplies
+this project's own shipped default graphs. Producing your own is split
+into two steps so the half that needs a native `agda` binary is as small
+as possible:
 
 ```sh
 node file-server/prepare-dependency-graph.mjs
 ```
 
-This does everything except invoke `agda` — generates a synthetic
-`Everything.agda` per selected library, registers every selected library
-together, and **prints the exact `agda` commands to run**. Run those
-commands yourself (requires a **native** `agda` binary on `PATH`, not the
-WASM build); each one writes a `.dot` file. Then:
+This does everything except invoke `agda` — for every selected library,
+computes which modules it owns and writes a single generated script,
+`file-server/.dependency-graph-work/run-agda.sh`, that (per library)
+writes a synthetic `Everything.agda`, runs `agda --dependency-graph`
+registering every selected library together (so a `depend:` on another
+configured library resolves), and removes the synthetic file again before
+moving to the next library — this avoids `AmbiguousTopLevelModuleName`
+from two libraries' synthetic `Everything.agda` existing at once. Run it
+yourself (requires a **native** `agda` binary on `PATH`, not the WASM
+build):
+
+```sh
+bash file-server/.dependency-graph-work/run-agda.sh
+```
+
+Then:
 
 ```sh
 node file-server/dot-to-manifest.mjs
 ```
 
-This is pure parsing — no `agda` needed — and writes
-`file-server/agdai-manifest.json`, cleaning up the synthetic
-`Everything.agda` files it generated. Run `npm run setup` afterward to
-copy it into `static/`. (If the native `agda`'s interface format version
-doesn't match a placed `_build/` cache, this still produces a correct
-result, just slower — full recompile instead of a cache hit.)
+This is pure parsing — no `agda` needed — and writes one
+`file-server/library/<name>/agdai-manifest.json` per selected library
+(each containing only that library's own modules — dependency edges may
+still name modules from other libraries by name, which is fine: the
+browser loads every active-profile library's manifest together). Run
+`npm run setup` afterward to copy them into `static/`. (If the native
+`agda`'s interface format version doesn't match a placed `_build/` cache,
+this still produces a correct result, just slower — full recompile
+instead of a cache hit.)
 
-This project's own shipped graph (for stdlib + cubical + agda-categories)
-is produced this same way by a maintainer and uploaded to the
-`cache-2.8.0` GitHub Release alongside the other prebuilt assets, where
-`npm run auto-configure` downloads it from.
+This project's own shipped graphs (for stdlib, cubical, and
+agda-categories) are produced this same way by a maintainer and uploaded
+to the `cache-2.8.0` GitHub Release alongside the other prebuilt assets,
+where `npm run auto-configure` downloads them from — independently per
+library, so a missing one only disables prefetching for that library.
 
 ## Reference
 
@@ -155,10 +175,9 @@ is produced this same way by a maintainer and uploaded to the
   it builds `static/`.
 - **`build-static-assets.mjs`** — zips each selected library's raw source
   into `static/library/<sourceZipName>`, copies a placed `_build/` tree
-  into `static/agdai/<name>/`, copies the ALS wasm, zips `agda-data/` into
-  `static/als/<dataZipName>`, and copies `file-server/agdai-manifest.json`
-  to `static/agdai-manifest.json` if present. Runs automatically as part
-  of `npm run setup`.
+  and `agdai-manifest.json` into `static/agdai/<name>/`, copies the ALS
+  wasm, and zips `agda-data/` into `static/als/<dataZipName>`. Runs
+  automatically as part of `npm run setup`.
 - **`prepare-dependency-graph.mjs`** / **`dot-to-manifest.mjs`** — the
   two-phase dependency-graph generator described above.
 - **`auto-configure.mjs`** — fetches and extracts this project's own
@@ -172,8 +191,11 @@ is produced this same way by a maintainer and uploaded to the
 `prepare-dependency-graph.mjs` + a native `agda --only-scope-checking
 --dependency-graph` run produces a Dot graph from a generated
 `Everything.agda` that imports every module in each library;
-`dot-to-manifest.mjs` parses it. The Dot output is transitively-reduced
-(only direct edges), so the manifest stores direct dependencies per
-module; `src/lib/agda/prefetch.js` computes the transitive closure at
-runtime from the user's `import` statements before triggering parallel
-fetches.
+`dot-to-manifest.mjs` parses it into one `{ graph }` per library. The Dot
+output is transitively-reduced (only direct edges), so each manifest
+stores direct dependencies per module. At runtime,
+`src/lib/agda/prefetch.js` loads every active-profile library's manifest,
+merges them into one working graph (deriving which library owns each
+module from which file it came from — there's no `libOf` field in the
+files themselves), computes the transitive closure from the user's
+`import` statements, and triggers parallel fetches.

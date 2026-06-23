@@ -64,14 +64,15 @@ defaults — it's a hardcoded script, not driven by `deploy.config.mjs`:
 - ALS 2.8.0 WASM binary from [agda-web/agda-language-server](https://github.com/agda-web/agda-language-server/releases/tag/nightly-20260407)
 - Standard library 2.3, Cubical 0.9, and agda-categories 0.3.0 source
   archives from upstream Agda releases
-- Pre-built `.agdai` cache zips and the dependency graph for Agda 2.8.0
+- Pre-built `.agdai` cache zips and each library's own dependency graph
+  for Agda 2.8.0
 
 — extracted raw (no zips) into `file-server/library/`/`file-server/als/`.
 `npm run setup` then zips/copies them into `static/library/`/`static/als/`
-for serving, and copies the prebuilt `.agdai` files into `static/agdai/`
-so individual `.agdai` files can be fetched on demand at runtime (see
-`static/agdai-manifest.json` for the dependency manifest used to prefetch
-them). A self-deployer who has changed `deploy.config.mjs` or wants
+for serving, and copies the prebuilt `.agdai` files and dependency graph
+into `static/agdai/<name>/` so individual `.agdai` files can be fetched on
+demand at runtime and prefetched in parallel ahead of time. A
+self-deployer who has changed `deploy.config.mjs` or wants
 different library/ALS versions must place their own raw files in
 `file-server/library/<name>/`/`file-server/als/` by hand instead — see
 [file-server/README.md](file-server/README.md).

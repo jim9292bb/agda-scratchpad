@@ -266,17 +266,37 @@ Done (agda-categories, second library proving the system generalizes):
       Everything.agda, invoke native `agda --dependency-graph`, parse the
       `.dot`, write `static/agdai-manifest.json`, committed to git) into
       `prepare-dependency-graph.mjs` (everything except invoking `agda` —
-      prints the exact commands to run) and `dot-to-manifest.mjs` (pure
-      `.dot`-parsing, no `agda` needed, writes
-      `file-server/agdai-manifest.json`). The dependency graph is no
-      longer committed to git or auto-fetched for anything beyond this
-      project's own shipped defaults: self-deployers who change
-      `deploy.config.mjs` must produce their own via the two scripts above
-      and place the result themselves. This project's own default graph
-      (stdlib + cubical + agda-categories) is produced the same way by a
-      maintainer and uploaded to the `cache-2.8.0` GitHub Release, where
-      `npm run auto-configure` downloads it from (best-effort — missing it
-      just disables prefetching, doesn't fail the fetch).
+      writes a generated `run-agda.sh` that, per library, writes/runs/
+      cleans up its own synthetic `Everything.agda` in sequence, avoiding
+      `AmbiguousTopLevelModuleName` from two libraries' synthetic files
+      coexisting) and `dot-to-manifest.mjs` (pure `.dot`-parsing, no `agda`
+      needed). The dependency graph is no longer committed to git or
+      auto-fetched for anything beyond this project's own shipped
+      defaults: self-deployers who change `deploy.config.mjs` must produce
+      their own via the two scripts above and place the result themselves.
+      This project's own default graphs (stdlib + cubical + agda-categories)
+      are produced the same way by a maintainer and uploaded to the
+      `cache-2.8.0` GitHub Release, where `npm run auto-configure`
+      downloads them from (best-effort — missing one just disables
+      prefetching for that library, doesn't fail the rest).
+- [x] Split the dependency graph itself from one combined
+      `{ graph, libOf }` file (covering the union of every library
+      referenced by *any* configured profile) into one `{ graph }` file
+      per library (`file-server/library/<name>/agdai-manifest.json` →
+      `static/agdai/<name>/agdai-manifest.json`) — a session now only
+      fetches the manifests for its *active* profile's libraries, and
+      adding a new library later never touches an existing one's
+      manifest. `libOf` is gone from the file format: within one
+      library's own file every key is trivially "this library's module";
+      `src/lib/agda/prefetch.js` derives the equivalent client-side when
+      merging the active profile's libraries' manifests (one
+      `fetch()`-and-cache per library, keyed by `libKey`), so cross-library
+      dependency edges (agda-categories → stdlib) still resolve — every
+      active-profile library's manifest is loaded up front, not
+      discovered-and-fetched mid-walk. `src/lib/runtime/interface.ts`'s
+      `ResolvedLibrary` gained `manifestAsset`, derived purely from the
+      existing folder-name convention (no new catalog field, same as
+      `_build/`).
 
 Not yet implemented:
 

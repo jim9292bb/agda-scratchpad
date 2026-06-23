@@ -1,28 +1,33 @@
 /**
- * Pre-fetch .agdai files for a source buffer using a static dependency manifest.
- * The manifest maps module names to their direct dependencies (transitively-reduced graph).
- * We compute the transitive closure and kick off parallel fetches before ALS type-checks.
+ * Pre-fetch .agdai files for a source buffer using each active library's
+ * own dependency manifest (see file-server/dot-to-manifest.mjs). Each
+ * manifest maps that library's own modules to their direct dependencies
+ * (transitively-reduced graph, deps may name modules from other
+ * libraries). We load every active-profile library's manifest, merge
+ * them into one working graph, compute the transitive closure, and kick
+ * off parallel fetches before ALS type-checks.
  */
 
-import { asset } from '$app/paths'
+/** @type {Map<string, { graph: Record<string, string[]> } | null>} */
+const manifestCache = new Map()
 
-/** @type {{ graph: Record<string, string[]>, libOf: Record<string, string> } | null} */
-let manifest = null
-let manifestLoading = false
-
-async function loadManifest() {
-  if (manifest || manifestLoading) return
-  manifestLoading = true
+/**
+ * @param {import('$lib/runtime/interface').ResolvedLibrary} lib
+ * @returns {Promise<{ graph: Record<string, string[]> } | null>}
+ */
+async function loadLibraryManifest(lib) {
+  const cached = manifestCache.get(lib.libKey)
+  if (cached !== undefined) return cached
+  let result = null
   try {
-    const resp = await fetch(asset('/agdai-manifest.json'))
-    if (resp.ok) manifest = await resp.json()
+    const resp = await fetch(lib.manifestAsset)
+    if (resp.ok) result = await resp.json()
   } catch {
-    // manifest unavailable — prefetch disabled, on-demand fetch still works
+    // manifest unavailable — prefetch disabled for this library, on-demand fetch still works
   }
+  manifestCache.set(lib.libKey, result)
+  return result
 }
-
-// kick off manifest load eagerly
-loadManifest()
 
 /**
  * @param {string} mod
@@ -65,16 +70,25 @@ function parseTopLevelImports(src) {
  * @param {string} src  - current editor content
  * @param {(paths: string[]) => void} prefetchFn  - backend.prefetchAgdai
  * @param {import('$lib/runtime/interface').ResolvedLibrary[]} activeLibraries
- *   - the currently-active profile's resolved libraries; only modules
- *     belonging to one of these are prefetched (the manifest itself may
- *     cover more libraries than any one profile uses).
+ *   - the currently-active profile's resolved libraries; every one of
+ *     their manifests is loaded so cross-library dependency edges (e.g.
+ *     agda-categories importing stdlib modules) resolve correctly.
  */
-export function triggerPrefetch(src, prefetchFn, activeLibraries) {
-  if (!manifest) return
-  const { graph, libOf } = manifest
-
-  /** @type {Map<string, import('$lib/runtime/interface').ResolvedLibrary>} */
+export async function triggerPrefetch(src, prefetchFn, activeLibraries) {
   const libByKey = new Map(activeLibraries.map(lib => [lib.libKey, lib]))
+
+  /** @type {Record<string, string[]>} */
+  const graph = {}
+  /** @type {Record<string, string>} */
+  const libOf = {}
+  await Promise.all(activeLibraries.map(async lib => {
+    const manifest = await loadLibraryManifest(lib)
+    if (!manifest) return
+    for (const [mod, deps] of Object.entries(manifest.graph)) {
+      graph[mod] = deps
+      libOf[mod] = lib.libKey
+    }
+  }))
 
   const imports = parseTopLevelImports(src)
   const allDeps = new Set()

@@ -25,6 +25,8 @@ export interface ResolvedLibrary {
   libKey: string
   sourceZipAsset: string
   agdaiZipAsset?: string
+  /** This library's own dependency-graph manifest (see file-server/dot-to-manifest.mjs). */
+  manifestAsset: string
   /** folder name to extract this library under in the VFS, e.g. "stdlib" */
   folderName: string
   archiveRootPrefix: string
@@ -48,6 +50,7 @@ export function resolveProfileLibraries(profile: DeployProfile): ResolvedLibrary
       libKey: entry.libKey,
       sourceZipAsset: asset(`/library/${entry.sourceZipName}`),
       agdaiZipAsset: entry.agdaiZipName ? asset(`/library/${entry.agdaiZipName}`) : undefined,
+      manifestAsset: asset(`/agdai/${entry.name}/agdai-manifest.json`),
       folderName: entry.name,
       archiveRootPrefix: entry.archiveRootPrefix,
       includeSubpath: entry.includeSubpath,

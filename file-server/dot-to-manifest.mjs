@@ -1,10 +1,19 @@
 /**
  * Phase B of dependency-graph generation: pure parsing, no `agda`
  * required. Reads the `.dot` files produced by running the commands
- * file-server/prepare-dependency-graph.mjs printed, merges them into the
- * combined module dependency graph the browser runtime uses to prefetch
- * .agdai files in parallel (src/lib/agda/prefetch.js), and writes
- * file-server/agdai-manifest.json.
+ * file-server/prepare-dependency-graph.mjs printed, and writes one
+ * dependency-graph manifest per library — used by the browser runtime to
+ * prefetch .agdai files in parallel (src/lib/agda/prefetch.js) — to
+ * file-server/library/<name>/agdai-manifest.json.
+ *
+ * Each library's manifest only contains modules that library itself
+ * defines (`{ graph: { [ownModule]: [deps...] } }` — deps may reference
+ * modules from other libraries by name, e.g. agda-categories depending on
+ * stdlib; the browser loads every active-profile library's manifest
+ * together, so cross-library edges still resolve). There's no `libOf`
+ * field — within one library's own file, every key is trivially "this
+ * library's module"; the browser derives the equivalent of `libOf`
+ * itself when merging multiple libraries' manifests (see prefetch.js).
  *
  * Usage (after running prepare-dependency-graph.mjs and its printed agda
  * commands):
@@ -37,6 +46,10 @@ function parseAgdaLibInclude(src) {
   return include === '.' ? '' : include
 }
 
+function isExcluded(mod) {
+  return mod.startsWith('Agda.') || mod === 'Everything'
+}
+
 async function main() {
   const libs = getSelectedLibraries()
 
@@ -44,36 +57,30 @@ async function main() {
     throw new Error(`${relative(REPO_ROOT, WORK_DIR)}/own-modules.json not found — run file-server/prepare-dependency-graph.mjs first`)
   }))
 
-  const graphs = {}
-  const libOf = {}
-
   for (const lib of libs) {
     const dotFile = join(WORK_DIR, `${lib.name}.dot`)
     const dotContent = await readFile(dotFile, 'utf8').catch(() => {
       throw new Error(`[${lib.name}] ${relative(REPO_ROOT, dotFile)} not found — did you run the agda command file-server/prepare-dependency-graph.mjs printed for this library?`)
     })
     const edges = parseDot(dotContent)
-    Object.assign(graphs, edges)
-
     const ownModules = ownModulesByLib[lib.name] || []
-    for (const mod of ownModules) libOf[mod] = lib.libKey
-  }
 
-  const graph = {}
-  for (const [mod, deps] of Object.entries(graphs)) {
-    if (mod.startsWith('Agda.') || mod === 'Everything') continue
-    const filtered = deps.filter(d => !d.startsWith('Agda.') && d !== 'Everything')
-    if (filtered.length) graph[mod] = filtered
-  }
-  for (const mod of Object.keys(libOf)) {
-    if (mod.startsWith('Agda.') || mod === 'Everything') delete libOf[mod]
-  }
+    // Every owned module gets a key, even with an empty deps array — a
+    // leaf module (no non-builtin dependencies) still needs to be
+    // attributable to this library when prefetch.js derives ownership
+    // from which file a module's key appears in (there's no separate
+    // ownModules field in the manifest itself, see header comment).
+    const graph = {}
+    for (const mod of ownModules) {
+      if (isExcluded(mod)) continue
+      graph[mod] = (edges[mod] || []).filter(d => !isExcluded(d))
+    }
 
-  const manifest = { graph, libOf }
-  const json = JSON.stringify(manifest)
-  await writeFile(join(FILE_SERVER, 'agdai-manifest.json'), json)
-
-  console.log(`Wrote ${Object.keys(graph).length} modules, ${(json.length / 1024).toFixed(0)} KB to file-server/agdai-manifest.json`)
+    const json = JSON.stringify({ graph })
+    const manifestPath = join(FILE_SERVER, 'library', lib.name, 'agdai-manifest.json')
+    await writeFile(manifestPath, json)
+    console.log(`[${lib.name}] wrote ${Object.keys(graph).length} modules, ${(json.length / 1024).toFixed(0)} KB to ${relative(REPO_ROOT, manifestPath)}`)
+  }
 
   for (const lib of libs) {
     const libRoot = join(FILE_SERVER, 'library', lib.name)
@@ -85,7 +92,7 @@ async function main() {
   await rm(WORK_DIR, { recursive: true, force: true })
 
   console.log('Cleaned up synthetic Everything.agda files and the working directory.')
-  console.log('Run `npm run setup` to copy the new manifest into static/.')
+  console.log('Run `npm run setup` to copy the new manifests into static/.')
 }
 
 main().catch(err => { console.error(err); process.exit(1) })
