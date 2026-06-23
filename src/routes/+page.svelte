@@ -88,7 +88,7 @@ async function onDeploymentProfileChange(profileId) {
   try {
     await agdaController.switchProfile(profileId)
   } catch (err) {
-    textboxContent += `Failed to switch deployment profile: ${err instanceof Error ? err.message : String(err)}\n`
+    textboxContent += `Failed to switch environment: ${err instanceof Error ? err.message : String(err)}\n`
   }
 }
 
@@ -1394,7 +1394,7 @@ $effect(() => {
     </div>
     {#if deployProfiles.length > 1}
       <div class="control-card-profile-row">
-        <label for="control-card-profile-select">Profile</label>
+        <label for="control-card-profile-select">Environment</label>
         <select
           id="control-card-profile-select"
           value={agdaController.selectedProfileId}
@@ -1510,12 +1510,12 @@ $effect(() => {
               <h3 id="runtime-settings-title">Runtime and libraries</h3>
               <p class="settings-note">
                 {#if deployProfiles.length > 1}
-                  Switch the deployment profile from the "Profile" selector below the Agda status card. Switching restarts the worker.
+                  Switch the Agda environment from the "Environment" selector below the Agda status card. Switching restarts the worker.
                 {:else}
-                  This deployment has a single configured profile.
+                  This deployment has a single configured environment.
                 {/if}
               </p>
-              <p class="settings-note">Active profile: <strong>{agdaController.activeProfile.label}</strong></p>
+              <p class="settings-note">Active environment: <strong>{agdaController.activeProfile.label}</strong></p>
               <dl class="settings-runtime-list">
                 {#each runtimeSummary() as item}
                   <div>

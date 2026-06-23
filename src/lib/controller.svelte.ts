@@ -246,7 +246,7 @@ export class AgdaController {
   async switchProfile(profileId: string) {
     if (profileId === this.selectedProfileId) return
     if (!deployProfiles.some(p => p.id === profileId)) {
-      throw new Error(`unknown deployment profile id: ${profileId}`)
+      throw new Error(`unknown environment id: ${profileId}`)
     }
 
     if (this.alsWorkerStatus === 'active') {
