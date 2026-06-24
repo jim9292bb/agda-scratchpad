@@ -25,15 +25,31 @@ import { join, dirname } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createReadStream } from 'node:fs'
 import JSZip from '../node_modules/jszip/dist/jszip.js'
+import { findLibrary } from '../../../deploy-assets/libraries.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT   = join(__dirname, '..')
 const STATIC = join(__dirname, '../../../static')
 const RESULTS = join(ROOT, 'results')
 
-const STDLIB_ZIP          = join(STATIC, 'library', 'agda-stdlib-2.3.zip')
-const CUBICAL_ZIP         = join(STATIC, 'library', 'agda-cubical-0.9.zip')
-const AGDA_CATEGORIES_ZIP = join(STATIC, 'library', 'agda-categories-0.3.0.zip')
+const STDLIB_ENTRY          = findLibrary('stdlib', '2.3')
+const CUBICAL_ENTRY         = findLibrary('cubical', '0.9')
+const AGDA_CATEGORIES_ENTRY = findLibrary('agda-categories', '0.3.0')
+
+const STDLIB_ZIP          = join(STATIC, 'library', STDLIB_ENTRY.sourceZipName)
+const CUBICAL_ZIP         = join(STATIC, 'library', CUBICAL_ENTRY.sourceZipName)
+const AGDA_CATEGORIES_ZIP = join(STATIC, 'library', AGDA_CATEGORIES_ENTRY.sourceZipName)
+
+/** Strips entry.archiveRootPrefix and keeps only includeSubpath/ + agdaLibFile, mirroring src/lib/worker/als-wasi-shim.ts's buildFilesystem(). */
+function stripArchiveRoot(entry) {
+  return path => {
+    if (!path.startsWith(`${entry.archiveRootPrefix}/`)) return null
+    const rel = path.slice(entry.archiveRootPrefix.length + 1)
+    if (!entry.includeSubpath) return rel
+    if (rel.startsWith(`${entry.includeSubpath}/`) || rel === entry.agdaLibFile) return rel
+    return null
+  }
+}
 
 const cliArgs = process.argv.slice(2)
 const stdlibOnly     = cliArgs.includes('--stdlib-only')
@@ -167,15 +183,7 @@ async function main() {
     if (extractStdlib) {
       console.log('\nExtracting stdlib...')
       const t1 = performance.now()
-      const stdlibCount = await extractZip(STDLIB_ZIP, stdlibDir, path => {
-        if (path.match(/^agda-stdlib-[\d.]+\/standard-library\.agda-lib$/)) {
-          return path.replace(/^agda-stdlib-[\d.]+\//, '')
-        }
-        if (path.match(/^agda-stdlib-[\d.]+\/src\//)) {
-          return path.replace(/^agda-stdlib-[\d.]+\//, '')
-        }
-        return null
-      })
+      const stdlibCount = await extractZip(STDLIB_ZIP, stdlibDir, stripArchiveRoot(STDLIB_ENTRY))
       console.log(`  ${stdlibCount} files in ${((performance.now() - t1) / 1000).toFixed(1)}s`)
       registeredLibs.push(join(stdlibDir, 'standard-library.agda-lib'))
     }
@@ -183,10 +191,7 @@ async function main() {
     if (runCubical) {
       console.log('Extracting cubical...')
       const t2 = performance.now()
-      const cubicalCount = await extractZip(CUBICAL_ZIP, cubicalDir, path => {
-        if (!path.match(/^cubical-[\d.]+\//)) return null
-        return path.replace(/^cubical-[\d.]+\//, '')
-      })
+      const cubicalCount = await extractZip(CUBICAL_ZIP, cubicalDir, stripArchiveRoot(CUBICAL_ENTRY))
       console.log(`  ${cubicalCount} files in ${((performance.now() - t2) / 1000).toFixed(1)}s`)
       registeredLibs.push(join(cubicalDir, 'cubical.agda-lib'))
     }
@@ -194,15 +199,7 @@ async function main() {
     if (runCategories) {
       console.log('Extracting agda-categories...')
       const t3 = performance.now()
-      const categoriesCount = await extractZip(AGDA_CATEGORIES_ZIP, categoriesDir, path => {
-        if (path.match(/^agda-categories-[\d.]+\/agda-categories\.agda-lib$/)) {
-          return path.replace(/^agda-categories-[\d.]+\//, '')
-        }
-        if (path.match(/^agda-categories-[\d.]+\/src\//)) {
-          return path.replace(/^agda-categories-[\d.]+\//, '')
-        }
-        return null
-      })
+      const categoriesCount = await extractZip(AGDA_CATEGORIES_ZIP, categoriesDir, stripArchiveRoot(AGDA_CATEGORIES_ENTRY))
       console.log(`  ${categoriesCount} files in ${((performance.now() - t3) / 1000).toFixed(1)}s`)
       registeredLibs.push(join(categoriesDir, 'agda-categories.agda-lib'))
     }

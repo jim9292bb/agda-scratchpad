@@ -18,13 +18,13 @@ export { DEPLOY_CONFIG }
 export const deployProfiles = DEPLOY_CONFIG.profiles
 export type DeployProfile = (typeof deployProfiles)[number]
 
-/** A library catalog entry resolved with its source/agdai zip asset URLs (via asset()). */
+/** A library catalog entry resolved with its source zip asset URL (via asset()). */
 export interface ResolvedLibrary {
   name: string
   version: string
+  /** In-memory identifier for the prefetch manifest cache — just `name@version`. */
   libKey: string
   sourceZipAsset: string
-  agdaiZipAsset?: string
   /** This library's own dependency-graph manifest (see deploy-assets/dot-to-manifest.mjs). */
   manifestAsset: string
   /** folder name to extract this library under in the VFS, e.g. "stdlib" */
@@ -47,9 +47,8 @@ export function resolveProfileLibraries(profile: DeployProfile): ResolvedLibrary
     return {
       name: entry.name,
       version: entry.version,
-      libKey: entry.libKey,
+      libKey: `${entry.name}@${entry.version}`,
       sourceZipAsset: asset(`/library/${entry.sourceZipName}`),
-      agdaiZipAsset: entry.agdaiZipName ? asset(`/library/${entry.agdaiZipName}`) : undefined,
       manifestAsset: asset(`/agdai/${entry.name}/agdai-manifest.json`),
       folderName: entry.name,
       archiveRootPrefix: entry.archiveRootPrefix,

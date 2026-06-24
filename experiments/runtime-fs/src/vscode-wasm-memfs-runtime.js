@@ -5,11 +5,14 @@ import { readFile } from 'node:fs/promises'
 import JSZip from 'jszip'
 import { encodeLspMessage, LspMessageParser } from './lsp.js'
 import { durationSince, nowMs } from './timing.js'
+import { findLibrary } from '../../../deploy-assets/libraries.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const experimentRoot = dirname(here)
 const appRoot = join(experimentRoot, '..', '..')
 const workspaceRoot = join(appRoot, '..')
+const STDLIB_ENTRY = findLibrary('stdlib', '2.3')
+const CUBICAL_ENTRY = findLibrary('cubical', '0.9')
 const referenceRoot = join(workspaceRoot, 'references', 'vscode-als-wasm-loader')
 const vscodeWasmRoot = join(referenceRoot, 'vscode-wasm')
 const wasmWasiRoot = join(vscodeWasmRoot, 'wasm-wasi')
@@ -457,8 +460,8 @@ export async function runVscodeWasmMemfs(fixture, options = {}) {
 
   const setupStart = nowMs()
   await Promise.all([
-    unzipToMemfs(memfsRoot, await readFile(join(appRoot, 'static', 'library', 'agda-stdlib-2.3.zip')), 'agda-stdlib-2.3'),
-    unzipToMemfs(memfsRoot, await readFile(join(appRoot, 'static', 'library', 'agda-cubical-0.9.zip')), 'cubical-0.9'),
+    unzipToMemfs(memfsRoot, await readFile(join(appRoot, 'static', 'library', STDLIB_ENTRY.sourceZipName)), STDLIB_ENTRY.archiveRootPrefix),
+    unzipToMemfs(memfsRoot, await readFile(join(appRoot, 'static', 'library', CUBICAL_ENTRY.sourceZipName)), CUBICAL_ENTRY.archiveRootPrefix),
     writeTextFile(memfsRoot, '/home/user/.config/agda/libraries', ['/standard-library.agda-lib', '/cubical.agda-lib'].join('\n')),
     writeTextFile(memfsRoot, '/home/user/.config/agda/defaults', ['standard-library', 'cubical-0.9'].join('\n')),
     writeTextFile(memfsRoot, '/source.agda', source),

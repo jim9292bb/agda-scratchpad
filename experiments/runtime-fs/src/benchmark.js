@@ -15,10 +15,13 @@ import {
   readJsonResponse,
   writeLenPrefixed,
 } from './spsc-utils.js'
+import { findLibrary } from '../../../deploy-assets/libraries.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const experimentRoot = dirname(here)
 const appRoot = join(experimentRoot, '..', '..')
+const stdlibZipName = findLibrary('stdlib', '2.3').sourceZipName
+const cubicalZipName = findLibrary('cubical', '0.9').sourceZipName
 
 function parseArgs(argv) {
   const args = {
@@ -417,8 +420,8 @@ async function runRunnoDirectFs(fixture, options = {}) {
       stdin: stdinSab,
       source,
       wasmPath: join(appRoot, 'static', 'als', 'als-2.8ext.wasm'),
-      stdlibZipPath: join(appRoot, 'static', 'library', 'agda-stdlib-2.3.zip'),
-      cubicalZipPath: join(appRoot, 'static', 'library', 'agda-cubical-0.9.zip'),
+      stdlibZipPath: join(appRoot, 'static', 'library', stdlibZipName),
+      cubicalZipPath: join(appRoot, 'static', 'library', cubicalZipName),
       debug: options.debug,
     },
   })
@@ -550,8 +553,8 @@ async function runBrowserWasiShimWorker(fixture, options = {}, workerFile, runti
       stdin: stdinSab,
       source,
       wasmPath: join(appRoot, 'static', 'als', 'als-2.8ext.wasm'),
-      stdlibZipPath: join(appRoot, 'static', 'library', 'agda-stdlib-2.3.zip'),
-      cubicalZipPath: join(appRoot, 'static', 'library', 'agda-cubical-0.9.zip'),
+      stdlibZipPath: join(appRoot, 'static', 'library', stdlibZipName),
+      cubicalZipPath: join(appRoot, 'static', 'library', cubicalZipName),
       stdlibAgdaiZipPath: options.prebuiltAgdai
         ? join(appRoot, 'experiments', 'build-library', 'results', 'stdlib-agdai.zip')
         : null,
@@ -623,8 +626,8 @@ async function runRunnoProxyCurrent(fixture, options = {}) {
     workerData: {
       stdin: driveStdin,
       stdout: driveStdout,
-      stdlibZipPath: join(appRoot, 'static', 'library', 'agda-stdlib-2.3.zip'),
-      cubicalZipPath: join(appRoot, 'static', 'library', 'agda-cubical-0.9.zip'),
+      stdlibZipPath: join(appRoot, 'static', 'library', stdlibZipName),
+      cubicalZipPath: join(appRoot, 'static', 'library', cubicalZipName),
       pathStatCache: options.pathStatCache,
       debug: options.debug,
     },

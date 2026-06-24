@@ -19,29 +19,31 @@
  * Each entry needs:
  *   - name, version: identify the entry; deploy.config.mjs references libraries
  *     by this pair. Also the expected directory name under
- *     `deploy-assets/library/`.
- *   - libKey: short tag stored in the runtime prefetch manifest.
+ *     `deploy-assets/library/`. (The runtime's in-memory `libKey` — used to
+ *     key the prefetch manifest cache — is just `${name}@${version}`,
+ *     computed on the fly; not a separate field here.)
  *   - sourceZipName: the zip filename `npm run setup` writes under
  *     `static/library/`, fetched by the browser at runtime.
  *   - archiveRootPrefix: the top-level wrapper folder name `npm run setup`
  *     wraps the raw source tree in when zipping (reproducing the shape of
  *     a GitHub tag-archive zip, e.g. `<repo>-<tag>/`) — stripped by the
- *     browser when extracting into the VFS.
+ *     browser when extracting into the VFS. Must be non-empty (the strip
+ *     logic matches a literal `${archiveRootPrefix}/` prefix); the exact
+ *     text otherwise carries no meaning and needn't be unique across entries.
  *   - includeSubpath: matches the library's own `.agda-lib`'s `include:`
  *     field (empty string if `include: .`). Only paths under this subpath,
  *     plus agdaLibFile itself, are kept when extracting into the VFS.
  *   - agdaLibFile: the `.agda-lib` filename at the library's root.
  *   - libraryName: the exact `name:` value declared inside that `.agda-lib`
  *     (used verbatim in the VFS's `~/.config/agda/libraries`/`defaults`).
- *   - agdaiZipName: unused at runtime — kept only as a description of
- *     which ALS/Agda version (`agdaiCacheVersion`) a placed `_build/` tree
- *     was compiled with. Optional: without a `_build/` tree, the library
- *     still works, but type-checks from source on every load instead of
- *     using a cache.
  *   - optionsPragma: the `{-# OPTIONS #-}` line needed to scope-check the
  *     library's generated Everything.agda
- *     (deploy-assets/prepare-dependency-graph.mjs only; not used at runtime,
- *     which reads the library's own flags via its registered `.agda-lib`).
+ *     (deploy-assets/prepare-dependency-graph.mjs only). Not redundant with
+ *     the library's own `.agda-lib` `flags:` — confirmed empirically that
+ *     `.agda-lib` flags do not apply to the synthetic Everything.agda,
+ *     e.g. stdlib's `--guardedness`-using modules need this declared here
+ *     too or scope-checking fails with `InfectiveImport`, even though
+ *     `standard-library.agda-lib`'s own `flags:` doesn't mention it.
  *
  * Adding a library/version that follows the same shape as stdlib/cubical
  * (one `.agda-lib` at the source root) should only require a new entry
@@ -55,7 +57,6 @@ export const LIBRARY_CATALOG = [
   {
     name: 'stdlib',
     version: '2.3',
-    libKey: 's',
     sourceZipName: 'agda-stdlib-2.3.zip',
     archiveRootPrefix: 'agda-stdlib-2.3',
     includeSubpath: 'src',
@@ -67,26 +68,22 @@ export const LIBRARY_CATALOG = [
     // particular session's active ALS version; a mismatch just means a
     // slower from-source recompile instead of a cache hit, not an error.
     agdaiCacheVersion: '2.8.0',
-    agdaiZipName: 'stdlib-agdai.zip',
     optionsPragma: '{-# OPTIONS --rewriting --guardedness --sized-types #-}',
   },
   {
     name: 'cubical',
     version: '0.9',
-    libKey: 'c',
     sourceZipName: 'agda-cubical-0.9.zip',
     archiveRootPrefix: 'cubical-0.9',
     includeSubpath: '',
     agdaLibFile: 'cubical.agda-lib',
     libraryName: 'cubical-0.9',
     agdaiCacheVersion: '2.8.0',
-    agdaiZipName: 'cubical-agdai.zip',
     optionsPragma: '{-# OPTIONS --cubical --guardedness #-}',
   },
   {
     name: 'agda-categories',
     version: '0.3.0',
-    libKey: 'a',
     sourceZipName: 'agda-categories-0.3.0.zip',
     archiveRootPrefix: 'agda-categories-0.3.0',
     includeSubpath: 'src',
@@ -94,7 +91,6 @@ export const LIBRARY_CATALOG = [
     libraryName: 'agda-categories',
     // Targets Agda 2.8.0 + standard-library-2.3 (per the v0.3.0 release notes).
     agdaiCacheVersion: '2.8.0',
-    agdaiZipName: 'agda-categories-agdai.zip',
     //
     // No options here (unlike stdlib/cubical): not every file in this library
     // declares --without-K/--safe (e.g. Categories.Adjoint.Parametric has no
