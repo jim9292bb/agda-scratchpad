@@ -12,9 +12,16 @@ It takes a similar approach to the JSCoq scratchpad:
 - Practice basic proof/program construction without setting up a local Agda
   project.
 
-## Product Positioning
+## Who this is for, and what it isn't
 
-The project is not intended to be a full project-oriented IDE.
+For teachers, students, and anyone trying Agda without a local install.
+It's not a project-oriented IDE: there's one source buffer, not a
+workspace — if you need multi-file editing, a package manager, or full
+VSCode parity, this isn't the tool for that. Library support (Cubical
+Agda, the standard library, and a small curated set of others) is
+treated as runtime environment setup, not a file-management feature.
+
+## Scope
 
 It should optimize for:
 
@@ -42,34 +49,14 @@ It should not prioritize:
 - compiling or deploying Agda projects;
 - advanced workspace management.
 
-## Scope Boundaries
-
-The core unit of work is one source buffer backed by `/source.agda`.
-
-Library support should be treated as runtime environment setup, not as a file
-management feature. Cubical Agda and the standard library are useful because
-they make examples richer, but the UI should remain a playground rather than a
-project editor.
-
 When considering new features, prefer the option that improves single-file
 learning workflows. Reject or defer features that primarily serve large-project
 development.
 
-## Development Priorities
-
-1. Correctness of the Agda interaction lifecycle.
-2. Clear goal and context display.
-3. Reliable Agda shortcuts for exercises.
-4. Good diagnostics and query output.
-5. Unicode input suitable for Agda practice.
-6. Browser regression coverage for common teaching examples.
-7. UI polish that keeps the playground simple.
-
-## Reference Behavior
+## Inspiration
 
 `banacorn/agda-mode-vscode` is a reference for interaction commands and Agda
 workflow behavior, not a target for complete VSCode parity.
 
 `https://coq.vercel.app/scratchpad.html` is a reference for product positioning:
 a focused browser scratchpad for learning and demonstrations.
-

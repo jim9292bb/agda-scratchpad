@@ -34,6 +34,16 @@ researched Agda command mappings.
       submodule version-pinning overhead, with no actual external consumer
       to justify it.
 
+## Development Priorities
+
+1. Correctness of the Agda interaction lifecycle.
+2. Clear goal and context display.
+3. Reliable Agda shortcuts for exercises.
+4. Good diagnostics and query output.
+5. Unicode input suitable for Agda practice.
+6. Browser regression coverage for common teaching examples.
+7. UI polish that keeps the playground simple.
+
 ## Runtime and Library Support
 
 Goal: examples should load reliably in a browser without local Agda installation.

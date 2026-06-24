@@ -30,9 +30,11 @@ Out of scope:
 - project/workspace configuration UI;
 - full VSCode feature parity.
 
-See [PROJECT_GOAL.md](PROJECT_GOAL.md) for the full product positioning.
+See [PROJECT_GOAL.md](PROJECT_GOAL.md) for the reasoning behind these boundaries.
 
-## Configuring your deployment
+---
+
+## Self-hosting your own deployment
 
 Self-deployers (forking this repo to host their own version) configure
 which Agda/ALS version and library combinations to bundle in
@@ -41,11 +43,10 @@ comments for the schema. The default reproduces this project's own
 deployment unchanged.
 
 See [deploy-assets/README.md](deploy-assets/README.md) for the full
-deployment flow: placing raw library/ALS files (the only way to use
-anything beyond this project's own shipped defaults), adding a library or
-ALS version, and regenerating the dependency graph.
+deployment flow: placing raw library/ALS files, adding a library or ALS
+version, and regenerating the dependency graph.
 
-## Development
+## Developing this project
 
 ### Prerequisites
 
@@ -59,23 +60,12 @@ npm run auto-configure   # fetch this project's own shipped default assets (~300
 npm run setup            # prepare static/ for serving (~600 MB on disk after extraction)
 ```
 
-`npm run auto-configure` fetches exactly this project's own shipped
-defaults — it's a hardcoded script, not driven by `deploy.config.mjs`:
-- ALS 2.8.0 WASM binary from [agda-web/agda-language-server](https://github.com/agda-web/agda-language-server/releases/tag/nightly-20260407)
-- Standard library 2.3, Cubical 0.9, and agda-categories 0.3.0 source
-  archives from upstream Agda releases
-- Pre-built `.agdai` cache zips and each library's own dependency graph
-  for Agda 2.8.0
-
-— extracted raw (no zips) into `deploy-assets/library/`/`deploy-assets/als/`.
-`npm run setup` then zips/copies them into `static/library/`/`static/als/`
-for serving, and copies the prebuilt `.agdai` files and dependency graph
-into `static/agdai/<name>/` so individual `.agdai` files can be fetched on
-demand at runtime and prefetched in parallel ahead of time. A
-self-deployer who has changed `deploy.config.mjs` or wants
-different library/ALS versions must place their own raw files in
-`deploy-assets/library/<name>/`/`deploy-assets/als/` by hand instead — see
-[deploy-assets/README.md](deploy-assets/README.md).
+`npm run auto-configure` fetches this project's own shipped defaults
+(stdlib, Cubical, agda-categories, ALS 2.8.0) into the raw layout under
+`deploy-assets/library/`/`deploy-assets/als/`; `npm run setup` zips/copies
+them into `static/` for serving. See
+[deploy-assets/README.md](deploy-assets/README.md) for what each step
+does and how to supply your own files instead.
 
 ### Common commands
 
@@ -107,7 +97,9 @@ Browser tests require `agent-browser` to be available on `PATH`.
 
 For roadmap details, see [PROJECT_GOAL.md](PROJECT_GOAL.md) and [ROADMAP.md](ROADMAP.md).
 
-## Related projects
+## Reference
+
+### Related projects
 
 Tooling and dependencies this project builds on:
 
@@ -116,7 +108,7 @@ Tooling and dependencies this project builds on:
 - [banacorn/agda-mode-vscode](https://github.com/banacorn/agda-mode-vscode) — reference for Agda interaction commands and shortcut behavior
 - [agda-web/browser_wasi_shim](https://github.com/agda-web/browser_wasi_shim) — browser WASI shim used by the runtime backend
 
-## Acknowledgments
+### Acknowledgments
 
 This project embeds and redistributes the following academic software (see
 [Related projects](#related-projects) above for tooling-level dependencies).
@@ -132,7 +124,7 @@ files for full citation details.
   [agda/cubical](https://github.com/agda/cubical),
   [CITATION.cff](https://github.com/agda/cubical/blob/master/CITATION.cff)
 
-## License
+### License
 
 MIT — see [LICENSE](LICENSE). Third-party code included or derived from elsewhere is documented in
 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
