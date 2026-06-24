@@ -88,7 +88,7 @@ SOFTWARE.
 
 ## Agda standard library
 
-**Used as:** `static/library/agda-stdlib-2.3.zip` (source archive) and the `.agdai` cache
+**Used as:** `static/library/stdlib-2.3.zip` (source archive) and the `.agdai` cache
 derived from it. Both are downloaded by `npm run setup` and fetched into the
 browser at runtime for every visitor of the deployed site.
 
@@ -129,7 +129,7 @@ SOFTWARE.
 
 ## Cubical Agda library
 
-**Used as:** `static/library/agda-cubical-0.9.zip` (source archive) and the `.agdai` cache
+**Used as:** `static/library/cubical-0.9.zip` (source archive) and the `.agdai` cache
 derived from it. Both are downloaded by `npm run setup` and fetched into the
 browser at runtime for every visitor of the deployed site.
 

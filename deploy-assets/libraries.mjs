@@ -12,24 +12,20 @@
  * `npm run auto-configure` for this project's own shipped defaults (a
  * separate, hardcoded script — see `deploy-assets/auto-configure.mjs`).
  * `npm run setup` (`deploy-assets/build-static-assets.mjs`) then zips that
- * raw tree into `static/library/<sourceZipName>` — the filename fields
- * below describe its *output*, not something you place yourself. See
- * deploy-assets/README.md.
+ * raw tree into `static/library/<sourceZipName>` — see findLibrary() below,
+ * not a field you write yourself. See deploy-assets/README.md.
  *
  * Each entry needs:
  *   - name, version: identify the entry; deploy.config.mjs references libraries
  *     by this pair. Also the expected directory name under
  *     `deploy-assets/library/`. (The runtime's in-memory `libKey` — used to
  *     key the prefetch manifest cache — is just `${name}@${version}`,
- *     computed on the fly; not a separate field here.)
- *   - sourceZipName: the zip filename `npm run setup` writes under
- *     `static/library/`, fetched by the browser at runtime.
- *   - archiveRootPrefix: the top-level wrapper folder name `npm run setup`
- *     wraps the raw source tree in when zipping (reproducing the shape of
- *     a GitHub tag-archive zip, e.g. `<repo>-<tag>/`) — stripped by the
- *     browser when extracting into the VFS. Must be non-empty (the strip
- *     logic matches a literal `${archiveRootPrefix}/` prefix); the exact
- *     text otherwise carries no meaning and needn't be unique across entries.
+ *     computed on the fly; not a separate field here. `sourceZipName` and
+ *     `archiveRootPrefix` are also derived from `name`/`version` —
+ *     see findLibrary() — rather than written here, since their exact
+ *     text carries no meaning: `sourceZipName` only needs to be unique,
+ *     which `name`+`version` already guarantees; `archiveRootPrefix` only
+ *     needs to be non-empty, which any derived value satisfies.)
  *   - includeSubpath: matches the library's own `.agda-lib`'s `include:`
  *     field (empty string if `include: .`). Only paths under this subpath,
  *     plus agdaLibFile itself, are kept when extracting into the VFS.
@@ -57,8 +53,6 @@ export const LIBRARY_CATALOG = [
   {
     name: 'stdlib',
     version: '2.3',
-    sourceZipName: 'agda-stdlib-2.3.zip',
-    archiveRootPrefix: 'agda-stdlib-2.3',
     includeSubpath: 'src',
     agdaLibFile: 'standard-library.agda-lib',
     libraryName: 'standard-library-2.3',
@@ -73,8 +67,6 @@ export const LIBRARY_CATALOG = [
   {
     name: 'cubical',
     version: '0.9',
-    sourceZipName: 'agda-cubical-0.9.zip',
-    archiveRootPrefix: 'cubical-0.9',
     includeSubpath: '',
     agdaLibFile: 'cubical.agda-lib',
     libraryName: 'cubical-0.9',
@@ -84,8 +76,6 @@ export const LIBRARY_CATALOG = [
   {
     name: 'agda-categories',
     version: '0.3.0',
-    sourceZipName: 'agda-categories-0.3.0.zip',
-    archiveRootPrefix: 'agda-categories-0.3.0',
     includeSubpath: 'src',
     agdaLibFile: 'agda-categories.agda-lib',
     libraryName: 'agda-categories',
@@ -109,5 +99,13 @@ export function findLibrary(name, version) {
   if (!lib) {
     throw new Error(`no catalog entry for ${name}@${version} in deploy-assets/libraries.mjs`)
   }
-  return lib
+  return {
+    ...lib,
+    // Derived, not written by hand: sourceZipName only needs to be unique
+    // (name+version already guarantees that), archiveRootPrefix only needs
+    // to be non-empty (see the header comment above) — neither value's
+    // exact text matters, so there's nothing to write/get-wrong by hand.
+    sourceZipName: `${lib.name}-${lib.version}.zip`,
+    archiveRootPrefix: lib.name,
+  }
 }

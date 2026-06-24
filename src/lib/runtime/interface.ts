@@ -4,7 +4,7 @@ import type { WASMLoadingProgress, PerformanceEntry, DriveProxyStats } from '$li
 import { asset } from '$app/paths'
 import { DEPLOY_CONFIG } from '../../../deploy.config.mjs'
 import { ALS_CATALOG } from '../../../deploy-assets/als-catalog.mjs'
-import { LIBRARY_CATALOG } from '../../../deploy-assets/libraries.mjs'
+import { findLibrary } from '../../../deploy-assets/libraries.mjs'
 
 // ── Deployment profiles ───────────────────────────────────────────────────────
 //
@@ -40,8 +40,10 @@ export interface ResolvedLibrary {
 /** Resolves a profile's `libraries` references against deploy-assets/libraries.mjs's catalog. */
 export function resolveProfileLibraries(profile: DeployProfile): ResolvedLibrary[] {
   return profile.libraries.map(({ name, version }) => {
-    const entry = LIBRARY_CATALOG.find(l => l.name === name && l.version === version)
-    if (!entry) {
+    let entry
+    try {
+      entry = findLibrary(name, version)
+    } catch {
       throw new Error(`deploy.config.mjs profile "${profile.id}" references ${name}@${version} with no matching deploy-assets/libraries.mjs entry`)
     }
     return {
