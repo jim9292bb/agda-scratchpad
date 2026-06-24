@@ -7,19 +7,19 @@
  *
  * This catalog is pure metadata — it does not say where to download a
  * library's files from. What you place is a raw, unzipped library source
- * tree at `file-server/library/<name>/` (plus an optional raw `_build/`
+ * tree at `deploy-assets/library/<name>/` (plus an optional raw `_build/`
  * with prebuilt `.agdai` files) — either by hand, or via
  * `npm run auto-configure` for this project's own shipped defaults (a
- * separate, hardcoded script — see `file-server/auto-configure.mjs`).
- * `npm run setup` (`file-server/build-static-assets.mjs`) then zips that
+ * separate, hardcoded script — see `deploy-assets/auto-configure.mjs`).
+ * `npm run setup` (`deploy-assets/build-static-assets.mjs`) then zips that
  * raw tree into `static/library/<sourceZipName>` — the filename fields
  * below describe its *output*, not something you place yourself. See
- * file-server/README.md.
+ * deploy-assets/README.md.
  *
  * Each entry needs:
  *   - name, version: identify the entry; deploy.config.mjs references libraries
  *     by this pair. Also the expected directory name under
- *     `file-server/library/`.
+ *     `deploy-assets/library/`.
  *   - libKey: short tag stored in the runtime prefetch manifest.
  *   - sourceZipName: the zip filename `npm run setup` writes under
  *     `static/library/`, fetched by the browser at runtime.
@@ -40,13 +40,13 @@
  *     using a cache.
  *   - optionsPragma: the `{-# OPTIONS #-}` line needed to scope-check the
  *     library's generated Everything.agda
- *     (file-server/prepare-dependency-graph.mjs only; not used at runtime,
+ *     (deploy-assets/prepare-dependency-graph.mjs only; not used at runtime,
  *     which reads the library's own flags via its registered `.agda-lib`).
  *
  * Adding a library/version that follows the same shape as stdlib/cubical
  * (one `.agda-lib` at the source root) should only require a new entry
- * here plus the raw source placed under `file-server/library/<name>/` (see
- * file-server/README.md). See ROADMAP.md "Curated Multi-Library Support"
+ * here plus the raw source placed under `deploy-assets/library/<name>/` (see
+ * deploy-assets/README.md). See ROADMAP.md "Curated Multi-Library Support"
  * before adding plfa/agda-unimath/1lab — their exact `.agda-lib` layout and
  * type-theory compatibility with existing entries hasn't been confirmed yet.
  */
@@ -111,7 +111,7 @@ export const LIBRARY_CATALOG = [
 export function findLibrary(name, version) {
   const lib = LIBRARY_CATALOG.find(l => l.name === name && l.version === version)
   if (!lib) {
-    throw new Error(`no catalog entry for ${name}@${version} in file-server/libraries.mjs`)
+    throw new Error(`no catalog entry for ${name}@${version} in deploy-assets/libraries.mjs`)
   }
   return lib
 }

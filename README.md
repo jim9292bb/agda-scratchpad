@@ -40,7 +40,7 @@ which Agda/ALS version and library combinations to bundle in
 comments for the schema. The default reproduces this project's own
 deployment unchanged.
 
-See [file-server/README.md](file-server/README.md) for the full
+See [deploy-assets/README.md](deploy-assets/README.md) for the full
 deployment flow: placing raw library/ALS files (the only way to use
 anything beyond this project's own shipped defaults), adding a library or
 ALS version, and regenerating the dependency graph.
@@ -67,15 +67,15 @@ defaults — it's a hardcoded script, not driven by `deploy.config.mjs`:
 - Pre-built `.agdai` cache zips and each library's own dependency graph
   for Agda 2.8.0
 
-— extracted raw (no zips) into `file-server/library/`/`file-server/als/`.
+— extracted raw (no zips) into `deploy-assets/library/`/`deploy-assets/als/`.
 `npm run setup` then zips/copies them into `static/library/`/`static/als/`
 for serving, and copies the prebuilt `.agdai` files and dependency graph
 into `static/agdai/<name>/` so individual `.agdai` files can be fetched on
 demand at runtime and prefetched in parallel ahead of time. A
 self-deployer who has changed `deploy.config.mjs` or wants
 different library/ALS versions must place their own raw files in
-`file-server/library/<name>/`/`file-server/als/` by hand instead — see
-[file-server/README.md](file-server/README.md).
+`deploy-assets/library/<name>/`/`deploy-assets/als/` by hand instead — see
+[deploy-assets/README.md](deploy-assets/README.md).
 
 ### Common commands
 

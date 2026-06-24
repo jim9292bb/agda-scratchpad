@@ -3,11 +3,11 @@
   "entry": [
     "src/app.d.ts",
     "static/coi-serviceworker.js",
-    "file-server/build-static-assets.mjs",
-    "file-server/prepare-dependency-graph.mjs",
-    "file-server/dot-to-manifest.mjs",
-    "file-server/auto-configure.mjs",
-    "file-server/print-required-files.mjs"
+    "deploy-assets/build-static-assets.mjs",
+    "deploy-assets/prepare-dependency-graph.mjs",
+    "deploy-assets/dot-to-manifest.mjs",
+    "deploy-assets/auto-configure.mjs",
+    "deploy-assets/print-required-files.mjs"
   ],
   "ignore": [
     "experiments/**"

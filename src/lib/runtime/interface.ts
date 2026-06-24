@@ -3,8 +3,8 @@ import type { SPSCWriter } from 'spsc/writer'
 import type { WASMLoadingProgress, PerformanceEntry, DriveProxyStats } from '$lib/worker/types'
 import { asset } from '$app/paths'
 import { DEPLOY_CONFIG } from '../../../deploy.config.mjs'
-import { ALS_CATALOG } from '../../../file-server/als-catalog.mjs'
-import { LIBRARY_CATALOG } from '../../../file-server/libraries.mjs'
+import { ALS_CATALOG } from '../../../deploy-assets/als-catalog.mjs'
+import { LIBRARY_CATALOG } from '../../../deploy-assets/libraries.mjs'
 
 // ── Deployment profiles ───────────────────────────────────────────────────────
 //
@@ -25,7 +25,7 @@ export interface ResolvedLibrary {
   libKey: string
   sourceZipAsset: string
   agdaiZipAsset?: string
-  /** This library's own dependency-graph manifest (see file-server/dot-to-manifest.mjs). */
+  /** This library's own dependency-graph manifest (see deploy-assets/dot-to-manifest.mjs). */
   manifestAsset: string
   /** folder name to extract this library under in the VFS, e.g. "stdlib" */
   folderName: string
@@ -37,12 +37,12 @@ export interface ResolvedLibrary {
   agdaiCacheVersion?: string
 }
 
-/** Resolves a profile's `libraries` references against file-server/libraries.mjs's catalog. */
+/** Resolves a profile's `libraries` references against deploy-assets/libraries.mjs's catalog. */
 export function resolveProfileLibraries(profile: DeployProfile): ResolvedLibrary[] {
   return profile.libraries.map(({ name, version }) => {
     const entry = LIBRARY_CATALOG.find(l => l.name === name && l.version === version)
     if (!entry) {
-      throw new Error(`deploy.config.mjs profile "${profile.id}" references ${name}@${version} with no matching file-server/libraries.mjs entry`)
+      throw new Error(`deploy.config.mjs profile "${profile.id}" references ${name}@${version} with no matching deploy-assets/libraries.mjs entry`)
     }
     return {
       name: entry.name,
@@ -79,7 +79,7 @@ export const agdaVersionMap: Record<SupportedAgdaVersion, AgdaVersionSpec> = Obj
 for (const version of supportedAgdaVersions) {
   const entry = ALS_CATALOG.find(e => e.version === version)
   if (!entry) {
-    throw new Error(`deploy.config.mjs lists ALS version "${version}" with no matching file-server/als-catalog.mjs entry`)
+    throw new Error(`deploy.config.mjs lists ALS version "${version}" with no matching deploy-assets/als-catalog.mjs entry`)
   }
   agdaVersionMap[version] = {
     path: asset(`/als/${entry.wasmFilename}`),

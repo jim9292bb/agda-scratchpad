@@ -15,9 +15,9 @@
  * never present an incompatible pairing.
  *
  *   - id, label: identify the profile in the profile selector / local storage.
- *   - alsVersion: must have a matching entry in file-server/als-catalog.mjs.
+ *   - alsVersion: must have a matching entry in deploy-assets/als-catalog.mjs.
  *   - libraries: name+version pairs, each must have a matching entry in
- *     file-server/libraries.mjs.
+ *     deploy-assets/libraries.mjs.
  *
  * You are responsible for verifying that the libraries within one profile
  * are actually compatible with each other (same underlying type theory —

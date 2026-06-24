@@ -1,10 +1,10 @@
 /**
  * Phase B of dependency-graph generation: pure parsing, no `agda`
  * required. Reads the `.dot` files produced by running the commands
- * file-server/prepare-dependency-graph.mjs printed, and writes one
+ * deploy-assets/prepare-dependency-graph.mjs printed, and writes one
  * dependency-graph manifest per library — used by the browser runtime to
  * prefetch .agdai files in parallel (src/lib/agda/prefetch.js) — to
- * file-server/library/<name>/agdai-manifest.json.
+ * deploy-assets/library/<name>/agdai-manifest.json.
  *
  * Each library's manifest only contains modules that library itself
  * defines (`{ graph: { [ownModule]: [deps...] } }` — deps may reference
@@ -17,15 +17,15 @@
  *
  * Usage (after running prepare-dependency-graph.mjs and its printed agda
  * commands):
- *   node file-server/dot-to-manifest.mjs
+ *   node deploy-assets/dot-to-manifest.mjs
  */
 
 import { readFile, writeFile, rm } from 'node:fs/promises'
 import { join, relative } from 'node:path'
 import { REPO_ROOT, getSelectedLibraries } from './resolve-deploy-config.mjs'
 
-const FILE_SERVER = join(REPO_ROOT, 'file-server')
-const WORK_DIR = join(FILE_SERVER, '.dependency-graph-work')
+const DEPLOY_ASSETS = join(REPO_ROOT, 'deploy-assets')
+const WORK_DIR = join(DEPLOY_ASSETS, '.dependency-graph-work')
 const EVERYTHING_FILENAME = 'Everything.agda'
 
 function parseDot(content) {
@@ -54,13 +54,13 @@ async function main() {
   const libs = getSelectedLibraries()
 
   const ownModulesByLib = JSON.parse(await readFile(join(WORK_DIR, 'own-modules.json'), 'utf8').catch(() => {
-    throw new Error(`${relative(REPO_ROOT, WORK_DIR)}/own-modules.json not found — run file-server/prepare-dependency-graph.mjs first`)
+    throw new Error(`${relative(REPO_ROOT, WORK_DIR)}/own-modules.json not found — run deploy-assets/prepare-dependency-graph.mjs first`)
   }))
 
   for (const lib of libs) {
     const dotFile = join(WORK_DIR, `${lib.name}.dot`)
     const dotContent = await readFile(dotFile, 'utf8').catch(() => {
-      throw new Error(`[${lib.name}] ${relative(REPO_ROOT, dotFile)} not found — did you run the agda command file-server/prepare-dependency-graph.mjs printed for this library?`)
+      throw new Error(`[${lib.name}] ${relative(REPO_ROOT, dotFile)} not found — did you run the agda command deploy-assets/prepare-dependency-graph.mjs printed for this library?`)
     })
     const edges = parseDot(dotContent)
     const ownModules = ownModulesByLib[lib.name] || []
@@ -77,13 +77,13 @@ async function main() {
     }
 
     const json = JSON.stringify({ graph })
-    const manifestPath = join(FILE_SERVER, 'library', lib.name, 'agdai-manifest.json')
+    const manifestPath = join(DEPLOY_ASSETS, 'library', lib.name, 'agdai-manifest.json')
     await writeFile(manifestPath, json)
     console.log(`[${lib.name}] wrote ${Object.keys(graph).length} modules, ${(json.length / 1024).toFixed(0)} KB to ${relative(REPO_ROOT, manifestPath)}`)
   }
 
   for (const lib of libs) {
-    const libRoot = join(FILE_SERVER, 'library', lib.name)
+    const libRoot = join(DEPLOY_ASSETS, 'library', lib.name)
     const agdaLibPath = join(libRoot, lib.agdaLibFile)
     const include = parseAgdaLibInclude(await readFile(agdaLibPath, 'utf8'))
     const includeDir = include ? join(libRoot, include) : libRoot

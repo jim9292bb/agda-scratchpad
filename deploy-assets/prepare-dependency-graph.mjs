@@ -16,7 +16,7 @@
  *     multiple libraries' checks see modules from libraries they merely
  *     import.
  * It then writes a single shell script
- * (file-server/.dependency-graph-work/run-agda.sh) that, for each library
+ * (deploy-assets/.dependency-graph-work/run-agda.sh) that, for each library
  * in turn, writes that library's Everything.agda, runs `agda
  * --dependency-graph`, and removes Everything.agda again before moving to
  * the next library.
@@ -25,22 +25,22 @@
  * binary, which this script (and this project's own tooling) deliberately
  * doesn't assume is available in every environment that wants to produce
  * a dependency graph. Run the generated script yourself, then run
- * file-server/dot-to-manifest.mjs to produce the final
- * file-server/agdai-manifest.json.
+ * deploy-assets/dot-to-manifest.mjs to produce the final
+ * deploy-assets/agdai-manifest.json.
  *
  * Prerequisite: each selected library's raw source must already be in
- * file-server/library/<name>/ (see file-server/README.md).
+ * deploy-assets/library/<name>/ (see deploy-assets/README.md).
  *
  * Usage:
- *   node file-server/prepare-dependency-graph.mjs
+ *   node deploy-assets/prepare-dependency-graph.mjs
  */
 
 import { readFile, writeFile, mkdir, readdir, rm, chmod } from 'node:fs/promises'
 import { join, relative, sep } from 'node:path'
 import { REPO_ROOT, getSelectedLibraries } from './resolve-deploy-config.mjs'
 
-const FILE_SERVER = join(REPO_ROOT, 'file-server')
-const WORK_DIR = join(FILE_SERVER, '.dependency-graph-work')
+const DEPLOY_ASSETS = join(REPO_ROOT, 'deploy-assets')
+const WORK_DIR = join(DEPLOY_ASSETS, '.dependency-graph-work')
 const EVERYTHING_FILENAME = 'Everything.agda'
 
 function parseAgdaLibInclude(src) {
@@ -78,7 +78,7 @@ async function main() {
   const ownModulesByLib = {}
 
   for (const lib of libs) {
-    const libRoot = join(FILE_SERVER, 'library', lib.name)
+    const libRoot = join(DEPLOY_ASSETS, 'library', lib.name)
     const agdaLibPath = join(libRoot, lib.agdaLibFile)
     const include = parseAgdaLibInclude(await readFile(agdaLibPath, 'utf8'))
     const includeDir = include ? join(libRoot, include) : libRoot
@@ -119,7 +119,7 @@ async function main() {
   console.log(`\nWrote ${relative(REPO_ROOT, scriptPath)}.`)
   console.log('\nRun it yourself (requires a native `agda` binary on PATH):\n')
   console.log(`  bash ${relative(REPO_ROOT, scriptPath)}`)
-  console.log('\nThen run: node file-server/dot-to-manifest.mjs')
+  console.log('\nThen run: node deploy-assets/dot-to-manifest.mjs')
 }
 
 main().catch(err => { console.error(err); process.exit(1) })

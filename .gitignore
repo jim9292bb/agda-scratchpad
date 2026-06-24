@@ -13,20 +13,20 @@ node_modules
 vite.config.js.timestamp-*
 
 # Raw library/ALS files (fetched via `npm run auto-configure`, or placed by
-# hand — see file-server/README.md), including each library's own
-# dependency graph (file-server/library/<name>/agdai-manifest.json,
-# produced via file-server/prepare-dependency-graph.mjs + dot-to-manifest.mjs).
-# Staged in file-server/{library,als}/, zipped/copied into
+# hand — see deploy-assets/README.md), including each library's own
+# dependency graph (deploy-assets/library/<name>/agdai-manifest.json,
+# produced via deploy-assets/prepare-dependency-graph.mjs + dot-to-manifest.mjs).
+# Staged in deploy-assets/{library,als}/, zipped/copied into
 # static/{library,als}/ for serving by `npm run setup` — none of this is
 # committed.
-/file-server/library/
-/file-server/als/
-/file-server/.dependency-graph-work/
+/deploy-assets/library/
+/deploy-assets/als/
+/deploy-assets/.dependency-graph-work/
 /static/library/
 /static/als/
 
 /experiments/build-library/results/*.zip
 
 # Extracted .agdai files for on-demand serving (copied by npm run setup from
-# a placed/fetched _build/ tree — see file-server/README.md)
+# a placed/fetched _build/ tree — see deploy-assets/README.md)
 /static/agdai/

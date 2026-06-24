@@ -1,6 +1,6 @@
 /**
  * Fetches this project's own shipped default library/ALS files and
- * extracts them into the raw file-server/{library,als}/ layout — i.e. it
+ * extracts them into the raw deploy-assets/{library,als}/ layout — i.e. it
  * does exactly what a self-deployer placing files by hand would do
  * (download an archive, unzip it, put the contents in the designated
  * directory), automated for this project's own shipped defaults
@@ -9,15 +9,15 @@
  * This is NOT a generic, deploy.config.mjs-driven downloader — it doesn't
  * read the catalogs or deploy.config.mjs at all. If you add a library/ALS
  * version of your own, this script knows nothing about it; place that
- * file/directory in file-server/library/<name>/ or file-server/als/ by
- * hand instead. See file-server/README.md.
+ * file/directory in deploy-assets/library/<name>/ or deploy-assets/als/ by
+ * hand instead. See deploy-assets/README.md.
  *
  * Safe to run repeatedly: skips anything already present.
  *
- * This only populates file-server/{library,als}/ — it does not touch
+ * This only populates deploy-assets/{library,als}/ — it does not touch
  * static/. Run `npm run setup` afterward.
  *
- * Usage: node file-server/auto-configure.mjs
+ * Usage: node deploy-assets/auto-configure.mjs
  */
 
 import { mkdir, mkdtemp, rm, readdir, cp, access, writeFile } from 'node:fs/promises'
@@ -27,7 +27,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname } from 'node:path'
 import { extractZip } from './zip-utils.mjs'
 
-const FILE_SERVER = dirname(fileURLToPath(import.meta.url))
+const DEPLOY_ASSETS = dirname(fileURLToPath(import.meta.url))
 const RELEASE = 'https://github.com/jim9292bb/agda-playground/releases/download/cache-2.8.0'
 
 async function exists(path) {
@@ -105,15 +105,15 @@ async function main() {
     // source archives (wrapper-stripped), prebuilt .agdai caches (already
     // laid out as _build/<version>/agda/... inside the zip), and each
     // library's own dependency graph — maintainer-produced
-    // (file-server/prepare-dependency-graph.mjs + dot-to-manifest.mjs),
+    // (deploy-assets/prepare-dependency-graph.mjs + dot-to-manifest.mjs),
     // uploaded to the same release. Self-deployers who change
     // deploy.config.mjs get nothing here and must produce their own (see
-    // file-server/README.md). The manifest fetch is best-effort per
+    // deploy-assets/README.md). The manifest fetch is best-effort per
     // library: prefetching is optional, so a missing release asset
     // shouldn't fail the whole fetch.
     async function fetchManifest(name) {
       try {
-        await fetchFile(`${RELEASE}/${name}-manifest.json`, join(FILE_SERVER, 'library', name, 'agdai-manifest.json'))
+        await fetchFile(`${RELEASE}/${name}-manifest.json`, join(DEPLOY_ASSETS, 'library', name, 'agdai-manifest.json'))
       } catch (err) {
         console.warn(`  could not fetch ${name}-manifest.json (prefetching will be disabled for ${name}): ${err.message}`)
       }
@@ -121,39 +121,39 @@ async function main() {
 
     await fetchSource(
       'https://github.com/agda/agda-stdlib/archive/refs/tags/v2.3.zip',
-      join(FILE_SERVER, 'library', 'stdlib'), workDir)
+      join(DEPLOY_ASSETS, 'library', 'stdlib'), workDir)
     await fetchFlatZip(
       `${RELEASE}/stdlib-agdai.zip`,
-      join(FILE_SERVER, 'library', 'stdlib'), workDir,
-      join(FILE_SERVER, 'library', 'stdlib', '_build'))
+      join(DEPLOY_ASSETS, 'library', 'stdlib'), workDir,
+      join(DEPLOY_ASSETS, 'library', 'stdlib', '_build'))
     await fetchManifest('stdlib')
 
     await fetchSource(
       'https://github.com/agda/cubical/archive/refs/tags/v0.9.zip',
-      join(FILE_SERVER, 'library', 'cubical'), workDir)
+      join(DEPLOY_ASSETS, 'library', 'cubical'), workDir)
     await fetchFlatZip(
       `${RELEASE}/cubical-agdai.zip`,
-      join(FILE_SERVER, 'library', 'cubical'), workDir,
-      join(FILE_SERVER, 'library', 'cubical', '_build'))
+      join(DEPLOY_ASSETS, 'library', 'cubical'), workDir,
+      join(DEPLOY_ASSETS, 'library', 'cubical', '_build'))
     await fetchManifest('cubical')
 
     await fetchSource(
       'https://github.com/agda/agda-categories/archive/refs/tags/v0.3.0.zip',
-      join(FILE_SERVER, 'library', 'agda-categories'), workDir)
+      join(DEPLOY_ASSETS, 'library', 'agda-categories'), workDir)
     await fetchFlatZip(
       `${RELEASE}/agda-categories-agdai.zip`,
-      join(FILE_SERVER, 'library', 'agda-categories'), workDir,
-      join(FILE_SERVER, 'library', 'agda-categories', '_build'))
+      join(DEPLOY_ASSETS, 'library', 'agda-categories'), workDir,
+      join(DEPLOY_ASSETS, 'library', 'agda-categories', '_build'))
     await fetchManifest('agda-categories')
 
     // als/ — ALS 2.8.0 wasm (flat file) and the Agda builtins data
     // directory (already laid out relative to the VFS root inside the zip).
     await fetchFile(
       'https://github.com/agda-web/agda-language-server/releases/download/nightly-20260407/als-2.8.0.wasm',
-      join(FILE_SERVER, 'als', 'als-2.8ext.wasm'))
+      join(DEPLOY_ASSETS, 'als', 'als-2.8ext.wasm'))
     await fetchFlatZip(
       `${RELEASE}/agda-data.zip`,
-      join(FILE_SERVER, 'als', 'agda-data'), workDir)
+      join(DEPLOY_ASSETS, 'als', 'agda-data'), workDir)
 
     console.log('Done. Run `npm run setup` next to prepare static/ for serving.')
   } finally {

@@ -1,5 +1,5 @@
 /**
- * Verifies file-server/{library,als}/ contains everything the currently
+ * Verifies deploy-assets/{library,als}/ contains everything the currently
  * configured deploy.config.mjs needs, before scripts/setup-assets.sh zips
  * and copies it into static/. Prints MISSING: lines for anything absent
  * and exits non-zero if anything required is missing.
@@ -13,17 +13,17 @@
  * (optional, mirroring dataZipName being optional on the catalog).
  *
  * Each library's own dependency graph
- * (file-server/library/<name>/agdai-manifest.json) is always optional —
+ * (deploy-assets/library/<name>/agdai-manifest.json) is always optional —
  * prefetch.js degrades gracefully per library without one.
  *
- * Usage: node file-server/print-required-files.mjs
+ * Usage: node deploy-assets/print-required-files.mjs
  */
 
 import { access } from 'node:fs/promises'
 import { join } from 'node:path'
 import { REPO_ROOT, getSelectedAlsVersions, getSelectedLibraries } from './resolve-deploy-config.mjs'
 
-const FILE_SERVER = join(REPO_ROOT, 'file-server')
+const DEPLOY_ASSETS = join(REPO_ROOT, 'deploy-assets')
 
 async function exists(path) {
   try {
@@ -38,28 +38,28 @@ async function main() {
   let missing = false
 
   for (const lib of getSelectedLibraries()) {
-    const libRoot = join(FILE_SERVER, 'library', lib.name)
+    const libRoot = join(DEPLOY_ASSETS, 'library', lib.name)
     const agdaLibPath = join(libRoot, lib.agdaLibFile)
     if (!(await exists(agdaLibPath))) {
-      console.error(`MISSING: file-server/library/${lib.name}/${lib.agdaLibFile}`)
+      console.error(`MISSING: deploy-assets/library/${lib.name}/${lib.agdaLibFile}`)
       missing = true
     }
     if (lib.agdaiCacheVersion && !(await exists(join(libRoot, '_build')))) {
-      console.log(`(optional, not found) file-server/library/${lib.name}/_build/ — no prebuilt .agdai cache, will type-check from source`)
+      console.log(`(optional, not found) deploy-assets/library/${lib.name}/_build/ — no prebuilt .agdai cache, will type-check from source`)
     }
     if (!(await exists(join(libRoot, 'agdai-manifest.json')))) {
-      console.log(`(optional, not found) file-server/library/${lib.name}/agdai-manifest.json — prefetch disabled for this library, .agdai files still load on demand`)
+      console.log(`(optional, not found) deploy-assets/library/${lib.name}/agdai-manifest.json — prefetch disabled for this library, .agdai files still load on demand`)
     }
   }
 
   for (const als of getSelectedAlsVersions()) {
-    const wasmPath = join(FILE_SERVER, 'als', als.wasmFilename)
+    const wasmPath = join(DEPLOY_ASSETS, 'als', als.wasmFilename)
     if (!(await exists(wasmPath))) {
-      console.error(`MISSING: file-server/als/${als.wasmFilename}`)
+      console.error(`MISSING: deploy-assets/als/${als.wasmFilename}`)
       missing = true
     }
-    if (als.dataZipName && !(await exists(join(FILE_SERVER, 'als', 'agda-data')))) {
-      console.log('(optional, not found) file-server/als/agda-data/ — ALS will run without prebuilt Agda builtin data')
+    if (als.dataZipName && !(await exists(join(DEPLOY_ASSETS, 'als', 'agda-data')))) {
+      console.log('(optional, not found) deploy-assets/als/agda-data/ — ALS will run without prebuilt Agda builtin data')
     }
   }
 
@@ -67,7 +67,7 @@ async function main() {
     console.error('')
     console.error('Some required library/ALS files are missing. Either:')
     console.error("  - run 'npm run auto-configure' to fetch this project's own shipped defaults, or")
-    console.error('  - place them by hand in file-server/library/<name>/ or file-server/als/ (see file-server/README.md)')
+    console.error('  - place them by hand in deploy-assets/library/<name>/ or deploy-assets/als/ (see deploy-assets/README.md)')
     process.exit(1)
   }
 }

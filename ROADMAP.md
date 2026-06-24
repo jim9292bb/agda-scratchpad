@@ -26,8 +26,8 @@ researched Agda command mappings.
 - [ ] Do not add project/workspace configuration UI.
 - [ ] Do not port Agda executable download or version switching unless multiple WASM runtimes are intentionally supported.
 - [ ] Do not port VSCode-specific Markdown preview or editor-workspace keybindings.
-- [ ] Do not split `file-server/` into its own repository. `src/lib/runtime/interface.ts`
-      imports `file-server/libraries.mjs`/`als-catalog.mjs` directly at
+- [ ] Do not split `deploy-assets/` into its own repository. `src/lib/runtime/interface.ts`
+      imports `deploy-assets/libraries.mjs`/`als-catalog.mjs` directly at
       build time, not just during CI — it's a build-time dependency of the
       app, not standalone tooling that happens to live alongside it. A
       split would trade that zero-friction same-repo import for npm/git
@@ -109,20 +109,20 @@ profile is a complete, ready-to-use combination (one ALS version + a
 compatible library set), not a separate "pick an ALS version" + "pick a
 library set" pair of independent choices — every option is valid by
 construction, so there's nothing to cross-reference or filter in the UI.
-Everything under `file-server/` reads from it via
-`file-server/resolve-deploy-config.mjs` instead of hardcoding stdlib/cubical.
+Everything under `deploy-assets/` reads from it via
+`deploy-assets/resolve-deploy-config.mjs` instead of hardcoding stdlib/cubical.
 The default config reproduces this project's own deployment (ALS 2.8.0,
 stdlib 2.3 + Cubical 0.9, as a single profile) unchanged.
 
 Done:
 
-- [x] Generalize `file-server/generate-manifest.mjs` and `extract-agdai.mjs`
-      to read a library spec catalog (`file-server/libraries.mjs`) instead of
+- [x] Generalize `deploy-assets/generate-manifest.mjs` and `extract-agdai.mjs`
+      to read a library spec catalog (`deploy-assets/libraries.mjs`) instead of
       the hardcoded stdlib/cubical pair.
-- [x] Add `deploy.config.mjs` + `file-server/als-catalog.mjs` +
-      `file-server/resolve-deploy-config.mjs`: a single config file drives
+- [x] Add `deploy.config.mjs` + `deploy-assets/als-catalog.mjs` +
+      `deploy-assets/resolve-deploy-config.mjs`: a single config file drives
       which ALS versions and library combinations get downloaded
-      (`scripts/download-assets.sh` → `file-server/print-download-list.mjs`),
+      (`scripts/download-assets.sh` → `deploy-assets/print-download-list.mjs`),
       cached (`extract-agdai.mjs`), and exposed to the runtime
       (`src/lib/runtime/interface.ts`'s `agdaVersionMap`).
 - [x] `interface.ts`'s `agdaVersionMap`/`supportedAgdaVersions` derived from
@@ -145,7 +145,7 @@ Done (continued):
       hardcodes stdlib/cubical: it takes a generic `LibraryToLoad[]` and
       generates `~/.config/agda/libraries`/`defaults` from each library's
       `folderName`/`agdaLibFile`/`libraryName` (added as explicit fields on
-      `file-server/libraries.mjs` catalog entries, alongside
+      `deploy-assets/libraries.mjs` catalog entries, alongside
       `archiveRootPrefix`/`includeSubpath` for the generic zip-extraction
       path-rewrite). This is the actual mechanism that combines multiple
       libraries for one Agda session — Agda's own `.agda-lib`
@@ -169,9 +169,9 @@ Done (continued):
 Done (agda-categories, second library proving the system generalizes):
 
 - [x] Added `agda-categories` v0.3.0 (targets Agda 2.8.0 + standard-library-2.3,
-      per its release notes) to `file-server/libraries.mjs`, and a
+      per its release notes) to `deploy-assets/libraries.mjs`, and a
       `stdlib-2.3-agda-categories-0.3.0-als-2.8.0` profile to `deploy.config.mjs`.
-- [x] `file-server/generate-manifest.mjs` now extracts every selected
+- [x] `deploy-assets/generate-manifest.mjs` now extracts every selected
       library's source upfront and builds one shared real `--library-file`
       registering all of them (previously each library was checked against
       `--library-file=/dev/null` in total isolation), so a library with a
@@ -216,7 +216,7 @@ Done (agda-categories, second library proving the system generalizes):
       502 modules (verified 1:1 against its source tree — no missing, no
       foreign leakage). Uploaded as `agda-categories-agdai.zip` to the
       `cache-2.8.0` GitHub release alongside stdlib/cubical's, and wired into
-      `file-server/libraries.mjs`'s `agdaiCacheVersion`/`agdaiZipUrl`/
+      `deploy-assets/libraries.mjs`'s `agdaiCacheVersion`/`agdaiZipUrl`/
       `agdaiZipName` — `print-download-list.mjs`/`extract-agdai.mjs` already
       read these generically, no script changes needed there.
 - [x] Fixed: the prebuilt cache above was actually never used at runtime.
@@ -241,25 +241,25 @@ Done (agda-categories, second library proving the system generalizes):
       `scripts/browser-test-agda-categories-smoke.sh`'s fixture to use the
       deep import and assert no `Checking Categories\.` lines appear, so a
       regression of this path-prefix check is actually caught next time.
-- [x] Removed download URLs from `file-server/libraries.mjs`/`als-catalog.mjs`
+- [x] Removed download URLs from `deploy-assets/libraries.mjs`/`als-catalog.mjs`
       entirely (`sourceArchiveUrl`, `agdaiZipUrl`, `wasmUrl`, `dataZipUrl`) —
       both catalogs are now pure metadata; self-deployers can no longer
       configure a download URL, only place files by hand in
-      `file-server/library/`/`file-server/als/`. `print-download-list.mjs`
+      `deploy-assets/library/`/`deploy-assets/als/`. `print-download-list.mjs`
       (URL-driven) was replaced by `print-required-files.mjs` (just
       filenames, for `scripts/setup-assets.sh`'s verification step).
       `scripts/download-assets.sh` was renamed to `scripts/auto-configure.sh`
       and rewritten as a hardcoded, non-catalog-driven fetch of exactly this
       project's own shipped defaults — used by this project's own CI
       (`npm run auto-configure`), not a generic/extensible mechanism.
-- [x] Switched `file-server/{library,als}/` from staging *compressed
+- [x] Switched `deploy-assets/{library,als}/` from staging *compressed
       archives* to staging **raw, unzipped files** — a deployer (or
-      `npm run auto-configure`, now `file-server/auto-configure.mjs`,
+      `npm run auto-configure`, now `deploy-assets/auto-configure.mjs`,
       rewritten in Node to fetch-and-extract instead of fetch-and-leave-as-zip)
       places a raw library source tree plus an optional raw `_build/`
-      `.agdai` cache under `file-server/library/<name>/`, and a raw wasm +
-      `agda-data/` directory under `file-server/als/`. `npm run setup`
-      (`file-server/build-static-assets.mjs`) is now responsible for
+      `.agdai` cache under `deploy-assets/library/<name>/`, and a raw wasm +
+      `agda-data/` directory under `deploy-assets/als/`. `npm run setup`
+      (`deploy-assets/build-static-assets.mjs`) is now responsible for
       zipping whatever the browser runtime needs as a zip (library source,
       `agda-data.zip` — both fetched and unzipped client-side, confirmed
       via `src/lib/runtime/browser-wasi-shim.ts`/`als-wasi-shim.ts`) using
@@ -269,7 +269,7 @@ Done (agda-categories, second library proving the system generalizes):
       (never fetched by the browser — confirmed `agdaiZipAsset` is
       unused at runtime) are just copied as a tree, no zip step needed;
       `extract-agdai.mjs` deleted as a result.
-- [x] Split `file-server/generate-manifest.mjs` (single script: build
+- [x] Split `deploy-assets/generate-manifest.mjs` (single script: build
       Everything.agda, invoke native `agda --dependency-graph`, parse the
       `.dot`, write `static/agdai-manifest.json`, committed to git) into
       `prepare-dependency-graph.mjs` (everything except invoking `agda` —
@@ -289,7 +289,7 @@ Done (agda-categories, second library proving the system generalizes):
 - [x] Split the dependency graph itself from one combined
       `{ graph, libOf }` file (covering the union of every library
       referenced by *any* configured profile) into one `{ graph }` file
-      per library (`file-server/library/<name>/agdai-manifest.json` →
+      per library (`deploy-assets/library/<name>/agdai-manifest.json` →
       `static/agdai/<name>/agdai-manifest.json`) — a session now only
       fetches the manifests for its *active* profile's libraries, and
       adding a new library later never touches an existing one's
@@ -307,7 +307,7 @@ Done (agda-categories, second library proving the system generalizes):
 
 Not yet implemented:
 
-- [ ] Add specs for plfa, agda-unimath, 1lab to `file-server/libraries.mjs`
+- [ ] Add specs for plfa, agda-unimath, 1lab to `deploy-assets/libraries.mjs`
       (confirm each library's actual `.agda-lib` name/include path/required
       OPTIONS first), and add corresponding profile(s) to `deploy.config.mjs`.
 

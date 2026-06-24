@@ -7,15 +7,15 @@
  * here — that's the single place deployers configure compatibility.
  *
  * This catalog is pure metadata — it does not say where to download a
- * WASM build from. What you place is `file-server/als/<wasmFilename>` (a
- * single binary, unchanged) and a raw `file-server/als/agda-data/`
+ * WASM build from. What you place is `deploy-assets/als/<wasmFilename>` (a
+ * single binary, unchanged) and a raw `deploy-assets/als/agda-data/`
  * directory — either by hand, or via `npm run auto-configure` for this
  * project's own shipped defaults (a separate, hardcoded script — see
- * `file-server/auto-configure.mjs`). `npm run setup`
- * (`file-server/build-static-assets.mjs`) copies the wasm as-is and zips
+ * `deploy-assets/auto-configure.mjs`). `npm run setup`
+ * (`deploy-assets/build-static-assets.mjs`) copies the wasm as-is and zips
  * `agda-data/` into `static/als/<dataZipName>` — `dataZipName` describes
  * that *output*, not something you place yourself. See
- * file-server/README.md.
+ * deploy-assets/README.md.
  */
 
 // agda-data.zip currently only contains a .agdai cache built for Agda 2.8.0's
@@ -44,7 +44,7 @@ export const ALS_CATALOG = [
 export function findAls(version) {
   const entry = ALS_CATALOG.find(e => e.version === version)
   if (!entry) {
-    throw new Error(`no catalog entry for ALS ${version} in file-server/als-catalog.mjs`)
+    throw new Error(`no catalog entry for ALS ${version} in deploy-assets/als-catalog.mjs`)
   }
   return entry
 }

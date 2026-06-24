@@ -1,4 +1,4 @@
-# file-server
+# deploy-assets
 
 Tooling that prepares the static assets the browser app fetches at runtime:
 ALS WASM binaries, library source archives, the per-module `.agdai` cache
@@ -18,7 +18,7 @@ agda-categories — plfa, agda-unimath, 1lab.
 
 1. `git clone` this repo.
 2. Place the library and ALS files you need, **raw** (no zips), into
-   `file-server/library/<name>/` and `file-server/als/` — see "What to
+   `deploy-assets/library/<name>/` and `deploy-assets/als/` — see "What to
    place" below. `npm run auto-configure` does this step for this
    project's own shipped defaults (stdlib 2.3, cubical 0.9,
    agda-categories 0.3.0, ALS 2.8.0) — it downloads the same archives a
@@ -43,7 +43,7 @@ npm run auto-configure && npm run setup && npm run check && npm run build
 ### What to place
 
 ```
-file-server/
+deploy-assets/
   library/
     <name>/                          # e.g. stdlib/, cubical/, agda-categories/
       <agdaLibFile>                   # at whatever depth the library uses
@@ -55,11 +55,11 @@ file-server/
     agda-data/                        # raw extracted Agda builtin data (optional)
 ```
 
-No zips anywhere in `file-server/` — `npm run setup` is what zips a
+No zips anywhere in `deploy-assets/` — `npm run setup` is what zips a
 library's source tree (and `agda-data/`) into the zips the browser fetches
 at runtime, and copies a `_build/` tree as-is into `static/agdai/<name>/`
 (those are served flat, one `.agdai` file per request, never as a zip).
-Both `file-server/library/` and `file-server/als/` are gitignored; nothing
+Both `deploy-assets/library/` and `deploy-assets/als/` are gitignored; nothing
 in them is committed.
 
 `libraries.mjs`/`als-catalog.mjs` are **pure metadata catalogs** — they
@@ -71,7 +71,7 @@ is the one exception, and it's deliberately narrow: a hardcoded script
 that fetches only the exact files this project's own shipped defaults
 need. It doesn't read the catalogs or `deploy.config.mjs` — adding your
 own library/ALS version gets you nothing from it. See
-`file-server/auto-configure.mjs`'s own header comment.
+`deploy-assets/auto-configure.mjs`'s own header comment.
 
 ### Adding a library or ALS version
 
@@ -90,7 +90,7 @@ own library/ALS version gets you nothing from it. See
    same way in both places.
 3. Reference the new entry from a `deploy.config.mjs` profile.
 4. Place the library's raw source (or the ALS's wasm/`agda-data/`) under
-   `file-server/library/<name>/` or `file-server/als/` by hand, then run
+   `deploy-assets/library/<name>/` or `deploy-assets/als/` by hand, then run
    `npm run setup`.
 5. Regenerate the dependency graph (below) if you want prefetching for it.
 
@@ -101,7 +101,7 @@ hasn't been confirmed yet.
 ### Regenerating the dependency graph
 
 Each library has its own dependency graph
-(`file-server/library/<name>/agdai-manifest.json`, copied to
+(`deploy-assets/library/<name>/agdai-manifest.json`, copied to
 `static/agdai/<name>/agdai-manifest.json` by `npm run setup`) — never one
 combined file. A session only ever loads the graphs for its active
 profile's libraries, so adding a library later never touches an existing
@@ -112,12 +112,12 @@ into two steps so the half that needs a native `agda` binary is as small
 as possible:
 
 ```sh
-node file-server/prepare-dependency-graph.mjs
+node deploy-assets/prepare-dependency-graph.mjs
 ```
 
 This does everything except invoke `agda` — for every selected library,
 computes which modules it owns and writes a single generated script,
-`file-server/.dependency-graph-work/run-agda.sh`, that (per library)
+`deploy-assets/.dependency-graph-work/run-agda.sh`, that (per library)
 writes a synthetic `Everything.agda`, runs `agda --dependency-graph`
 registering every selected library together (so a `depend:` on another
 configured library resolves), and removes the synthetic file again before
@@ -127,17 +127,17 @@ yourself (requires a **native** `agda` binary on `PATH`, not the WASM
 build):
 
 ```sh
-bash file-server/.dependency-graph-work/run-agda.sh
+bash deploy-assets/.dependency-graph-work/run-agda.sh
 ```
 
 Then:
 
 ```sh
-node file-server/dot-to-manifest.mjs
+node deploy-assets/dot-to-manifest.mjs
 ```
 
 This is pure parsing — no `agda` needed — and writes one
-`file-server/library/<name>/agdai-manifest.json` per selected library
+`deploy-assets/library/<name>/agdai-manifest.json` per selected library
 (each containing only that library's own modules — dependency edges may
 still name modules from other libraries by name, which is fine: the
 browser loads every active-profile library's manifest together). Run
@@ -169,7 +169,7 @@ library, so a missing one only disables prefetching for that library.
 
 ### Scripts
 
-- **`print-required-files.mjs`** — checks `file-server/{library,als}/` for
+- **`print-required-files.mjs`** — checks `deploy-assets/{library,als}/` for
   everything the currently-configured `deploy.config.mjs` needs (files and
   directories), printing `MISSING: ...` lines and exiting non-zero if
   anything required is absent. Run automatically by `npm run setup` before

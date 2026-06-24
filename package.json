@@ -7,7 +7,7 @@
   "private": true,
   "scripts": {
     "setup": "scripts/setup-assets.sh",
-    "auto-configure": "node file-server/auto-configure.mjs",
+    "auto-configure": "node deploy-assets/auto-configure.mjs",
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",

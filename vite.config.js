@@ -38,7 +38,7 @@ export default defineConfig(async ({ command }) => {
     fs: {
       // SvelteKit's default fs.allow excludes the project root, but
       // src/lib/runtime/interface.ts imports deploy.config.mjs and
-      // file-server/*.mjs (outside src/) at build time.
+      // deploy-assets/*.mjs (outside src/) at build time.
       allow: ['.'],
     },
   },

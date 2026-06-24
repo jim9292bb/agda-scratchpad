@@ -1,6 +1,6 @@
 /**
  * Pre-fetch .agdai files for a source buffer using each active library's
- * own dependency manifest (see file-server/dot-to-manifest.mjs). Each
+ * own dependency manifest (see deploy-assets/dot-to-manifest.mjs). Each
  * manifest maps that library's own modules to their direct dependencies
  * (transitively-reduced graph, deps may name modules from other
  * libraries). We load every active-profile library's manifest, merge
