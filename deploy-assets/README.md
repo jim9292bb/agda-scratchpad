@@ -75,9 +75,8 @@ own library/ALS version gets you nothing from it. See
 
 ### Adding a library or ALS version
 
-1. Add an entry to `libraries.mjs` (`name`, `version`, `libKey`,
-   `sourceZipName`, `archiveRootPrefix`, `includeSubpath`, `agdaLibFile`,
-   `libraryName`, optionally `agdaiCacheVersion`, and `optionsPragma`) or
+1. Add an entry to `libraries.mjs` (`name`, `version`, `includeSubpath`,
+   `agdaLibFile`, `libraryName`, optionally `agdaiCacheVersion`) or
    `als-catalog.mjs` (`version`, `wasmFilename`, optionally `dataZipName`).
    See the comments at the top of each file for what every field means.
    There's no separate library/ALS compatibility table — each
@@ -109,22 +108,35 @@ one's manifest. These are never auto-fetched for libraries/ALS versions
 you've added or changed — `npm run auto-configure` only ever supplies
 this project's own shipped default graphs. Producing your own is split
 into two steps so the half that needs a native `agda` binary is as small
-as possible:
+as possible, and is always scoped to **one library per run** — run this
+once per library you want to (re)generate:
 
 ```sh
-node deploy-assets/prepare-dependency-graph.mjs
+node deploy-assets/prepare-dependency-graph.mjs --library <name> [--scope-check-pragma <pragma>]
 ```
 
-This does everything except invoke `agda` — for every selected library,
-computes which modules it owns and writes a single generated script,
-`deploy-assets/.dependency-graph-work/run-agda.sh`, that (per library)
-writes a synthetic `Everything.agda`, runs `agda --dependency-graph`
-registering every selected library together (so a `depend:` on another
-configured library resolves), and removes the synthetic file again before
-moving to the next library — this avoids `AmbiguousTopLevelModuleName`
-from two libraries' synthetic `Everything.agda` existing at once. Run it
-yourself (requires a **native** `agda` binary on `PATH`, not the WASM
-build):
+`<name>` must be one of the currently-selected libraries (`deploy.config.mjs`).
+`--scope-check-pragma` supplies the `{-# OPTIONS #-}` line (if any) that
+library's generated `Everything.agda` needs to scope-check — there's no
+catalog field for this (nothing else reads it), and it's not always the
+same as the library's own `.agda-lib` `flags:` — confirmed empirically
+that `.agda-lib` flags don't apply to the synthetic `Everything.agda`.
+The known-correct value for each of this project's own libraries:
+
+| library          | `--scope-check-pragma`                                  |
+|------------------|-----------------------------------------------------------|
+| `stdlib`         | `{-# OPTIONS --rewriting --guardedness --sized-types #-}` |
+| `cubical`        | `{-# OPTIONS --cubical --guardedness #-}`                  |
+| `agda-categories`| *(omit — empty)*                                           |
+
+This does everything except invoke `agda` — computes which modules the
+library owns and writes a generated script,
+`deploy-assets/.dependency-graph-work/run-agda.sh`, that writes a synthetic
+`Everything.agda`, runs `agda --dependency-graph` (registering every
+*currently-selected* library together, even though only this one's
+`Everything.agda` gets checked, so a `depend:` on another configured
+library resolves), and removes the synthetic file again. Run it yourself
+(requires a **native** `agda` binary on `PATH`, not the WASM build):
 
 ```sh
 bash deploy-assets/.dependency-graph-work/run-agda.sh
@@ -136,15 +148,17 @@ Then:
 node deploy-assets/dot-to-manifest.mjs
 ```
 
-This is pure parsing — no `agda` needed — and writes one
-`deploy-assets/library/<name>/agdai-manifest.json` per selected library
-(each containing only that library's own modules — dependency edges may
-still name modules from other libraries by name, which is fine: the
-browser loads every active-profile library's manifest together). Run
-`npm run setup` afterward to copy them into `static/`. (If the native
-`agda`'s interface format version doesn't match a placed `_build/` cache,
-this still produces a correct result, just slower — full recompile
-instead of a cache hit.)
+This is pure parsing — no `agda` needed — and writes
+`deploy-assets/library/<name>/agdai-manifest.json` for the library you
+just processed (dependency edges may still name modules from other
+libraries by name, which is fine: the browser loads every active-profile
+library's manifest together). Run `npm run setup` afterward to copy it
+into `static/`. (If the native `agda`'s interface format version doesn't
+match a placed `_build/` cache, this still produces a correct result,
+just slower — full recompile instead of a cache hit.)
+
+To regenerate every selected library's graph, repeat both commands once
+per library.
 
 This project's own shipped graphs (for stdlib, cubical, and
 agda-categories) are produced this same way by a maintainer and uploaded

@@ -314,6 +314,36 @@ Done (agda-categories, second library proving the system generalizes):
       `ResolvedLibrary` gained `manifestAsset`, derived purely from the
       existing folder-name convention (no new catalog field, same as
       `_build/`).
+- [x] Removed several `libraries.mjs` catalog fields nothing but
+      themselves needed: `libKey` (now computed inline in
+      `interface.ts` as `${name}@${version}`), `agdaiZipName`/
+      `ResolvedLibrary.agdaiZipAsset` (dead — confirmed unread anywhere,
+      and `build-static-assets.mjs` no longer produces a zip at that
+      path at all), `sourceZipName`/`archiveRootPrefix` (now derived in
+      `findLibrary()` — neither value's exact text matters, only
+      uniqueness/non-emptiness, which `name`+`version` already
+      guarantee), and `optionsPragma` (confirmed empirically necessary —
+      `.agda-lib` `flags:` don't apply to the synthetic `Everything.agda`
+      — but nothing else reads it, so it moved to a
+      `--scope-check-pragma` CLI flag on `prepare-dependency-graph.mjs`
+      instead of living in a catalog every other tool also reads).
+      `experiments/build-library/src/build-agdai.mjs` and
+      `experiments/runtime-fs/src/{benchmark.js,vscode-wasm-memfs-runtime.js}`
+      — previously hardcoding the literal zip filenames/archive prefixes
+      — were switched to read `findLibrary()`'s derived values instead,
+      so they no longer silently break if those values change.
+- [x] `prepare-dependency-graph.mjs` is now always scoped to exactly one
+      library per run (`--library <name>`, required), since there's no
+      longer a per-library `optionsPragma` to read for a batch of
+      libraries at once — every *currently-selected* library is still
+      registered together in the shared `libraries` file regardless (so
+      `depend:` still resolves), only the Everything.agda/dot-output step
+      is limited to the one requested library. `dot-to-manifest.mjs`
+      mirrors this: it processes whatever `own-modules.json` says was
+      most recently prepared, not every selected library. Verified by
+      running this new flow for real (native agda) for all three of this
+      project's own libraries and diffing the output manifests against
+      the previously-committed ones — byte-identical.
 
 Not yet implemented:
 

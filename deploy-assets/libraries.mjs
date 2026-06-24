@@ -32,14 +32,17 @@
  *   - agdaLibFile: the `.agda-lib` filename at the library's root.
  *   - libraryName: the exact `name:` value declared inside that `.agda-lib`
  *     (used verbatim in the VFS's `~/.config/agda/libraries`/`defaults`).
- *   - optionsPragma: the `{-# OPTIONS #-}` line needed to scope-check the
- *     library's generated Everything.agda
- *     (deploy-assets/prepare-dependency-graph.mjs only). Not redundant with
- *     the library's own `.agda-lib` `flags:` — confirmed empirically that
- *     `.agda-lib` flags do not apply to the synthetic Everything.agda,
- *     e.g. stdlib's `--guardedness`-using modules need this declared here
- *     too or scope-checking fails with `InfectiveImport`, even though
- *     `standard-library.agda-lib`'s own `flags:` doesn't mention it.
+ *
+ * There is no `optionsPragma` field here — the `{-# OPTIONS #-}` line a
+ * library's generated Everything.agda needs (not always the same as the
+ * library's own `.agda-lib` `flags:` — confirmed empirically that
+ * `.agda-lib` flags do not apply to the synthetic Everything.agda, e.g.
+ * stdlib's `--guardedness`-using modules need this declared regardless,
+ * or scope-checking fails with `InfectiveImport`) is only ever needed by
+ * `deploy-assets/prepare-dependency-graph.mjs`, one library at a time, via
+ * its `--library <name> --scope-check-pragma <value>` flags — see
+ * deploy-assets/README.md. Nothing else reads it, so it doesn't belong in
+ * a catalog every other tool also reads.
  *
  * Adding a library/version that follows the same shape as stdlib/cubical
  * (one `.agda-lib` at the source root) should only require a new entry
@@ -62,7 +65,6 @@ export const LIBRARY_CATALOG = [
     // particular session's active ALS version; a mismatch just means a
     // slower from-source recompile instead of a cache hit, not an error.
     agdaiCacheVersion: '2.8.0',
-    optionsPragma: '{-# OPTIONS --rewriting --guardedness --sized-types #-}',
   },
   {
     name: 'cubical',
@@ -71,7 +73,6 @@ export const LIBRARY_CATALOG = [
     agdaLibFile: 'cubical.agda-lib',
     libraryName: 'cubical-0.9',
     agdaiCacheVersion: '2.8.0',
-    optionsPragma: '{-# OPTIONS --cubical --guardedness #-}',
   },
   {
     name: 'agda-categories',
@@ -81,12 +82,6 @@ export const LIBRARY_CATALOG = [
     libraryName: 'agda-categories',
     // Targets Agda 2.8.0 + standard-library-2.3 (per the v0.3.0 release notes).
     agdaiCacheVersion: '2.8.0',
-    //
-    // No options here (unlike stdlib/cubical): not every file in this library
-    // declares --without-K/--safe (e.g. Categories.Adjoint.Parametric has no
-    // pragma at all), so giving the generated Everything.agda either flag
-    // trips Agda's coinfective check (CoInfectiveImport) against those files.
-    optionsPragma: '',
   },
 ]
 
