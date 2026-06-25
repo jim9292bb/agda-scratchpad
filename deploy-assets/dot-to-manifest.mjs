@@ -70,6 +70,30 @@ async function main() {
     const edges = parseDot(dotContent)
     const ownModules = ownModulesByLib[name] || []
 
+    // Don't trust "the .dot file exists" alone as proof agda finished
+    // checking every module — that's only confirmed for the one failure
+    // mode actually tested (a hard scope-check error writes no file at
+    // all, not a partial one — Agda's Dot backend appears to write its
+    // output once, at the end of a fully-completed-or-warnings-only run,
+    // not incrementally). A module missing from the parsed graph would
+    // otherwise be silently recorded as having zero dependencies instead
+    // of failing loudly, if some other failure mode ever left a partial
+    // .dot behind.
+    //
+    // This only checks every owned module got a label (a `m123[label=...]`
+    // line) — not that its specific edges are complete. There's no
+    // independent source of truth for "how many edges should module X
+    // have" short of reimplementing Agda's own import resolution, so a
+    // label that exists but is missing some of its `->` edges (confirmed,
+    // by manually truncating a real .dot file, to slip past this check)
+    // can't be detected this way. Not a known real failure mode — labels
+    // and edges are both written in the same single pass — but worth
+    // naming as this check's actual boundary.
+    const missing = ownModules.filter(mod => !isExcluded(mod) && !(mod in edges))
+    if (missing.length > 0) {
+      throw new Error(`[${name}] ${relative(REPO_ROOT, dotFile)} is missing ${missing.length} expected module(s) (e.g. ${missing.slice(0, 3).join(', ')}) — agda may have failed partway through; re-run the agda command and check its output for errors.`)
+    }
+
     // Every owned module gets a key, even with an empty deps array — a
     // leaf module (no non-builtin dependencies) still needs to be
     // attributable to this library when prefetch.js derives ownership
@@ -78,7 +102,7 @@ async function main() {
     const graph = {}
     for (const mod of ownModules) {
       if (isExcluded(mod)) continue
-      graph[mod] = (edges[mod] || []).filter(d => !isExcluded(d))
+      graph[mod] = edges[mod].filter(d => !isExcluded(d))
     }
 
     const json = JSON.stringify({ graph })
