@@ -33,16 +33,17 @@
  *   - libraryName: the exact `name:` value declared inside that `.agda-lib`
  *     (used verbatim in the VFS's `~/.config/agda/libraries`/`defaults`).
  *
- * There is no `optionsPragma` field here — the `{-# OPTIONS #-}` line a
- * library's generated Everything.agda needs (not always the same as the
- * library's own `.agda-lib` `flags:` — confirmed empirically that
- * `.agda-lib` flags do not apply to the synthetic Everything.agda, e.g.
- * stdlib's `--guardedness`-using modules need this declared regardless,
- * or scope-checking fails with `InfectiveImport`) is only ever needed by
- * `deploy-assets/generate-dot.mjs`, one library at a time, via
- * its `--library <name> --scope-check-pragma <value>` flags — see
- * deploy-assets/README.md. Nothing else reads it, so it doesn't belong in
- * a catalog every other tool also reads.
+ * There is no `optionsPragma`/`flags` field here for dependency-graph
+ * generation — that's not something this project produces at all
+ * anymore. Regenerating a library's dependency graph means writing your
+ * own Everything.agda-style file(s) (with whatever `{-# OPTIONS #-}` they
+ * need — not always the same as the library's own `.agda-lib` `flags:`,
+ * confirmed empirically that `.agda-lib` flags don't apply to a
+ * hand-written Everything.agda) and running native `agda` yourself — see
+ * deploy-assets/README.md "Regenerating the dependency graph" (you'll
+ * still read `agdaLibFile`/`includeSubpath` from this catalog by hand to
+ * do that, but no script does it for you, and there's no field here for
+ * the pragma decision itself).
  *
  * Adding a library/version that follows the same shape as stdlib/cubical
  * (one `.agda-lib` at the source root) should only require a new entry

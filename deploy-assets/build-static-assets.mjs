@@ -5,10 +5,12 @@
  *
  * Per selected library:
  *   - zips deploy-assets/library/<name>/ (excluding _build/, agdai-manifest.json,
- *     and any leftover Everything.agda) into static/library/<sourceZipName>,
- *     wrapped under a folder named archiveRootPrefix — this reproduces the
- *     shape of a GitHub tag-archive zip, so the browser's existing
- *     client-side unzip (which strips that wrapper) needs no changes.
+ *     everything/ and dots/ — the dependency-graph working files, see
+ *     deploy-assets/README.md — and any leftover Everything.agda) into
+ *     static/library/<sourceZipName>, wrapped under a folder named
+ *     archiveRootPrefix — this reproduces the shape of a GitHub
+ *     tag-archive zip, so the browser's existing client-side unzip
+ *     (which strips that wrapper) needs no changes.
  *   - if deploy-assets/library/<name>/_build/ exists, copies it as-is into
  *     static/agdai/<name>/_build/ (already individual .agdai files — no
  *     zip involved at any point for these; they're served flat on demand).
@@ -57,7 +59,7 @@ async function main() {
     console.log(`[${lib.name}] zipping source into static/library/${lib.sourceZipName}...`)
     await zipDirectory(libRoot, join(STATIC, 'library', lib.sourceZipName), {
       prefix: lib.archiveRootPrefix,
-      exclude: ['_build', 'Everything.agda', 'agdai-manifest.json'],
+      exclude: ['_build', 'Everything.agda', 'agdai-manifest.json', 'everything', 'dots'],
     })
 
     const buildDir = join(libRoot, '_build')

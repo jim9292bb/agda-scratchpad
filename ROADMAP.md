@@ -363,6 +363,45 @@ Done (agda-categories, second library proving the system generalizes):
       Dot backend ever produces output in that partially-labeled shape
       (a real hard failure, tested directly, writes no `.dot` file at
       all, not a partial one).
+- [x] Reversed course on `generate-dot.mjs`: deleted it entirely instead
+      of having it invoke `agda`. A single synthetic `Everything.agda`
+      covering a whole library can't always work — a library mixing
+      modules that need mutually exclusive `{-# OPTIONS #-}` has no one
+      pragma value that covers all of them — so splitting modules into
+      groups (and writing the right options per group) needs a human who
+      understands the library's structure, not a script guessing.
+      Self-deployers now write their own `Everything.agda`-style file(s)
+      under `deploy-assets/library/<name>/everything/`, run native `agda
+      --dependency-graph` themselves (so they see its real output
+      directly, not a wrapper's tolerance logic deciding for them), and
+      place the resulting `.dot` file(s) under
+      `deploy-assets/library/<name>/dots/`. The shared library-file
+      needed for cross-library `depend:` resolution is now also pure
+      documentation (`deploy-assets/README.md`) — no script writes it.
+      `dot-to-manifest.mjs` is the only script left: it takes `--library
+      <name>`, computes that library's own module set by scanning its
+      source tree directly (not derived from the `everything/` files, so
+      it doesn't matter how modules got grouped), merges every `.dot` file
+      under `dots/`, and runs the existing completeness check against the
+      merged result. `build-static-assets.mjs`'s zip-exclude list gained
+      `everything`/`dots` so neither ships to the browser. Also required
+      an extra `-i deploy-assets/library/<name>/everything` flag on the
+      `agda` invocation, confirmed empirically — without it agda rejects
+      the entry file with `ModuleNameDoesntMatchFileName`, since
+      `everything/` isn't part of the library's own registered include
+      path. Verified by manually walking the new flow for real (native
+      agda) for stdlib, cubical, and agda-categories. stdlib and
+      agda-categories came out byte-identical to the previously-committed
+      manifests; cubical gained one module
+      (`Cubical.Codata.Everything`) that the old `generate-dot.mjs` had
+      been silently dropping — its own `findAgdaFiles()` excluded any
+      file literally named `Everything.agda` anywhere in the tree (by
+      filename, not by checking the module name), which incorrectly
+      caught this real, nested library module purely by filename
+      coincidence with the synthetic entry-point convention. The new
+      implementation only excludes the dedicated `everything/`/`dots/`
+      directories, not files by name, so this module is now correctly
+      included.
 
 Not yet implemented:
 

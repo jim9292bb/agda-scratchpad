@@ -104,9 +104,10 @@ async function main() {
     // library/<name>/ — stdlib 2.3, cubical 0.9, agda-categories 0.3.0:
     // source archives (wrapper-stripped), prebuilt .agdai caches (already
     // laid out as _build/<version>/agda/... inside the zip), and each
-    // library's own dependency graph — maintainer-produced
-    // (deploy-assets/generate-dot.mjs + dot-to-manifest.mjs),
-    // uploaded to the same release. Self-deployers who change
+    // library's own dependency graph — maintainer-produced (see
+    // deploy-assets/README.md "Regenerating the dependency graph" +
+    // deploy-assets/dot-to-manifest.mjs), uploaded to the same release.
+    // Self-deployers who change
     // deploy.config.mjs get nothing here and must produce their own (see
     // deploy-assets/README.md). The manifest fetch is best-effort per
     // library: prefetching is optional, so a missing release asset

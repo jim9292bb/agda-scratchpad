@@ -1,11 +1,25 @@
 /**
- * Phase B of dependency-graph generation: pure parsing, no `agda`
- * required. Reads the `.dot` file generate-dot.mjs's `agda` invocation
- * produced (one library per generate-dot.mjs run — see its own header
- * comment) and writes that library's dependency-graph manifest — used by
- * the browser runtime to prefetch .agdai files in parallel
- * (src/lib/agda/prefetch.js) — to
- * deploy-assets/library/<name>/agdai-manifest.json.
+ * Converts one library's `.dot` dependency-graph file(s) — produced by
+ * running native `agda --only-scope-checking --dependency-graph` yourself
+ * against your own Everything.agda-style file(s) (see
+ * deploy-assets/README.md "Regenerating the dependency graph") — into
+ * that library's `deploy-assets/library/<name>/agdai-manifest.json`,
+ * used by the browser runtime to prefetch .agdai files in parallel
+ * (src/lib/agda/prefetch.js).
+ *
+ * This project does not generate Everything.agda or invoke `agda` for
+ * you: a single synthetic file importing every module can't always
+ * scope-check (confirmed: a library mixing modules that need mutually
+ * exclusive options has no single `{-# OPTIONS #-}` line that works for
+ * all of them), so splitting modules into groups — and writing the right
+ * options for each — needs a human who understands the library's
+ * structure. You place as many `.agda` "import everything in this group"
+ * files as you need under `deploy-assets/library/<name>/everything/`, run
+ * `agda --dependency-graph` against each yourself (so you see its real
+ * output directly, not a wrapper's guess at whether it succeeded), and
+ * place the resulting `.dot` files under
+ * `deploy-assets/library/<name>/dots/`. This script only merges whatever
+ * `.dot` files it finds there.
  *
  * Each library's manifest only contains modules that library itself
  * defines (`{ graph: { [ownModule]: [deps...] } }` — deps may reference
@@ -16,22 +30,38 @@
  * library's module"; the browser derives the equivalent of `libOf`
  * itself when merging multiple libraries' manifests (see prefetch.js).
  *
- * This processes whatever's recorded in own-modules.json (written by the
- * most recent generate-dot.mjs run) — not every currently-
- * selected library — so it stays in sync with generate-dot.mjs
- * always being scoped to one library per invocation.
+ * "ownModules" (which labels in the merged `.dot` graphs actually belong
+ * to this library, as opposed to other libraries pulled in transitively)
+ * is computed by scanning the library's own raw source tree directly —
+ * not derived from your `everything/` files — so it doesn't matter how
+ * you split modules into groups.
  *
- * Usage (after running generate-dot.mjs):
- *   node deploy-assets/dot-to-manifest.mjs
+ * Usage:
+ *   node deploy-assets/dot-to-manifest.mjs --library <name>
  */
 
-import { readFile, writeFile, rm } from 'node:fs/promises'
-import { join, relative } from 'node:path'
+import { readFile, writeFile, readdir } from 'node:fs/promises'
+import { join, relative, sep } from 'node:path'
 import { REPO_ROOT, getSelectedLibraries } from './resolve-deploy-config.mjs'
 
 const DEPLOY_ASSETS = join(REPO_ROOT, 'deploy-assets')
-const WORK_DIR = join(DEPLOY_ASSETS, '.dependency-graph-work')
-const EVERYTHING_FILENAME = 'Everything.agda'
+// Directories under a library's own root that are never part of its own
+// module set, regardless of where includeSubpath points (e.g. cubical's
+// empty includeSubpath means its includeDir is the library root itself,
+// the same place these live).
+const NON_MODULE_DIRS = new Set(['_build', 'everything', 'dots'])
+
+function parseArgs(argv) {
+  const args = { library: null }
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--library') args.library = argv[++i]
+    else throw new Error(`unknown argument: ${argv[i]}`)
+  }
+  if (!args.library) {
+    throw new Error('--library <name> is required — pass the name of exactly one currently-selected library (deploy.config.mjs) to process.')
+  }
+  return args
+}
 
 function parseDot(content) {
   const label = {}
@@ -51,80 +81,87 @@ function parseAgdaLibInclude(src) {
   return include === '.' ? '' : include
 }
 
+async function findAgdaFiles(dir, result = []) {
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (entry.isDirectory() && NON_MODULE_DIRS.has(entry.name)) continue
+    const p = join(dir, entry.name)
+    if (entry.isDirectory()) await findAgdaFiles(p, result)
+    else if (entry.name.endsWith('.agda')) result.push(p)
+  }
+  return result
+}
+
+function pathToModuleName(filePath, includeDir) {
+  return relative(includeDir, filePath)
+    .replace(/\.agda$/, '')
+    .split(sep)
+    .join('.')
+}
+
 function isExcluded(mod) {
   return mod.startsWith('Agda.') || mod === 'Everything'
 }
 
 async function main() {
-  const ownModulesByLib = JSON.parse(await readFile(join(WORK_DIR, 'own-modules.json'), 'utf8').catch(() => {
-    throw new Error(`${relative(REPO_ROOT, WORK_DIR)}/own-modules.json not found — run deploy-assets/generate-dot.mjs first`)
-  }))
-  const names = Object.keys(ownModulesByLib)
+  const args = parseArgs(process.argv.slice(2))
 
-  for (const name of names) {
-    const dotFile = join(WORK_DIR, `${name}.dot`)
-    const dotContent = await readFile(dotFile, 'utf8').catch(() => {
-      throw new Error(`[${name}] ${relative(REPO_ROOT, dotFile)} not found — did you run the agda command generate-dot.mjs printed?`)
-    })
-    const edges = parseDot(dotContent)
-    const ownModules = ownModulesByLib[name] || []
-
-    // Don't trust "the .dot file exists" alone as proof agda finished
-    // checking every module — that's only confirmed for the one failure
-    // mode actually tested (a hard scope-check error writes no file at
-    // all, not a partial one — Agda's Dot backend appears to write its
-    // output once, at the end of a fully-completed-or-warnings-only run,
-    // not incrementally). A module missing from the parsed graph would
-    // otherwise be silently recorded as having zero dependencies instead
-    // of failing loudly, if some other failure mode ever left a partial
-    // .dot behind.
-    //
-    // This only checks every owned module got a label (a `m123[label=...]`
-    // line) — not that its specific edges are complete. There's no
-    // independent source of truth for "how many edges should module X
-    // have" short of reimplementing Agda's own import resolution, so a
-    // label that exists but is missing some of its `->` edges (confirmed,
-    // by manually truncating a real .dot file, to slip past this check)
-    // can't be detected this way. Not a known real failure mode — labels
-    // and edges are both written in the same single pass — but worth
-    // naming as this check's actual boundary.
-    const missing = ownModules.filter(mod => !isExcluded(mod) && !(mod in edges))
-    if (missing.length > 0) {
-      throw new Error(`[${name}] ${relative(REPO_ROOT, dotFile)} is missing ${missing.length} expected module(s) (e.g. ${missing.slice(0, 3).join(', ')}) — agda may have failed partway through; re-run the agda command and check its output for errors.`)
-    }
-
-    // Every owned module gets a key, even with an empty deps array — a
-    // leaf module (no non-builtin dependencies) still needs to be
-    // attributable to this library when prefetch.js derives ownership
-    // from which file a module's key appears in (there's no separate
-    // ownModules field in the manifest itself, see header comment).
-    const graph = {}
-    for (const mod of ownModules) {
-      if (isExcluded(mod)) continue
-      graph[mod] = edges[mod].filter(d => !isExcluded(d))
-    }
-
-    const json = JSON.stringify({ graph })
-    const manifestPath = join(DEPLOY_ASSETS, 'library', name, 'agdai-manifest.json')
-    await writeFile(manifestPath, json)
-    console.log(`[${name}] wrote ${Object.keys(graph).length} modules, ${(json.length / 1024).toFixed(0)} KB to ${relative(REPO_ROOT, manifestPath)}`)
+  const lib = getSelectedLibraries().find(l => l.name === args.library)
+  if (!lib) {
+    const names = getSelectedLibraries().map(l => l.name).join(', ') || '(none)'
+    throw new Error(`"${args.library}" is not a currently-selected library — check deploy.config.mjs. Selected: ${names}`)
   }
 
-  // Defensive cleanup: generate-dot.mjs already removes its own synthetic
-  // Everything.agda after running agda, but clean up again here in case
-  // that run was interrupted.
-  const libs = getSelectedLibraries().filter(lib => names.includes(lib.name))
-  for (const lib of libs) {
-    const libRoot = join(DEPLOY_ASSETS, 'library', lib.name)
-    const agdaLibPath = join(libRoot, lib.agdaLibFile)
-    const include = parseAgdaLibInclude(await readFile(agdaLibPath, 'utf8'))
-    const includeDir = include ? join(libRoot, include) : libRoot
-    await rm(join(includeDir, EVERYTHING_FILENAME), { force: true })
-  }
-  await rm(WORK_DIR, { recursive: true, force: true })
+  const libRoot = join(DEPLOY_ASSETS, 'library', lib.name)
+  const agdaLibPath = join(libRoot, lib.agdaLibFile)
+  const include = parseAgdaLibInclude(await readFile(agdaLibPath, 'utf8'))
+  const includeDir = include ? join(libRoot, include) : libRoot
 
-  console.log('Cleaned up synthetic Everything.agda files and the working directory.')
-  console.log('Run `npm run setup` to copy the new manifest into static/.')
+  const agdaFiles = (await findAgdaFiles(includeDir)).sort()
+  const ownModules = agdaFiles.map(f => pathToModuleName(f, includeDir))
+
+  const dotsDir = join(libRoot, 'dots')
+  const dotFilenames = (await readdir(dotsDir).catch(() => {
+    throw new Error(`${relative(REPO_ROOT, dotsDir)} not found — place your .dot file(s) there first (see deploy-assets/README.md "Regenerating the dependency graph").`)
+  })).filter(f => f.endsWith('.dot'))
+  if (dotFilenames.length === 0) {
+    throw new Error(`No .dot files found in ${relative(REPO_ROOT, dotsDir)} — place at least one there first.`)
+  }
+
+  const edges = {}
+  for (const filename of dotFilenames) {
+    const content = await readFile(join(dotsDir, filename), 'utf8')
+    Object.assign(edges, parseDot(content))
+  }
+
+  // Don't trust "we have some .dot files" as proof every module got
+  // checked by something — a module missing from the merged graph would
+  // otherwise be silently recorded as having zero dependencies. This only
+  // confirms every owned module got a label somewhere across your .dot
+  // files; it can't confirm any one label's edges are complete (no
+  // independent source of truth for that short of reimplementing Agda's
+  // own import resolution) — that's why you run `agda` yourself and watch
+  // its real output, instead of this script trying to guess for you.
+  const missing = ownModules.filter(mod => !isExcluded(mod) && !(mod in edges))
+  if (missing.length > 0) {
+    throw new Error(`[${lib.name}] missing ${missing.length} expected module(s) across the .dot files in ${relative(REPO_ROOT, dotsDir)} (e.g. ${missing.slice(0, 3).join(', ')}) — check that every module is covered by one of your everything/ files and that its agda run succeeded.`)
+  }
+
+  // Every owned module gets a key, even with an empty deps array — a
+  // leaf module (no non-builtin dependencies) still needs to be
+  // attributable to this library when prefetch.js derives ownership
+  // from which file a module's key appears in (there's no separate
+  // ownModules field in the manifest itself, see header comment).
+  const graph = {}
+  for (const mod of ownModules) {
+    if (isExcluded(mod)) continue
+    graph[mod] = edges[mod].filter(d => !isExcluded(d))
+  }
+
+  const json = JSON.stringify({ graph })
+  const manifestPath = join(libRoot, 'agdai-manifest.json')
+  await writeFile(manifestPath, json)
+  console.log(`[${lib.name}] wrote ${Object.keys(graph).length} modules, ${(json.length / 1024).toFixed(0)} KB to ${relative(REPO_ROOT, manifestPath)}`)
+  console.log('Run `npm run setup` to copy it into static/.')
 }
 
 main().catch(err => { console.error(err); process.exit(1) })

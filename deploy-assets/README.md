@@ -50,6 +50,10 @@ deploy-assets/
       src/...                         # wherever includeSubpath points — raw .agda source
       _build/<agdaiCacheVersion>/agda/...   # optional: raw prebuilt .agdai files
       agdai-manifest.json             # optional: this library's own dependency graph (see below)
+      everything/                     # optional: only while regenerating the dependency graph —
+        *.agda                        #   your own Everything.agda-style file(s), see below
+      dots/                           # optional: only while regenerating the dependency graph —
+        *.dot                         #   agda's output for each file in everything/, see below
   als/
     <wasmFilename>                    # a single binary file
     agda-data/                        # raw extracted Agda builtin data (optional)
@@ -59,8 +63,10 @@ No zips anywhere in `deploy-assets/` — `npm run setup` is what zips a
 library's source tree (and `agda-data/`) into the zips the browser fetches
 at runtime, and copies a `_build/` tree as-is into `static/agdai/<name>/`
 (those are served flat, one `.agdai` file per request, never as a zip).
-Both `deploy-assets/library/` and `deploy-assets/als/` are gitignored; nothing
-in them is committed.
+`everything/` and `dots/` are excluded from the source zip entirely —
+they're working files for regenerating the dependency graph, not
+something the browser ever needs. Both `deploy-assets/library/` and
+`deploy-assets/als/` are gitignored; nothing in them is committed.
 
 `libraries.mjs`/`als-catalog.mjs` are **pure metadata catalogs** — they
 describe how to register and use a library/ALS version (its `.agda-lib`
@@ -83,10 +89,12 @@ own library/ALS version gets you nothing from it. See
    `deploy.config.mjs` profile *is* a validated (`alsVersion`, `libraries`)
    pairing, so there's nothing to cross-reference.
 2. If the library `depend:`s on another configured library (e.g.
-   agda-categories depends on `standard-library-2.3`), no extra step is
-   needed — `generate-dot.mjs` and the browser runtime both
-   register every selected library together, so `depend:` resolves the
-   same way in both places.
+   agda-categories depends on `standard-library-2.3`), the browser
+   runtime registers every selected library together automatically, so
+   `depend:` resolves at runtime with no extra step. Regenerating the
+   dependency graph (below) is the one place this isn't automatic — you
+   register the dependency yourself when you write the shared
+   library-file.
 3. Reference the new entry from a `deploy.config.mjs` profile.
 4. Place the library's raw source (or the ALS's wasm/`agda-data/`) under
    `deploy-assets/library/<name>/` or `deploy-assets/als/` by hand, then run
@@ -106,50 +114,94 @@ combined file. A session only ever loads the graphs for its active
 profile's libraries, so adding a library later never touches an existing
 one's manifest. These are never auto-fetched for libraries/ALS versions
 you've added or changed — `npm run auto-configure` only ever supplies
-this project's own shipped default graphs. Producing your own is two
-steps, always scoped to **one library per run** — run both once per
-library you want to (re)generate:
+this project's own shipped default graphs.
 
-```sh
-node deploy-assets/generate-dot.mjs --library <name> [--scope-check-pragma <pragma>]
-```
+This project does not generate `Everything.agda` or invoke `agda` for
+you — you do both yourself, so you see `agda`'s real output directly
+(not a wrapper script's guess at whether something went wrong), and so
+you can split a library's modules into more than one file if it needs
+incompatible `{-# OPTIONS #-}` in different parts (confirmed: a single
+combined import file can't always work — some libraries mix modules
+needing mutually exclusive options, and no one `{-# OPTIONS #-}` line
+covers both).
 
-Requires a **native** `agda` binary on `PATH` (not the WASM build).
-`<name>` must be one of the currently-selected libraries
-(`deploy.config.mjs`). Registers every *currently-selected* library
-together in a shared library-file (so a `depend:` on another configured
-library, e.g. agda-categories on standard-library, resolves), even though
-only the requested library's synthetic `Everything.agda` gets generated
-and checked. `--scope-check-pragma` supplies the `{-# OPTIONS #-}` line
-(if any) that synthetic file needs to scope-check — there's no catalog
-field for this (nothing else reads it), and it's not always the same as
-the library's own `.agda-lib` `flags:` — confirmed empirically that
-`.agda-lib` flags don't apply to the synthetic `Everything.agda`. The
-known-correct value for each of this project's own libraries:
+1. **Write one or more `Everything.agda`-style files** under
+   `deploy-assets/library/<name>/everything/` — each one `import`s
+   whichever modules you've grouped together, with whatever
+   `{-# OPTIONS #-}` line (if any) that group needs at the top. One file
+   covering every module is enough for libraries whose modules don't
+   conflict on options — this project's own three libraries each only
+   need one:
 
-| library          | `--scope-check-pragma`                                  |
-|------------------|-----------------------------------------------------------|
-| `stdlib`         | `{-# OPTIONS --rewriting --guardedness --sized-types #-}` |
-| `cubical`        | `{-# OPTIONS --cubical --guardedness #-}`                  |
-| `agda-categories`| *(omit — empty)*                                           |
+   | library          | `{-# OPTIONS #-}` for its one `everything/` file        |
+   |------------------|-----------------------------------------------------------|
+   | `stdlib`         | `{-# OPTIONS --rewriting --guardedness --sized-types #-}` |
+   | `cubical`        | `{-# OPTIONS --cubical --guardedness #-}`                  |
+   | `agda-categories`| *(none — not every file declares `--without-K`/`--safe`   |
+   |                  | consistently, so giving the file either trips a            |
+   |                  | `CoInfectiveImport` error)*                                 |
 
-Then:
+   This isn't always the same as the library's own `.agda-lib` `flags:`
+   — confirmed empirically that `.agda-lib` flags don't apply to a
+   hand-written `Everything.agda`.
 
-```sh
-node deploy-assets/dot-to-manifest.mjs
-```
+2. **Write the shared library-file** agda needs to resolve `depend:`
+   across libraries (e.g. agda-categories on standard-library) — one line
+   per *currently-selected* library (`deploy.config.mjs`), each the
+   absolute path to `deploy-assets/library/<name>/<agdaLibFile>` (look up
+   `agdaLibFile` in `libraries.mjs`). Every selected library needs to be
+   listed here even if you're only regenerating one of them.
 
-This is pure parsing — no `agda` needed — and writes
-`deploy-assets/library/<name>/agdai-manifest.json` for the library you
-just processed (dependency edges may still name modules from other
-libraries by name, which is fine: the browser loads every active-profile
-library's manifest together). Run `npm run setup` afterward to copy it
-into `static/`. (If the native `agda`'s interface format version doesn't
-match a placed `_build/` cache, this still produces a correct result,
-just slower — full recompile instead of a cache hit.)
+3. **Run `agda` yourself**, once per file you wrote in step 1:
 
-To regenerate every selected library's graph, repeat both commands once
-per library.
+   ```sh
+   agda --library-file=<your library-file from step 2> \
+        -i <deploy-assets/library/<name>/ + includeSubpath from libraries.mjs> \
+        -i deploy-assets/library/<name>/everything \
+        --only-scope-checking \
+        --dependency-graph=deploy-assets/library/<name>/dots/<whatever>.dot \
+        deploy-assets/library/<name>/everything/<whatever>.agda
+   ```
+
+   The second `-i` is required — confirmed empirically that without it,
+   `agda` rejects the entry file with `ModuleNameDoesntMatchFileName`
+   (it needs to find your file via some `-i` search path, since
+   `everything/` isn't part of the library's own registered include
+   path). Run with your working directory at `deploy-assets/library/<name>/`.
+   Requires a **native** `agda` binary on `PATH` (not the WASM build).
+   Read its output: `agda` exits non-zero on warnings alone (e.g.
+   deprecated modules) even when the `.dot` file it wrote is complete, so
+   a non-zero exit by itself isn't proof of a real problem — but a real
+   error (confirmed: e.g. a missing required option) means no `.dot` file
+   gets written at all. Place the resulting `.dot` file under
+   `deploy-assets/library/<name>/dots/`.
+
+4. **Convert the `.dot` file(s) into the manifest:**
+
+   ```sh
+   node deploy-assets/dot-to-manifest.mjs --library <name>
+   ```
+
+   This is pure parsing — no `agda` needed. It merges every `.dot` file
+   under `deploy-assets/library/<name>/dots/`, checks that every module
+   the library actually defines (scanned directly from its source tree,
+   not from your `everything/` files, so it doesn't matter how you
+   grouped them) got a label somewhere across them — erroring out by name
+   if not, rather than silently recording a missing module as having no
+   dependencies — and writes
+   `deploy-assets/library/<name>/agdai-manifest.json` (dependency edges
+   may still name modules from other libraries by name, which is fine:
+   the browser loads every active-profile library's manifest together).
+   This check only confirms a module got labeled, not that its specific
+   edges are complete — there's no independent way to verify that short
+   of reimplementing Agda's own import resolution, which is the other
+   reason you watch `agda`'s real output yourself in step 3 instead of
+   trusting an automated check alone.
+
+Run `npm run setup` afterward to copy the manifest into `static/`. (If
+the native `agda`'s interface format version doesn't match a placed
+`_build/` cache, step 3 still produces a correct result, just slower —
+full recompile instead of a cache hit.)
 
 This project's own shipped graphs (for stdlib, cubical, and
 agda-categories) are produced this same way by a maintainer and uploaded
@@ -184,8 +236,10 @@ library, so a missing one only disables prefetching for that library.
   and `agdai-manifest.json` into `static/agdai/<name>/`, copies the ALS
   wasm, and zips `agda-data/` into `static/als/<dataZipName>`. Runs
   automatically as part of `npm run setup`.
-- **`generate-dot.mjs`** / **`dot-to-manifest.mjs`** — the
-  two-phase dependency-graph generator described above.
+- **`dot-to-manifest.mjs`** — converts a library's placed `.dot` file(s)
+  (`deploy-assets/library/<name>/dots/`) into its dependency-graph
+  manifest — see "Regenerating the dependency graph" above. This project
+  doesn't generate `.dot` files itself; that's always a manual step.
 - **`auto-configure.mjs`** — fetches and extracts this project's own
   shipped default library/ALS files into the raw layout. Hardcoded, not
   catalog-driven — see its own header comment.
@@ -194,12 +248,12 @@ library, so a missing one only disables prefetching for that library.
 
 ## How the manifest is used at runtime
 
-`generate-dot.mjs`'s native `agda --only-scope-checking
---dependency-graph` invocation produces a Dot graph from a generated
-`Everything.agda` that imports every module in each library;
-`dot-to-manifest.mjs` parses it into one `{ graph }` per library. The Dot
-output is transitively-reduced (only direct edges), so each manifest
-stores direct dependencies per module. At runtime,
+A native `agda --only-scope-checking --dependency-graph` run (yours, by
+hand — see "Regenerating the dependency graph" above) produces a Dot
+graph from your own `Everything.agda`-style file(s); `dot-to-manifest.mjs`
+merges and parses them into one `{ graph }` per library. The Dot output
+is transitively-reduced (only direct edges), so each manifest stores
+direct dependencies per module. At runtime,
 `src/lib/agda/prefetch.js` loads every active-profile library's manifest,
 merges them into one working graph (deriving which library owns each
 module from which file it came from — there's no `libOf` field in the
