@@ -32,6 +32,13 @@
  *   - agdaLibFile: the `.agda-lib` filename at the library's root.
  *   - libraryName: the exact `name:` value declared inside that `.agda-lib`
  *     (used verbatim in the VFS's `~/.config/agda/libraries`/`defaults`).
+ *     Must be unique among every library selected together in one
+ *     deploy.config.mjs profile — two registered `.agda-lib` files
+ *     declaring the same `name:` makes Agda's `depend:` resolution
+ *     between them ambiguous. Not checked here (this catalog has no
+ *     concept of which entries get selected together); validated instead
+ *     in src/lib/runtime/interface.ts's `resolveProfileLibraries()`,
+ *     eagerly for every configured profile at module load.
  *
  * There is no `optionsPragma`/`flags` field here for dependency-graph
  * generation — that's not something this project produces at all

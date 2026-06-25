@@ -39,7 +39,7 @@ export interface ResolvedLibrary {
 
 /** Resolves a profile's `libraries` references against deploy-assets/libraries.mjs's catalog. */
 export function resolveProfileLibraries(profile: DeployProfile): ResolvedLibrary[] {
-  return profile.libraries.map(({ name, version }) => {
+  const resolved = profile.libraries.map(({ name, version }) => {
     let entry
     try {
       entry = findLibrary(name, version)
@@ -60,6 +60,28 @@ export function resolveProfileLibraries(profile: DeployProfile): ResolvedLibrary
       agdaiCacheVersion: entry.agdaiCacheVersion,
     }
   })
+
+  // Every resolved library gets registered with Agda together (see
+  // src/lib/worker/als-wasi-shim.ts's libraries/defaults config files);
+  // if two of them declare the same libraryName, Agda's depend:
+  // resolution between them becomes ambiguous.
+  const seenBy = new Map<string, string>()
+  for (const lib of resolved) {
+    const prevLibKey = seenBy.get(lib.libraryName)
+    if (prevLibKey) {
+      throw new Error(`deploy.config.mjs profile "${profile.id}" selects two libraries with the same libraryName "${lib.libraryName}" (${prevLibKey} and ${lib.libKey}) — Agda's depend: resolution between them would be ambiguous`)
+    }
+    seenBy.set(lib.libraryName, lib.libKey)
+  }
+
+  return resolved
+}
+
+// Validated eagerly for every configured profile (not just the active
+// one) so a conflict fails at build/dev time, matching agdaVersionMap's
+// construction below.
+for (const profile of deployProfiles) {
+  resolveProfileLibraries(profile)
 }
 
 // ── Agda version types and WASM manifest ─────────────────────────────────────
