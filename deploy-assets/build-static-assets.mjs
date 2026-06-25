@@ -26,9 +26,10 @@
  * shared flat across versions):
  *   - copies deploy-assets/als/<version>/<wasmFilename> into
  *     static/als/<version>/ unchanged.
- *   - if deploy-assets/als/<version>/agda-data/ exists and dataZipName is
- *     configured, zips it (no wrapper — the browser unzips it at the VFS
- *     root) into static/als/<version>/<dataZipName>.
+ *   - zips deploy-assets/als/<version>/agda-data/ (required, not optional
+ *     — see deploy-assets/print-required-files.mjs) into
+ *     static/als/<version>/<AGDA_DATA_ZIP_NAME> (no wrapper — the
+ *     browser unzips it at the VFS root).
  *
  * Run via `npm run setup` (scripts/setup-assets.sh), after
  * deploy-assets/print-required-files.mjs has confirmed everything needed is
@@ -38,6 +39,7 @@
 import { cp, mkdir, access } from 'node:fs/promises'
 import { join } from 'node:path'
 import { zipDirectory } from './zip-utils.mjs'
+import { AGDA_DATA_ZIP_NAME } from './als-catalog.mjs'
 import { REPO_ROOT, getSelectedAlsVersions, getSelectedLibraries } from './resolve-deploy-config.mjs'
 
 const DEPLOY_ASSETS = join(REPO_ROOT, 'deploy-assets')
@@ -90,11 +92,8 @@ async function main() {
     console.log(`[als ${als.version}] copying ${als.wasmFilename}...`)
     await cp(join(alsSrcRoot, als.wasmFilename), join(alsOutRoot, als.wasmFilename))
 
-    const dataDir = join(alsSrcRoot, 'agda-data')
-    if (als.dataZipName && (await exists(dataDir))) {
-      console.log(`[als ${als.version}] zipping agda-data/ into static/als/${als.version}/${als.dataZipName}...`)
-      await zipDirectory(dataDir, join(alsOutRoot, als.dataZipName))
-    }
+    console.log(`[als ${als.version}] zipping agda-data/ into static/als/${als.version}/${AGDA_DATA_ZIP_NAME}...`)
+    await zipDirectory(join(alsSrcRoot, 'agda-data'), join(alsOutRoot, AGDA_DATA_ZIP_NAME))
   }
 
   console.log('Done.')

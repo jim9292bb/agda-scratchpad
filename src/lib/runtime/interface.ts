@@ -3,7 +3,7 @@ import type { SPSCWriter } from 'spsc/writer'
 import type { WASMLoadingProgress, PerformanceEntry, DriveProxyStats } from '$lib/worker/types'
 import { asset } from '$app/paths'
 import { DEPLOY_CONFIG } from '../../../deploy.config.mjs'
-import { ALS_CATALOG } from '../../../deploy-assets/als-catalog.mjs'
+import { ALS_CATALOG, AGDA_DATA_ZIP_NAME } from '../../../deploy-assets/als-catalog.mjs'
 import { findLibrary } from '../../../deploy-assets/libraries.mjs'
 
 // ── Deployment profiles ───────────────────────────────────────────────────────
@@ -72,8 +72,7 @@ export type SupportedAgdaVersion = string
 
 interface AgdaVersionSpec {
   path: string
-  /** zip archive to unpack to the initial drive; not needed since 2.8.0 (use --setup instead) */
-  dataPath?: string
+  dataPath: string
 }
 
 export const agdaVersionMap: Record<SupportedAgdaVersion, AgdaVersionSpec> = Object.create(null)
@@ -84,7 +83,7 @@ for (const version of supportedAgdaVersions) {
   }
   agdaVersionMap[version] = {
     path: asset(`/als/${entry.version}/${entry.wasmFilename}`),
-    dataPath: entry.dataZipName ? asset(`/als/${entry.version}/${entry.dataZipName}`) : undefined,
+    dataPath: asset(`/als/${entry.version}/${AGDA_DATA_ZIP_NAME}`),
   }
 }
 
@@ -100,12 +99,9 @@ export async function fetchWASMAndData(agdaVersion: SupportedAgdaVersion) {
     throw new Error(`failed to fetch ALS WASM: ${wasm.statusText}`)
   }
 
-  let dataFile = null
-  if (dataPath) {
-    dataFile = await fetch(dataPath)
-    if (!dataFile.ok || dataFile.status >= 400) {
-      throw new Error(`failed to fetch data file: ${dataFile.statusText}`)
-    }
+  const dataFile = await fetch(dataPath)
+  if (!dataFile.ok || dataFile.status >= 400) {
+    throw new Error(`failed to fetch data file: ${dataFile.statusText}`)
   }
 
   return { wasm, dataFile }

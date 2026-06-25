@@ -423,6 +423,26 @@ Done (agda-categories, second library proving the system generalizes):
       output path, since `dataZipName` is the literal string
       `'agda-data.zip'` for every catalog entry — versioning the output
       directory removes that collision too.
+- [x] Made `agda-data/` mandatory for every ALS version instead of
+      optional. The `dataZipName` catalog field was doing two unrelated
+      jobs at once: describing the (always-identical) output filename,
+      and acting as a presence flag the runtime used to decide whether to
+      even attempt fetching `agda-data.zip` (skip if unset; hard error on
+      404 if set). Since every currently-cataloged version's entry set it
+      to the same literal string, the field carried no real per-entry
+      information — the decision to make it simpler landed on "always
+      required" rather than "derive the filename, keep optionality via
+      graceful 404 handling": removed the `dataZipName` field entirely,
+      added a single `AGDA_DATA_ZIP_NAME` constant in
+      `deploy-assets/als-catalog.mjs`, and made
+      `deploy-assets/print-required-files.mjs` treat
+      `deploy-assets/als/<version>/agda-data/` as required (prints
+      `MISSING:` and refuses to proceed) exactly like the wasm file
+      already was. `src/lib/runtime/interface.ts`'s `dataPath` and
+      `src/lib/worker/als-wasi-shim.ts`'s `dataZip` are no longer optional
+      types — `fetchWASMAndData()` always fetches and hard-fails on
+      failure, matching the wasm fetch's existing behavior, instead of a
+      conditional fetch-or-skip.
 
 Not yet implemented:
 

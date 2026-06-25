@@ -10,9 +10,8 @@
  * works, just without prefetching/caching).
  *
  * Per ALS version (each isolated under deploy-assets/als/<version>/ — see
- * deploy-assets/als-catalog.mjs for why): its wasm file (required) and its
- * agda-data/ directory (optional, mirroring dataZipName being optional on
- * the catalog).
+ * deploy-assets/als-catalog.mjs for why): its wasm file and its
+ * agda-data/ directory, both required for every version.
  *
  * Each library's own dependency graph
  * (deploy-assets/library/<name>/agdai-manifest.json) is always optional —
@@ -61,8 +60,9 @@ async function main() {
       console.error(`MISSING: deploy-assets/als/${als.version}/${als.wasmFilename}`)
       missing = true
     }
-    if (als.dataZipName && !(await exists(join(alsRoot, 'agda-data')))) {
-      console.log(`(optional, not found) deploy-assets/als/${als.version}/agda-data/ — ALS will run without prebuilt Agda builtin data`)
+    if (!(await exists(join(alsRoot, 'agda-data')))) {
+      console.error(`MISSING: deploy-assets/als/${als.version}/agda-data/`)
+      missing = true
     }
   }
 

@@ -33,7 +33,7 @@ export interface WASIShimWorkerInitObject {
   stdout: SharedArrayBuffer
   sourceSab: SharedArrayBuffer
   libraries: LibraryToLoad[]
-  dataZip?: ArrayBuffer
+  dataZip: ArrayBuffer
   /** SharedArrayBuffer for on-demand .agdai network fetch via Atomics bridge */
   agdaiFetchSab?: SharedArrayBuffer
   agdaVersion: string
@@ -166,7 +166,7 @@ async function extractZipFast(
 
 async function buildFilesystem(opts: {
   libraries: LibraryToLoad[]
-  dataZip?: ArrayBuffer
+  dataZip: ArrayBuffer
 }): Promise<{ root: Directory; sourceFile: File }> {
   const root = new Directory(new Map())
 
@@ -186,9 +186,7 @@ async function buildFilesystem(opts: {
       tasks.push(extractZipFast(root, lib.agdaiZip, lib.folderName, path => path))
     }
   }
-  if (opts.dataZip) {
-    tasks.push(extractZipFast(root, opts.dataZip, '', path => path))
-  }
+  tasks.push(extractZipFast(root, opts.dataZip, '', path => path))
   await Promise.all(tasks)
 
   // library config files (for versions using --setup, these get overwritten by --setup)

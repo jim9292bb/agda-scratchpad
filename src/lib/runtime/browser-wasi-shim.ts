@@ -133,16 +133,14 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
     const wakerChannel = new MessageChannel()
 
     // One fetch per library's source zip, plus one for its prebuilt .agdai
-    // cache zip if it has one, plus the shared Agda builtins data zip.
-    const fetchSteps = libraries.length + (wasmAndData.dataFile ? 1 : 0)
+    // cache zip if it has one, plus the Agda builtins data zip.
+    const fetchSteps = libraries.length + 1
     let libFetched = 0
     const trackLib = <T>(p: Promise<T>): Promise<T> =>
       p.then(r => { callbacks.onLibraryFetchProgress(++libFetched, fetchSteps); return r })
 
     const [dataZipData, libraryZips] = await Promise.all([
-      wasmAndData.dataFile
-        ? trackLib(trace.measure('Read Agda builtins data', () => wasmAndData.dataFile!.arrayBuffer()))
-        : Promise.resolve(undefined),
+      trackLib(trace.measure('Read Agda builtins data', () => wasmAndData.dataFile.arrayBuffer())),
       Promise.all(libraries.map(lib => this._fetchLibraryZips(lib, trace, trackLib))),
     ])
 

@@ -9,14 +9,20 @@
  * This catalog is pure metadata — it does not say where to download a
  * WASM build from. What you place is
  * `deploy-assets/als/<version>/<wasmFilename>` (a single binary, unchanged)
- * and a raw `deploy-assets/als/<version>/agda-data/` directory — either by
- * hand, or via `npm run auto-configure` for this project's own shipped
- * defaults (a separate, hardcoded script — see
- * `deploy-assets/auto-configure.mjs`). `npm run setup`
- * (`deploy-assets/build-static-assets.mjs`) copies the wasm as-is and zips
- * `agda-data/` into `static/als/<version>/<dataZipName>` — `dataZipName`
- * describes that *output*, not something you place yourself. See
- * deploy-assets/README.md.
+ * and a raw `deploy-assets/als/<version>/agda-data/` directory — both
+ * required for every version, either by hand, or via `npm run
+ * auto-configure` for this project's own shipped defaults (a separate,
+ * hardcoded script — see `deploy-assets/auto-configure.mjs`). `npm run
+ * setup` (`deploy-assets/build-static-assets.mjs`) copies the wasm as-is
+ * and zips `agda-data/` into `static/als/<version>/<AGDA_DATA_ZIP_NAME>`.
+ * See deploy-assets/README.md.
+ *
+ * `agda-data/` has no per-entry field for its own output filename — every
+ * version's is just `AGDA_DATA_ZIP_NAME` below, since unlike
+ * `wasmFilename` (which must stay distinct so multiple versions' wasm
+ * binaries can coexist if ever bundled together), each version's
+ * `agda-data.zip` already lives under its own `static/als/<version>/`,
+ * so there's no collision to avoid naming around.
  *
  * Each version gets its own directory rather than a shared flat one
  * because `agda-data/` (the `Agda.Builtin.*` primitive source files that
@@ -28,23 +34,26 @@
  * weren't separated like this — it's written under a version-numbered
  * `_build/<version>/` subpath, so a version only ever reads its own; it's
  * the primitive *source* files that need real per-version isolation.)
+ * Since agda-data/ is mandatory for every version, there's no optional
+ * "does this version even have one" flag to track — if you add a new ALS
+ * version, you place its matching agda-data/ too, or `npm run setup`
+ * refuses to proceed (see `deploy-assets/print-required-files.mjs`).
  */
+
+export const AGDA_DATA_ZIP_NAME = 'agda-data.zip'
 
 export const ALS_CATALOG = [
   {
     version: '2.6.4.3',
     wasmFilename: 'als-2.6.wasm',
-    dataZipName: 'agda-data.zip',
   },
   {
     version: '2.7.0.1',
     wasmFilename: 'als-2.7ext.wasm',
-    dataZipName: 'agda-data.zip',
   },
   {
     version: '2.8.0',
     wasmFilename: 'als-2.8ext.wasm',
-    dataZipName: 'agda-data.zip',
   },
 ]
 

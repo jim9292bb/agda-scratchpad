@@ -57,15 +57,17 @@ deploy-assets/
   als/
     <version>/                        # e.g. 2.8.0/ — one directory per ALS version
       <wasmFilename>                   # a single binary file
-      agda-data/                       # raw extracted Agda builtin data (optional)
+      agda-data/                       # raw extracted Agda builtin data (required)
 ```
 
 Each ALS version gets its own directory rather than sharing one flat
 `als/` — `agda-data/` (the `Agda.Builtin.*` primitive source files that
 ship with a given Agda compiler build) isn't safely interchangeable
 across versions: a newer compiler's primitive sources can use
-syntax/BUILTINs an older compiler doesn't recognize. See
-`deploy-assets/als-catalog.mjs`'s header comment.
+syntax/BUILTINs an older compiler doesn't recognize. `agda-data/` is
+required for every ALS version (`npm run setup` refuses to proceed
+without it) — there's no optional "run without prebuilt builtin data"
+mode. See `deploy-assets/als-catalog.mjs`'s header comment.
 
 No zips anywhere in `deploy-assets/` — `npm run setup` is what zips a
 library's source tree (and `agda-data/`) into the zips the browser fetches
@@ -243,7 +245,7 @@ library, so a missing one only disables prefetching for that library.
   into `static/library/<sourceZipName>`, copies a placed `_build/` tree
   and `agdai-manifest.json` into `static/agdai/<name>/`, copies each
   selected ALS version's wasm, and zips its `agda-data/` into
-  `static/als/<version>/<dataZipName>`. Runs automatically as part of
+  `static/als/<version>/agda-data.zip`. Runs automatically as part of
   `npm run setup`.
 - **`dot-to-manifest.mjs`** — converts a library's placed `.dot` file(s)
   (`deploy-assets/library/<name>/dots/`) into its dependency-graph
