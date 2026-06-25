@@ -402,6 +402,27 @@ Done (agda-categories, second library proving the system generalizes):
       implementation only excludes the dedicated `everything/`/`dots/`
       directories, not files by name, so this module is now correctly
       included.
+- [x] Restructured `deploy-assets/als/` from one flat directory shared by
+      every ALS version into one directory per version
+      (`deploy-assets/als/<version>/<wasmFilename>` +
+      `deploy-assets/als/<version>/agda-data/`, mirroring static output
+      under `static/als/<version>/`). Motivation: `agda-data/` bundles the
+      `Agda.Builtin.*` primitive source files that ship with a specific
+      Agda compiler build — these aren't safely interchangeable across ALS
+      versions (a newer compiler's primitive sources can use
+      syntax/BUILTINs an older compiler doesn't recognize), so sharing one
+      `agda-data/` across every catalog entry (as the old flat layout did)
+      was a latent correctness risk for any non-default ALS version,
+      beyond the previously-known "no speedup" caveat. (The `.agdai` cache
+      half of `agda-data/` was never actually at risk — it's written under
+      a version-numbered `_build/<version>/` subpath, so a version only
+      ever reads its own; only the primitive *source* files needed real
+      isolation.) This also incidentally fixes a separate bug: with the
+      old flat layout, two ALS versions selected in the same deployment
+      would have collided writing to the same `static/als/<dataZipName>`
+      output path, since `dataZipName` is the literal string
+      `'agda-data.zip'` for every catalog entry — versioning the output
+      directory removes that collision too.
 
 Not yet implemented:
 

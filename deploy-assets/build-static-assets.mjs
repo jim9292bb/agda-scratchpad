@@ -20,11 +20,15 @@
  *     prefetching for that library is simply disabled at runtime
  *     (src/lib/agda/prefetch.js degrades gracefully per library).
  *
- * Per selected ALS version:
- *   - copies deploy-assets/als/<wasmFilename> into static/als/ unchanged.
- *   - if deploy-assets/als/agda-data/ exists and dataZipName is configured,
- *     zips it (no wrapper — the browser unzips agda-data.zip at the VFS
- *     root) into static/als/<dataZipName>.
+ * Per selected ALS version (each one isolated under its own
+ * deploy-assets/als/<version>/ and static/als/<version>/ — see
+ * deploy-assets/als-catalog.mjs for why agda-data/ specifically can't be
+ * shared flat across versions):
+ *   - copies deploy-assets/als/<version>/<wasmFilename> into
+ *     static/als/<version>/ unchanged.
+ *   - if deploy-assets/als/<version>/agda-data/ exists and dataZipName is
+ *     configured, zips it (no wrapper — the browser unzips it at the VFS
+ *     root) into static/als/<version>/<dataZipName>.
  *
  * Run via `npm run setup` (scripts/setup-assets.sh), after
  * deploy-assets/print-required-files.mjs has confirmed everything needed is
@@ -79,13 +83,17 @@ async function main() {
   }
 
   for (const als of getSelectedAlsVersions()) {
-    console.log(`[als ${als.version}] copying ${als.wasmFilename}...`)
-    await cp(join(DEPLOY_ASSETS, 'als', als.wasmFilename), join(STATIC, 'als', als.wasmFilename))
+    const alsSrcRoot = join(DEPLOY_ASSETS, 'als', als.version)
+    const alsOutRoot = join(STATIC, 'als', als.version)
+    await mkdir(alsOutRoot, { recursive: true })
 
-    const dataDir = join(DEPLOY_ASSETS, 'als', 'agda-data')
+    console.log(`[als ${als.version}] copying ${als.wasmFilename}...`)
+    await cp(join(alsSrcRoot, als.wasmFilename), join(alsOutRoot, als.wasmFilename))
+
+    const dataDir = join(alsSrcRoot, 'agda-data')
     if (als.dataZipName && (await exists(dataDir))) {
-      console.log(`[als ${als.version}] zipping agda-data/ into static/als/${als.dataZipName}...`)
-      await zipDirectory(dataDir, join(STATIC, 'als', als.dataZipName))
+      console.log(`[als ${als.version}] zipping agda-data/ into static/als/${als.version}/${als.dataZipName}...`)
+      await zipDirectory(dataDir, join(alsOutRoot, als.dataZipName))
     }
   }
 

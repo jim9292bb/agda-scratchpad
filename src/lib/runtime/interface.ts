@@ -83,8 +83,8 @@ for (const version of supportedAgdaVersions) {
     throw new Error(`deploy.config.mjs lists ALS version "${version}" with no matching deploy-assets/als-catalog.mjs entry`)
   }
   agdaVersionMap[version] = {
-    path: asset(`/als/${entry.wasmFilename}`),
-    dataPath: entry.dataZipName ? asset(`/als/${entry.dataZipName}`) : undefined,
+    path: asset(`/als/${entry.version}/${entry.wasmFilename}`),
+    dataPath: entry.dataZipName ? asset(`/als/${entry.version}/${entry.dataZipName}`) : undefined,
   }
 }
 

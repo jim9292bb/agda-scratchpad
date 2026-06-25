@@ -7,20 +7,28 @@
  * here — that's the single place deployers configure compatibility.
  *
  * This catalog is pure metadata — it does not say where to download a
- * WASM build from. What you place is `deploy-assets/als/<wasmFilename>` (a
- * single binary, unchanged) and a raw `deploy-assets/als/agda-data/`
- * directory — either by hand, or via `npm run auto-configure` for this
- * project's own shipped defaults (a separate, hardcoded script — see
+ * WASM build from. What you place is
+ * `deploy-assets/als/<version>/<wasmFilename>` (a single binary, unchanged)
+ * and a raw `deploy-assets/als/<version>/agda-data/` directory — either by
+ * hand, or via `npm run auto-configure` for this project's own shipped
+ * defaults (a separate, hardcoded script — see
  * `deploy-assets/auto-configure.mjs`). `npm run setup`
  * (`deploy-assets/build-static-assets.mjs`) copies the wasm as-is and zips
- * `agda-data/` into `static/als/<dataZipName>` — `dataZipName` describes
- * that *output*, not something you place yourself. See
+ * `agda-data/` into `static/als/<version>/<dataZipName>` — `dataZipName`
+ * describes that *output*, not something you place yourself. See
  * deploy-assets/README.md.
+ *
+ * Each version gets its own directory rather than a shared flat one
+ * because `agda-data/` (the `Agda.Builtin.*` primitive source files that
+ * ship with a given Agda compiler build, plus its matching `.agdai`
+ * cache) is not safely interchangeable across versions — a newer
+ * compiler's primitive sources can use syntax/BUILTINs an older compiler
+ * doesn't recognize, which is a real compile failure, not just a missed
+ * cache hit. (The `.agdai` cache itself is safe to share even if it
+ * weren't separated like this — it's written under a version-numbered
+ * `_build/<version>/` subpath, so a version only ever reads its own; it's
+ * the primitive *source* files that need real per-version isolation.)
  */
-
-// agda-data.zip currently only contains a .agdai cache built for Agda 2.8.0's
-// interface format (see src/lib/runtime/interface.ts); other versions still
-// list it below to preserve existing behavior, but it won't speed them up.
 
 export const ALS_CATALOG = [
   {

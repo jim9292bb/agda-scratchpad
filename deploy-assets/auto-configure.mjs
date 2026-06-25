@@ -147,14 +147,17 @@ async function main() {
       join(DEPLOY_ASSETS, 'library', 'agda-categories', '_build'))
     await fetchManifest('agda-categories')
 
-    // als/ — ALS 2.8.0 wasm (flat file) and the Agda builtins data
-    // directory (already laid out relative to the VFS root inside the zip).
+    // als/2.8.0/ — ALS 2.8.0 wasm (flat file) and the Agda builtins data
+    // directory (already laid out relative to the VFS root inside the
+    // zip). Each ALS version gets its own directory — see
+    // deploy-assets/als-catalog.mjs for why agda-data/ can't be shared
+    // flat across versions.
     await fetchFile(
       'https://github.com/agda-web/agda-language-server/releases/download/nightly-20260407/als-2.8.0.wasm',
-      join(DEPLOY_ASSETS, 'als', 'als-2.8ext.wasm'))
+      join(DEPLOY_ASSETS, 'als', '2.8.0', 'als-2.8ext.wasm'))
     await fetchFlatZip(
       `${RELEASE}/agda-data.zip`,
-      join(DEPLOY_ASSETS, 'als', 'agda-data'), workDir)
+      join(DEPLOY_ASSETS, 'als', '2.8.0', 'agda-data'), workDir)
 
     console.log('Done. Run `npm run setup` next to prepare static/ for serving.')
   } finally {

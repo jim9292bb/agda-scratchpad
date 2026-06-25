@@ -9,8 +9,10 @@
  * (optional, like agdaiCacheVersion itself — without it the library still
  * works, just without prefetching/caching).
  *
- * Per ALS version: its wasm file (required) and its agda-data/ directory
- * (optional, mirroring dataZipName being optional on the catalog).
+ * Per ALS version (each isolated under deploy-assets/als/<version>/ — see
+ * deploy-assets/als-catalog.mjs for why): its wasm file (required) and its
+ * agda-data/ directory (optional, mirroring dataZipName being optional on
+ * the catalog).
  *
  * Each library's own dependency graph
  * (deploy-assets/library/<name>/agdai-manifest.json) is always optional —
@@ -53,13 +55,14 @@ async function main() {
   }
 
   for (const als of getSelectedAlsVersions()) {
-    const wasmPath = join(DEPLOY_ASSETS, 'als', als.wasmFilename)
+    const alsRoot = join(DEPLOY_ASSETS, 'als', als.version)
+    const wasmPath = join(alsRoot, als.wasmFilename)
     if (!(await exists(wasmPath))) {
-      console.error(`MISSING: deploy-assets/als/${als.wasmFilename}`)
+      console.error(`MISSING: deploy-assets/als/${als.version}/${als.wasmFilename}`)
       missing = true
     }
-    if (als.dataZipName && !(await exists(join(DEPLOY_ASSETS, 'als', 'agda-data')))) {
-      console.log('(optional, not found) deploy-assets/als/agda-data/ — ALS will run without prebuilt Agda builtin data')
+    if (als.dataZipName && !(await exists(join(alsRoot, 'agda-data')))) {
+      console.log(`(optional, not found) deploy-assets/als/${als.version}/agda-data/ — ALS will run without prebuilt Agda builtin data`)
     }
   }
 
