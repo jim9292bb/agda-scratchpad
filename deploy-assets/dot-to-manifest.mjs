@@ -1,11 +1,11 @@
 /**
  * Phase B of dependency-graph generation: pure parsing, no `agda`
- * required. Reads whichever `.dot` file(s) prepare-dependency-graph.mjs's
- * printed `agda` command produced (one library per
- * prepare-dependency-graph.mjs run — see its own header comment) and
- * writes that library's dependency-graph manifest — used by the browser
- * runtime to prefetch .agdai files in parallel (src/lib/agda/prefetch.js)
- * — to deploy-assets/library/<name>/agdai-manifest.json.
+ * required. Reads the `.dot` file generate-dot.mjs's `agda` invocation
+ * produced (one library per generate-dot.mjs run — see its own header
+ * comment) and writes that library's dependency-graph manifest — used by
+ * the browser runtime to prefetch .agdai files in parallel
+ * (src/lib/agda/prefetch.js) — to
+ * deploy-assets/library/<name>/agdai-manifest.json.
  *
  * Each library's manifest only contains modules that library itself
  * defines (`{ graph: { [ownModule]: [deps...] } }` — deps may reference
@@ -17,12 +17,11 @@
  * itself when merging multiple libraries' manifests (see prefetch.js).
  *
  * This processes whatever's recorded in own-modules.json (written by the
- * most recent prepare-dependency-graph.mjs run) — not every currently-
- * selected library — so it stays in sync with prepare-dependency-graph.mjs
+ * most recent generate-dot.mjs run) — not every currently-
+ * selected library — so it stays in sync with generate-dot.mjs
  * always being scoped to one library per invocation.
  *
- * Usage (after running prepare-dependency-graph.mjs and its printed agda
- * command):
+ * Usage (after running generate-dot.mjs):
  *   node deploy-assets/dot-to-manifest.mjs
  */
 
@@ -58,14 +57,14 @@ function isExcluded(mod) {
 
 async function main() {
   const ownModulesByLib = JSON.parse(await readFile(join(WORK_DIR, 'own-modules.json'), 'utf8').catch(() => {
-    throw new Error(`${relative(REPO_ROOT, WORK_DIR)}/own-modules.json not found — run deploy-assets/prepare-dependency-graph.mjs first`)
+    throw new Error(`${relative(REPO_ROOT, WORK_DIR)}/own-modules.json not found — run deploy-assets/generate-dot.mjs first`)
   }))
   const names = Object.keys(ownModulesByLib)
 
   for (const name of names) {
     const dotFile = join(WORK_DIR, `${name}.dot`)
     const dotContent = await readFile(dotFile, 'utf8').catch(() => {
-      throw new Error(`[${name}] ${relative(REPO_ROOT, dotFile)} not found — did you run the agda command prepare-dependency-graph.mjs printed?`)
+      throw new Error(`[${name}] ${relative(REPO_ROOT, dotFile)} not found — did you run the agda command generate-dot.mjs printed?`)
     })
     const edges = parseDot(dotContent)
     const ownModules = ownModulesByLib[name] || []
@@ -111,9 +110,9 @@ async function main() {
     console.log(`[${name}] wrote ${Object.keys(graph).length} modules, ${(json.length / 1024).toFixed(0)} KB to ${relative(REPO_ROOT, manifestPath)}`)
   }
 
-  // Defensive cleanup: prepare-dependency-graph.mjs's generated run-agda.sh
-  // already removes its own synthetic Everything.agda after running agda,
-  // but clean up again here in case that script was interrupted.
+  // Defensive cleanup: generate-dot.mjs already removes its own synthetic
+  // Everything.agda after running agda, but clean up again here in case
+  // that run was interrupted.
   const libs = getSelectedLibraries().filter(lib => names.includes(lib.name))
   for (const lib of libs) {
     const libRoot = join(DEPLOY_ASSETS, 'library', lib.name)

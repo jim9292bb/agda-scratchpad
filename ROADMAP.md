@@ -344,6 +344,25 @@ Done (agda-categories, second library proving the system generalizes):
       running this new flow for real (native agda) for all three of this
       project's own libraries and diffing the output manifests against
       the previously-committed ones — byte-identical.
+- [x] Renamed `prepare-dependency-graph.mjs` to `generate-dot.mjs` and had
+      it invoke `agda` directly (`execFile`) instead of generating an
+      intermediate `run-agda.sh` for the deployer to run separately — one
+      command now produces the `.dot` file end to end, matching
+      `dot-to-manifest.mjs`'s framing as "one script generates the `.dot`,
+      one converts it." Verified by running it for real for all three of
+      this project's own libraries — byte-identical output to before.
+      Also added a completeness check to `dot-to-manifest.mjs`: every
+      module `own-modules.json` expects must have a label in the parsed
+      `.dot` graph, or it errors out naming the missing ones, instead of
+      silently recording them as having zero dependencies. Confirmed (by
+      manually truncating a real `.dot` file's edge lines while leaving
+      labels intact) that this only catches a module never being labeled
+      at all, not an existing label missing some of its edges — there's
+      no independent source of truth for edge-completeness short of
+      reimplementing Agda's own import resolution, and no evidence Agda's
+      Dot backend ever produces output in that partially-labeled shape
+      (a real hard failure, tested directly, writes no `.dot` file at
+      all, not a partial one).
 
 Not yet implemented:
 

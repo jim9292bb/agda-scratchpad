@@ -39,7 +39,7 @@
  * `.agda-lib` flags do not apply to the synthetic Everything.agda, e.g.
  * stdlib's `--guardedness`-using modules need this declared regardless,
  * or scope-checking fails with `InfectiveImport`) is only ever needed by
- * `deploy-assets/prepare-dependency-graph.mjs`, one library at a time, via
+ * `deploy-assets/generate-dot.mjs`, one library at a time, via
  * its `--library <name> --scope-check-pragma <value>` flags — see
  * deploy-assets/README.md. Nothing else reads it, so it doesn't belong in
  * a catalog every other tool also reads.

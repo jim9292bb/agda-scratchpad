@@ -105,7 +105,7 @@ async function main() {
     // source archives (wrapper-stripped), prebuilt .agdai caches (already
     // laid out as _build/<version>/agda/... inside the zip), and each
     // library's own dependency graph — maintainer-produced
-    // (deploy-assets/prepare-dependency-graph.mjs + dot-to-manifest.mjs),
+    // (deploy-assets/generate-dot.mjs + dot-to-manifest.mjs),
     // uploaded to the same release. Self-deployers who change
     // deploy.config.mjs get nothing here and must produce their own (see
     // deploy-assets/README.md). The manifest fetch is best-effort per

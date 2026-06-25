@@ -84,7 +84,7 @@ own library/ALS version gets you nothing from it. See
    pairing, so there's nothing to cross-reference.
 2. If the library `depend:`s on another configured library (e.g.
    agda-categories depends on `standard-library-2.3`), no extra step is
-   needed — `prepare-dependency-graph.mjs` and the browser runtime both
+   needed — `generate-dot.mjs` and the browser runtime both
    register every selected library together, so `depend:` resolves the
    same way in both places.
 3. Reference the new entry from a `deploy.config.mjs` profile.
@@ -106,41 +106,32 @@ combined file. A session only ever loads the graphs for its active
 profile's libraries, so adding a library later never touches an existing
 one's manifest. These are never auto-fetched for libraries/ALS versions
 you've added or changed — `npm run auto-configure` only ever supplies
-this project's own shipped default graphs. Producing your own is split
-into two steps so the half that needs a native `agda` binary is as small
-as possible, and is always scoped to **one library per run** — run this
-once per library you want to (re)generate:
+this project's own shipped default graphs. Producing your own is two
+steps, always scoped to **one library per run** — run both once per
+library you want to (re)generate:
 
 ```sh
-node deploy-assets/prepare-dependency-graph.mjs --library <name> [--scope-check-pragma <pragma>]
+node deploy-assets/generate-dot.mjs --library <name> [--scope-check-pragma <pragma>]
 ```
 
-`<name>` must be one of the currently-selected libraries (`deploy.config.mjs`).
-`--scope-check-pragma` supplies the `{-# OPTIONS #-}` line (if any) that
-library's generated `Everything.agda` needs to scope-check — there's no
-catalog field for this (nothing else reads it), and it's not always the
-same as the library's own `.agda-lib` `flags:` — confirmed empirically
-that `.agda-lib` flags don't apply to the synthetic `Everything.agda`.
-The known-correct value for each of this project's own libraries:
+Requires a **native** `agda` binary on `PATH` (not the WASM build).
+`<name>` must be one of the currently-selected libraries
+(`deploy.config.mjs`). Registers every *currently-selected* library
+together in a shared library-file (so a `depend:` on another configured
+library, e.g. agda-categories on standard-library, resolves), even though
+only the requested library's synthetic `Everything.agda` gets generated
+and checked. `--scope-check-pragma` supplies the `{-# OPTIONS #-}` line
+(if any) that synthetic file needs to scope-check — there's no catalog
+field for this (nothing else reads it), and it's not always the same as
+the library's own `.agda-lib` `flags:` — confirmed empirically that
+`.agda-lib` flags don't apply to the synthetic `Everything.agda`. The
+known-correct value for each of this project's own libraries:
 
 | library          | `--scope-check-pragma`                                  |
 |------------------|-----------------------------------------------------------|
 | `stdlib`         | `{-# OPTIONS --rewriting --guardedness --sized-types #-}` |
 | `cubical`        | `{-# OPTIONS --cubical --guardedness #-}`                  |
 | `agda-categories`| *(omit — empty)*                                           |
-
-This does everything except invoke `agda` — computes which modules the
-library owns and writes a generated script,
-`deploy-assets/.dependency-graph-work/run-agda.sh`, that writes a synthetic
-`Everything.agda`, runs `agda --dependency-graph` (registering every
-*currently-selected* library together, even though only this one's
-`Everything.agda` gets checked, so a `depend:` on another configured
-library resolves), and removes the synthetic file again. Run it yourself
-(requires a **native** `agda` binary on `PATH`, not the WASM build):
-
-```sh
-bash deploy-assets/.dependency-graph-work/run-agda.sh
-```
 
 Then:
 
@@ -193,7 +184,7 @@ library, so a missing one only disables prefetching for that library.
   and `agdai-manifest.json` into `static/agdai/<name>/`, copies the ALS
   wasm, and zips `agda-data/` into `static/als/<dataZipName>`. Runs
   automatically as part of `npm run setup`.
-- **`prepare-dependency-graph.mjs`** / **`dot-to-manifest.mjs`** — the
+- **`generate-dot.mjs`** / **`dot-to-manifest.mjs`** — the
   two-phase dependency-graph generator described above.
 - **`auto-configure.mjs`** — fetches and extracts this project's own
   shipped default library/ALS files into the raw layout. Hardcoded, not
@@ -203,8 +194,8 @@ library, so a missing one only disables prefetching for that library.
 
 ## How the manifest is used at runtime
 
-`prepare-dependency-graph.mjs` + a native `agda --only-scope-checking
---dependency-graph` run produces a Dot graph from a generated
+`generate-dot.mjs`'s native `agda --only-scope-checking
+--dependency-graph` invocation produces a Dot graph from a generated
 `Everything.agda` that imports every module in each library;
 `dot-to-manifest.mjs` parses it into one `{ graph }` per library. The Dot
 output is transitively-reduced (only direct edges), so each manifest

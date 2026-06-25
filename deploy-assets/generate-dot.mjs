@@ -1,7 +1,9 @@
 /**
- * Phase A of dependency-graph generation: does everything except invoke
- * `agda` itself, then tells you exactly what to run. Always processes
- * exactly one library at a time — see `--library` below.
+ * Generates the `.dot` dependency graph for one library — requires a
+ * native `agda` binary on `PATH` (not the WASM build). Always processes
+ * exactly one library at a time — see `--library` below. Run
+ * deploy-assets/dot-to-manifest.mjs afterward to convert the result into
+ * that library's `deploy-assets/library/<name>/agdai-manifest.json`.
  *
  * For the library given via `--library`, this:
  *   - registers every currently-selected library's (deploy.config.mjs)
@@ -9,22 +11,21 @@
  *     on another configured library (e.g. agda-categories on
  *     standard-library) resolves correctly — even though only one
  *     library's Everything.agda gets generated/checked this run;
- *   - computes the Everything.agda content for that one library
- *     (importing every module it defines), to be written, used, and
- *     removed by the generated script below;
+ *   - writes a synthetic Everything.agda (importing every module the
+ *     library defines) into the library's own include dir;
  *   - records which modules that library actually owns (own-modules.json)
  *     — needed later to attribute a module to the right library when
- *     the check sees modules from libraries it merely imports.
- * It then writes a shell script (deploy-assets/.dependency-graph-work/run-agda.sh)
- * that writes the library's Everything.agda, runs `agda --dependency-graph`,
- * and removes Everything.agda again.
+ *     the check sees modules from libraries it merely imports;
+ *   - runs `agda --only-scope-checking --dependency-graph` against it,
+ *     and removes the synthetic Everything.agda again afterward
+ *     (success or warning-only — see below).
  *
- * This script does NOT run `agda` itself — that requires a native `agda`
- * binary, which this script (and this project's own tooling) deliberately
- * doesn't assume is available in every environment that wants to produce
- * a dependency graph. Run the generated script yourself, then run
- * deploy-assets/dot-to-manifest.mjs to produce the library's
- * deploy-assets/library/<name>/agdai-manifest.json.
+ * agda exits non-zero on warnings alone (e.g. deprecated modules) even
+ * though the Dot backend still wrote a complete `.dot` file — confirmed
+ * empirically that a real failure (e.g. a missing required
+ * `--scope-check-pragma`) writes no `.dot` file at all, not a partial
+ * one — so this only fails loudly if the `.dot` file is actually missing
+ * afterward, not on every non-zero exit.
  *
  * There is no `optionsPragma` catalog field — the `{-# OPTIONS #-}` line
  * a library's generated Everything.agda needs (if any; most libraries
@@ -41,16 +42,20 @@
  * deploy-assets/library/<name>/ (see deploy-assets/README.md).
  *
  * Usage:
- *   node deploy-assets/prepare-dependency-graph.mjs --library <name> [--scope-check-pragma <pragma>]
+ *   node deploy-assets/generate-dot.mjs --library <name> [--scope-check-pragma <pragma>]
  *
  * To (re)generate every selected library's graph, run this once per
- * library (each followed by its printed `agda` command and
- * dot-to-manifest.mjs — see deploy-assets/README.md).
+ * library, each followed by deploy-assets/dot-to-manifest.mjs (see
+ * deploy-assets/README.md).
  */
 
-import { readFile, writeFile, mkdir, readdir, rm, chmod } from 'node:fs/promises'
+import { readFile, writeFile, mkdir, readdir, rm } from 'node:fs/promises'
 import { join, relative, sep } from 'node:path'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import { REPO_ROOT, getSelectedLibraries } from './resolve-deploy-config.mjs'
+
+const execFileAsync = promisify(execFile)
 
 const DEPLOY_ASSETS = join(REPO_ROOT, 'deploy-assets')
 const WORK_DIR = join(DEPLOY_ASSETS, '.dependency-graph-work')
@@ -89,10 +94,6 @@ function pathToModuleName(filePath, includeDir) {
     .replace(/\.agda$/, '')
     .split(sep)
     .join('.')
-}
-
-function shQuote(s) {
-  return `'${s.replace(/'/g, `'\\''`)}'`
 }
 
 async function libRootInfo(lib) {
@@ -136,27 +137,30 @@ async function main() {
 
   const dotFile = join(WORK_DIR, `${target.name}.dot`)
   const everythingPath = join(includeDir, EVERYTHING_FILENAME)
-  const scriptLines = [
-    '#!/usr/bin/env bash',
-    'set -euo pipefail',
-    '',
-    `echo '[${target.name}] writing Everything.agda...'`,
-    `cat > ${shQuote(everythingPath)} <<'EVERYTHING_AGDA_EOF'`,
-    everythingContent,
-    'EVERYTHING_AGDA_EOF',
-    `echo '[${target.name}] running agda --dependency-graph (this can take a while)...'`,
-    `(cd ${shQuote(libRoot)} && agda --library-file=${shQuote(libraryFilePath)} -i ${shQuote(includeDir)} --only-scope-checking --dependency-graph=${shQuote(dotFile)} ${shQuote(everythingPath)}) || echo '[${target.name}] agda exited with a warning/error (continuing if the .dot file was still written)'`,
-    `rm -f ${shQuote(everythingPath)}`,
-    '',
-  ]
-  const scriptPath = join(WORK_DIR, 'run-agda.sh')
-  await writeFile(scriptPath, scriptLines.join('\n'))
-  await chmod(scriptPath, 0o755)
+  await writeFile(everythingPath, everythingContent)
 
-  console.log(`\nWrote ${relative(REPO_ROOT, scriptPath)}.`)
-  console.log('\nRun it yourself (requires a native `agda` binary on PATH):\n')
-  console.log(`  bash ${relative(REPO_ROOT, scriptPath)}`)
-  console.log('\nThen run: node deploy-assets/dot-to-manifest.mjs')
+  try {
+    console.log(`[${target.name}] running agda --dependency-graph (this can take a while)...`)
+    await execFileAsync('agda', [
+      `--library-file=${libraryFilePath}`,
+      '-i', includeDir,
+      '--only-scope-checking',
+      `--dependency-graph=${dotFile}`,
+      everythingPath,
+    ], { cwd: libRoot, maxBuffer: 64 * 1024 * 1024 })
+  } catch (err) {
+    console.warn(`[${target.name}] agda exited with a warning/error (continuing if the .dot file was still written):`)
+    console.warn(err.stderr || err.message)
+  } finally {
+    await rm(everythingPath, { force: true })
+  }
+
+  await readFile(dotFile).catch(() => {
+    throw new Error(`[${target.name}] agda did not produce a dependency graph at ${relative(REPO_ROOT, dotFile)} — see the warning above for what went wrong.`)
+  })
+
+  console.log(`\n[${target.name}] wrote ${relative(REPO_ROOT, dotFile)}.`)
+  console.log('Run next: node deploy-assets/dot-to-manifest.mjs')
 }
 
 main().catch(err => { console.error(err); process.exit(1) })
