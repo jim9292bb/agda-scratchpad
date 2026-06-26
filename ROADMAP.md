@@ -556,6 +556,45 @@ Done (agda-categories, second library proving the system generalizes):
       live in — inlined as a literal constant directly in both
       `build-static-assets.mjs` and `interface.ts` (the two places that
       must agree on it), each with a comment pointing at its sibling.
+- [x] Fixed a real regression introduced by the `agda --numeric-version`
+      query above: `als` (the ALS WASM binary, not the bare `agda`
+      compiler tested manually at the time) has no `--numeric-version`
+      flag of its own — confirmed in
+      `references/agda-web-agda-language-server/src/Options.hs`, which
+      only defines `--help`/`--port`/`--raw`/`--setup`/`--version`, and
+      `--numeric-version` isn't one of the few options forwarded to the
+      underlying Agda library either (that forwarding only happens for
+      options wrapped in `+AGDA ... -AGDA`). Spawning it directly produced
+      no stdout output at all, so `getNumericAgdaVersion()` always
+      resolved to `""` — an empty string, falsy — so
+      `src/routes/+page.svelte`'s prefetch gate
+      (`if (prefetchFn && editorView && receivedNumericAgdaVersion)`)
+      never ran, meaning `agdai-manifest.json` was never fetched and the
+      prefetch optimization silently never fired for anyone, ever, since
+      it was introduced. Completely invisible from "does the app work" —
+      every `.agdai` file still loaded correctly through the independent
+      on-demand fetch path (`als-wasi-shim.ts`'s SharedArrayBuffer bridge),
+      just one file at a time as ALS's type-checker requested each one,
+      instead of fetched in a parallel batch ahead of time. Found by
+      reproducing in a real browser session and tracing the actual
+      `fetch()` calls (`window.fetch` monkey-patched directly, since
+      neither the CDP-level network monitor nor manual code reading alone
+      settled it) down to a temporary debug log at the gate itself, which
+      showed `numericVersion: ""`.
+
+      Fix: removed the separate `--numeric-version` WASI spawn entirely
+      and instead parse the numeric version straight out of
+      `getALSVersion()`'s already-working `--version` output (format:
+      `"Agda vX.Y.Z Language Server vN..."`, confirmed via the same
+      session) with `/Agda v([\d.]+)/` — one spawn instead of two, and no
+      dependency on a flag that doesn't exist. Verified the fix directly
+      in-browser: `agdai-manifest.json` now actually appears in the
+      network log and `prefetch.js`'s own `[prefetch] N .agdai files for
+      M imports` debug line now fires, which it never did before.
+      `npm run check`/`build` and full `npm run test:browser` (18
+      scripts, 0 failures) still pass — this whole class of bug was
+      invisible to that suite too, since the on-demand fallback masks it
+      functionally; only direct network/console inspection caught it.
 
 - [ ] Add specs for plfa, agda-unimath, 1lab to `deploy.config.json`
       (confirm each library's actual `.agda-lib` name/include path/required

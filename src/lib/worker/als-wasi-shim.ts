@@ -393,29 +393,36 @@ async function init({
   }
 
   let cachedVersion: string | null = null
-  let cachedNumericVersion: string | null = null
+
+  async function getALSVersionString(): Promise<string> {
+    if (cachedVersion) return cachedVersion
+    const { wasiInst, captured } = makeSpawnWasi(root, ['--version'])
+    const versionInstance = new WebAssembly.Instance(module, { wasi_snapshot_preview1: wasiInst.wasiImport })
+    wasiInst.start(versionInstance)
+    cachedVersion = captured.join('').trim()
+    return cachedVersion
+  }
 
   return Comlink.proxy({
-    getALSVersion: async () => {
-      if (cachedVersion) return cachedVersion
-      const { wasiInst, captured } = makeSpawnWasi(root, ['--version'])
-      const versionInstance = new WebAssembly.Instance(module, { wasi_snapshot_preview1: wasiInst.wasiImport })
-      wasiInst.start(versionInstance)
-      cachedVersion = captured.join('').trim()
-      return cachedVersion
-    },
+    getALSVersion: getALSVersionString,
 
-    /** Bare numeric version (e.g. "2.8.0") — used to locate the matching
-     *  static/agdai/<folderName>/_build/<this>/ prebuilt .agdai cache, if
-     *  any (see src/lib/agda/prefetch.js). Distinct from getALSVersion()'s
-     *  `--version` output, which includes extra text. */
+    /** Bare numeric Agda version (e.g. "2.8.0") — used to locate the
+     *  matching static/agdai/<folderName>/_build/<this>/ prebuilt .agdai
+     *  cache, if any (see src/lib/agda/prefetch.js). Parsed out of
+     *  getALSVersion()'s "Agda vX.Y.Z Language Server vN..." string
+     *  instead of its own `--numeric-version` spawn — confirmed `als` has
+     *  no such flag of its own (agda-language-server's Options.hs only
+     *  defines --help/--port/--raw/--setup/--version; --numeric-version
+     *  isn't forwarded to the underlying Agda library either, since that
+     *  only happens for options wrapped in +AGDA ... -AGDA) — spawning it
+     *  directly silently produced no stdout output at all. */
     getNumericAgdaVersion: async () => {
-      if (cachedNumericVersion) return cachedNumericVersion
-      const { wasiInst, captured } = makeSpawnWasi(root, ['--numeric-version'])
-      const versionInstance = new WebAssembly.Instance(module, { wasi_snapshot_preview1: wasiInst.wasiImport })
-      wasiInst.start(versionInstance)
-      cachedNumericVersion = captured.join('').trim()
-      return cachedNumericVersion
+      const versionString = await getALSVersionString()
+      const match = versionString.match(/Agda v([\d.]+)/)
+      if (!match) {
+        throw new Error(`could not parse Agda version out of ALS --version output: "${versionString}"`)
+      }
+      return match[1]
     },
 
     start: async (): Promise<number> => {
