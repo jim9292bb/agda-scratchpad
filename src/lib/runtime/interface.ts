@@ -3,8 +3,14 @@ import type { SPSCWriter } from 'spsc/writer'
 import type { WASMLoadingProgress, PerformanceEntry, DriveProxyStats } from '$lib/worker/types'
 import { asset } from '$app/paths'
 import DEPLOY_CONFIG from '../../../deploy.config.json'
-import { ALS_CATALOG, AGDA_DATA_ZIP_NAME } from '../../../deploy-assets/als-catalog.mjs'
 import { GENERATED_LIBRARY_INFO } from '../../../deploy-assets/generated-libraries.mjs'
+
+// Always this — not a per-version field, since unlike wasmFilename (which
+// must stay distinct per version if ever bundled together), every
+// version's agda-data.zip already lives under its own static/als/<version>/,
+// so there's no collision to avoid naming around. Also referenced
+// (independently, must match) by deploy-assets/build-static-assets.mjs.
+const AGDA_DATA_ZIP_NAME = 'agda-data.zip'
 
 // ── Deployment profiles ───────────────────────────────────────────────────────
 //
@@ -101,7 +107,9 @@ for (const profile of deployProfiles) {
 
 // ── Agda version types and WASM manifest ─────────────────────────────────────
 //
-// Derived from the set of alsVersion values used across deployProfiles.
+// Derived from the set of alsVersion values used across deployProfiles. No
+// separate ALS catalog to cross-reference any more — each profile's own
+// alsVersion+wasmFilename are already everything needed.
 
 export const supportedAgdaVersions: readonly string[] =
   [...new Set(deployProfiles.map(p => p.alsVersion))]
@@ -112,15 +120,22 @@ interface AgdaVersionSpec {
   dataPath: string
 }
 
+// Throws if the same alsVersion is referenced more than once with a
+// different wasmFilename — that would mean two different ALS builds are
+// trying to claim the same version number.
 export const agdaVersionMap: Record<SupportedAgdaVersion, AgdaVersionSpec> = Object.create(null)
-for (const version of supportedAgdaVersions) {
-  const entry = ALS_CATALOG.find(e => e.version === version)
-  if (!entry) {
-    throw new Error(`deploy.config.json lists ALS version "${version}" with no matching deploy-assets/als-catalog.mjs entry`)
+const seenWasmFilenameByVersion = new Map<string, string>()
+for (const profile of deployProfiles) {
+  const { alsVersion, wasmFilename } = profile
+  const prevWasmFilename = seenWasmFilenameByVersion.get(alsVersion)
+  if (prevWasmFilename && prevWasmFilename !== wasmFilename) {
+    throw new Error(`deploy.config.json: alsVersion "${alsVersion}" is referenced with two different wasmFilename values (${prevWasmFilename} vs ${wasmFilename}) — every reference to the same alsVersion must describe the same ALS build.`)
   }
-  agdaVersionMap[version] = {
-    path: asset(`/als/${entry.version}/${entry.wasmFilename}`),
-    dataPath: asset(`/als/${entry.version}/${AGDA_DATA_ZIP_NAME}`),
+  if (prevWasmFilename) continue
+  seenWasmFilenameByVersion.set(alsVersion, wasmFilename)
+  agdaVersionMap[alsVersion] = {
+    path: asset(`/als/${alsVersion}/${wasmFilename}`),
+    dataPath: asset(`/als/${alsVersion}/${AGDA_DATA_ZIP_NAME}`),
   }
 }
 

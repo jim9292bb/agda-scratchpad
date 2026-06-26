@@ -1,9 +1,9 @@
 /**
  * Resolves deploy.config.json — validating it up front so a typo or
  * conflicting reference fails fast with a clear error instead of silently
- * building the wrong thing. ALS versions still cross-reference
- * deploy-assets/als-catalog.mjs; libraries no longer cross-reference a
- * separate catalog — deploy.config.json's own `libraries` entries (each a
+ * building the wrong thing. Neither ALS versions nor libraries
+ * cross-reference a separate catalog any more — deploy.config.json's own
+ * profile fields (`alsVersion`+`wasmFilename`, and each `libraries` entry
  * `{ folderName, agdaLibFile, name?, version? }`) are already everything
  * this project's tooling needs structurally. (`includeSubpath`/
  * `libraryName` are not in that shape — they're generated from the real
@@ -19,19 +19,33 @@
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import DEPLOY_CONFIG from '../deploy.config.json' with { type: 'json' }
-import { findAls } from './als-catalog.mjs'
 
 export { DEPLOY_CONFIG }
 
 export const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
-/** Resolved, deduplicated ALS catalog entries referenced by any configured profile. */
+/**
+ * Deduplicated ALS versions referenced by any configured profile.
+ *
+ * Throws if the same alsVersion is referenced more than once with a
+ * different wasmFilename — that would mean two different ALS builds are
+ * trying to claim the same version number.
+ */
 export function getSelectedAlsVersions() {
-  const seen = new Map()
+  const seenRaw = new Map()
+  const resolved = new Map()
   for (const profile of DEPLOY_CONFIG.profiles) {
-    if (!seen.has(profile.alsVersion)) seen.set(profile.alsVersion, findAls(profile.alsVersion))
+    const { alsVersion, wasmFilename } = profile
+    const prevRaw = seenRaw.get(alsVersion)
+    if (prevRaw && prevRaw !== wasmFilename) {
+      throw new Error(`deploy.config.json: alsVersion "${alsVersion}" is referenced with two different wasmFilename values (${prevRaw} vs ${wasmFilename}) — every reference to the same alsVersion must describe the same ALS build.`)
+    }
+    if (!prevRaw) {
+      seenRaw.set(alsVersion, wasmFilename)
+      resolved.set(alsVersion, { version: alsVersion, wasmFilename })
+    }
   }
-  return [...seen.values()]
+  return [...resolved.values()]
 }
 
 /**

@@ -153,8 +153,8 @@ async function main() {
     // als/2.8.0/ — ALS 2.8.0 wasm (flat file) and the Agda builtins data
     // directory (already laid out relative to the VFS root inside the
     // zip). Each ALS version gets its own directory — see
-    // deploy-assets/als-catalog.mjs for why agda-data/ can't be shared
-    // flat across versions.
+    // deploy-assets/README.md "What to place" for why agda-data/ can't be
+    // shared flat across versions.
     await fetchFile(
       'https://github.com/agda-web/agda-language-server/releases/download/nightly-20260407/als-2.8.0.wasm',
       join(DEPLOY_ASSETS, 'als', '2.8.0', 'als-2.8ext.wasm'))

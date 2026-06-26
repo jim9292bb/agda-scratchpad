@@ -27,8 +27,8 @@ researched Agda command mappings.
 - [ ] Do not port Agda executable download or version switching unless multiple WASM runtimes are intentionally supported.
 - [ ] Do not port VSCode-specific Markdown preview or editor-workspace keybindings.
 - [ ] Do not split `deploy-assets/` into its own repository. `src/lib/runtime/interface.ts`
-      imports `deploy-assets/generated-libraries.mjs`/`als-catalog.mjs`
-      directly at build time, not just during CI — it's a build-time dependency of the
+      imports `deploy-assets/generated-libraries.mjs` directly at build
+      time, not just during CI — it's a build-time dependency of the
       app, not standalone tooling that happens to live alongside it. A
       split would trade that zero-friction same-repo import for npm/git
       submodule version-pinning overhead, with no actual external consumer
@@ -540,8 +540,22 @@ Done (agda-categories, second library proving the system generalizes):
       on a deployer having read the right comment) as explicit deferred
       follow-up work instead of inline comments. That validation step
       itself is not yet implemented — see "Not yet implemented" below.
-
-Not yet implemented:
+- [x] Deleted `deploy-assets/als-catalog.mjs`, applying the same
+      simplification already done for libraries to ALS: each profile's
+      `alsVersion` is no longer a key into a separate catalog — its
+      `wasmFilename` is now a sibling field directly on the profile in
+      `deploy.config.json`, same shape as `libraries` entries. If the same
+      `alsVersion` is referenced from more than one profile (both of this
+      project's own profiles use `2.8.0`), every reference must agree on
+      `wasmFilename` — validated the same way as the existing
+      folderName/libraryName consistency checks
+      (`resolve-deploy-config.mjs`'s `getSelectedAlsVersions()` and
+      `src/lib/runtime/interface.ts`'s `agdaVersionMap` construction loop
+      both throw a clear error on mismatch). `AGDA_DATA_ZIP_NAME` (always
+      `'agda-data.zip'`, never per-version) had no real catalog left to
+      live in — inlined as a literal constant directly in both
+      `build-static-assets.mjs` and `interface.ts` (the two places that
+      must agree on it), each with a comment pointing at its sibling.
 
 - [ ] Add specs for plfa, agda-unimath, 1lab to `deploy.config.json`
       (confirm each library's actual `.agda-lib` name/include path/required

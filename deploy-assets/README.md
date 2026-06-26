@@ -8,9 +8,9 @@ under `static/agdai/`, and each library's own dependency manifest
 
 This is a clearly-separated subdirectory within this repo, not a standalone
 package — and not a split-out-later candidate either: `src/lib/runtime/interface.ts`
-imports `deploy-assets/generated-libraries.mjs`/`als-catalog.mjs` directly
-at build time, not just during CI, so this stays in the same repo as the
-app it serves. See [ROADMAP.md](../ROADMAP.md) "Curated Multi-Library
+imports `deploy-assets/generated-libraries.mjs` (and `../deploy.config.json`)
+directly at build time, not just during CI, so this stays in the same repo as
+the app it serves. See [ROADMAP.md](../ROADMAP.md) "Curated Multi-Library
 Support" for the current plan to extend this to libraries beyond
 stdlib/cubical/agda-categories — plfa, agda-unimath, 1lab.
 
@@ -80,7 +80,7 @@ across versions: a newer compiler's primitive sources can use
 syntax/BUILTINs an older compiler doesn't recognize. `agda-data/` is
 required for every ALS version (`npm run setup` refuses to proceed
 without it) — there's no optional "run without prebuilt builtin data"
-mode. See `deploy-assets/als-catalog.mjs`'s header comment.
+mode.
 
 No zips anywhere in `deploy-assets/` — `npm run setup` is what zips a
 library's source tree (and `agda-data/`) into the zips the browser fetches
@@ -91,17 +91,17 @@ they're working files for regenerating the dependency graph, not
 something the browser ever needs. Both `deploy-assets/library/` and
 `deploy-assets/als/` are gitignored; nothing in them is committed.
 
-`als-catalog.mjs` is a **pure metadata catalog** — it describes how to
-register and use an ALS version (its wasm filename, cache version), but
-never where to download anything from. (Libraries no longer have a
-separate catalog file at all — see "Adding a library or ALS version"
-below.) There is no "fill in a URL" option anywhere in this project.
-`npm run auto-configure` is the one exception, and it's deliberately
-narrow: a hardcoded script that fetches only the exact files this
-project's own shipped defaults need. It doesn't read `als-catalog.mjs` or
-`deploy.config.json` — adding your own library/ALS version gets you
-nothing from it. See `deploy-assets/auto-configure.mjs`'s own header
-comment.
+Neither libraries nor ALS versions have a separate catalog file to
+cross-reference any more — every profile's own fields in
+`deploy.config.json` are already everything this project's tooling needs
+structurally (see "`deploy.config.json` schema" below). There is no
+"fill in a URL" option anywhere in this project — nothing here says where
+to download anything from. `npm run auto-configure` is the one
+exception, and it's deliberately narrow: a hardcoded script that fetches
+only the exact files this project's own shipped defaults need. It
+doesn't read `deploy.config.json` — adding your own library/ALS version
+gets you nothing from it. See `deploy-assets/auto-configure.mjs`'s own
+header comment.
 
 ### `deploy.config.json` schema
 
@@ -119,7 +119,11 @@ profile selector (shown below the ALS status card when more than one
 profile is configured) and can never present an incompatible pairing.
 
 - `id`, `label`: identify the profile in the profile selector / local storage.
-- `alsVersion`: must have a matching entry in `deploy-assets/als-catalog.mjs`.
+- `alsVersion`, `wasmFilename`: which ALS build this profile uses — this
+  *is* the ALS catalog now, there's no separate file to cross-reference.
+  If the same `alsVersion` is referenced from more than one profile,
+  every reference must agree on `wasmFilename` (it's the same build, not
+  a second one).
 - `libraries`: a list of `{ folderName, agdaLibFile, name?, version? }` —
   this *is* the library catalog now, there's no separate file to
   cross-reference:
@@ -150,11 +154,11 @@ between candidate libraries (agda-categories, plfa, agda-unimath, 1lab).
 
 1. Add a `{ folderName, agdaLibFile, name?, version? }` entry directly to
    a `deploy.config.json` profile's `libraries` — there's no separate
-   library catalog file to add an entry to first. (For ALS, add an entry
-   to `als-catalog.mjs`: `version`, `wasmFilename`. See its own header
-   comment for what each field means.) `folderName` and `agdaLibFile` are
-   required; `name`/`version` are optional and purely cosmetic (e.g. shown
-   in the UI) — nothing reads them to build a path or a cache key.
+   library catalog file to add an entry to first. (For a new ALS version,
+   set that profile's `alsVersion`/`wasmFilename` directly the same way —
+   no separate ALS catalog file either.) `folderName` and `agdaLibFile`
+   are required; `name`/`version` are optional and purely cosmetic (e.g.
+   shown in the UI) — nothing reads them to build a path or a cache key.
 2. If the library `depend:`s on another configured library (e.g.
    agda-categories depends on `standard-library-2.3`), the browser
    runtime registers every selected library together automatically, so
@@ -326,17 +330,18 @@ library, so a missing one only disables prefetching for that library.
 
 ### Catalogs
 
-- **`als-catalog.mjs`** — every ALS/Agda WASM build this project knows how
-  to fetch and run. Pure metadata. (Libraries have no equivalent catalog —
-  `deploy.config.json`'s own `libraries` entries are already everything
-  this project's tooling needs structurally; see "Adding a library or ALS
-  version" above.)
+Neither libraries nor ALS versions have a catalog file any more —
+`deploy.config.json`'s own profile fields are already everything this
+project's tooling needs structurally; see "`deploy.config.json` schema"
+above.
+
 - **`resolve-deploy-config.mjs`** — resolves `deploy.config.json`,
-  validating every reference up front (a typo or a folderName referenced
-  with two conflicting specs fails fast with a clear error). Exports
-  `getSelectedLibraries()` and `getSelectedAlsVersions()` — deduplicated
-  across all configured profiles — used by the scripts below instead of
-  reading `deploy.config.json`/`als-catalog.mjs` directly.
+  validating every reference up front (a typo, or a folderName/alsVersion
+  referenced with two conflicting specs across profiles, fails fast with
+  a clear error). Exports `getSelectedLibraries()` and
+  `getSelectedAlsVersions()` — deduplicated across all configured
+  profiles — used by the scripts below instead of reading
+  `deploy.config.json` directly.
 - **`agda-lib-utils.mjs`** — tiny shared parsers for raw `.agda-lib` file
   content (`include:`/`name:`), no `agda` binary needed. Used by both
   `generate-library-info.mjs` and `dot-to-manifest.mjs`.

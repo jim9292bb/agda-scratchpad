@@ -11,7 +11,7 @@
  * at runtime via `agda --numeric-version`, not declared here).
  *
  * Per ALS version (each isolated under deploy-assets/als/<version>/ — see
- * deploy-assets/als-catalog.mjs for why): its wasm file and its
+ * deploy-assets/README.md "What to place" for why): its wasm file and its
  * agda-data/ directory, both required for every version.
  *
  * Each library's own dependency graph

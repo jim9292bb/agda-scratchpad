@@ -27,8 +27,8 @@
  *
  * Per selected ALS version (each one isolated under its own
  * deploy-assets/als/<version>/ and static/als/<version>/ — see
- * deploy-assets/als-catalog.mjs for why agda-data/ specifically can't be
- * shared flat across versions):
+ * deploy-assets/README.md "What to place" for why agda-data/
+ * specifically can't be shared flat across versions):
  *   - copies deploy-assets/als/<version>/<wasmFilename> into
  *     static/als/<version>/ unchanged.
  *   - zips deploy-assets/als/<version>/agda-data/ (required, not optional
@@ -44,11 +44,16 @@
 import { cp, mkdir, access } from 'node:fs/promises'
 import { join } from 'node:path'
 import { zipDirectory } from './zip-utils.mjs'
-import { AGDA_DATA_ZIP_NAME } from './als-catalog.mjs'
 import { REPO_ROOT, getSelectedAlsVersions, getSelectedLibraries } from './resolve-deploy-config.mjs'
 
 const DEPLOY_ASSETS = join(REPO_ROOT, 'deploy-assets')
 const STATIC = join(REPO_ROOT, 'static')
+// Always this — not a per-version catalog field, since unlike wasmFilename
+// (which must stay distinct per version if ever bundled together), every
+// version's agda-data.zip already lives under its own static/als/<version>/,
+// so there's no collision to avoid naming around. Also referenced
+// (independently, must match) by src/lib/runtime/interface.ts.
+const AGDA_DATA_ZIP_NAME = 'agda-data.zip'
 
 async function exists(path) {
   try {
