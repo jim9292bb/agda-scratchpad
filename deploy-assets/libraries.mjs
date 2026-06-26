@@ -7,8 +7,8 @@
  *
  * This catalog is pure metadata — it does not say where to download a
  * library's files from. What you place is a raw, unzipped library source
- * tree at `deploy-assets/library/<name>/` (plus an optional raw `_build/`
- * with prebuilt `.agdai` files) — either by hand, or via
+ * tree at `deploy-assets/library/<folderName>/` (plus an optional raw
+ * `_build/` with prebuilt `.agdai` files) — either by hand, or via
  * `npm run auto-configure` for this project's own shipped defaults (a
  * separate, hardcoded script — see `deploy-assets/auto-configure.mjs`).
  * `npm run setup` (`deploy-assets/build-static-assets.mjs`) then zips that
@@ -17,15 +17,20 @@
  *
  * Each entry needs:
  *   - name, version: identify the entry; deploy.config.mjs references libraries
- *     by this pair. Also the expected directory name under
- *     `deploy-assets/library/`. (The runtime's in-memory `libKey` — used to
- *     key the prefetch manifest cache — is just `${name}@${version}`,
- *     computed on the fly; not a separate field here. `sourceZipName` and
- *     `archiveRootPrefix` are also derived from `name`/`version` —
- *     see findLibrary() — rather than written here, since their exact
- *     text carries no meaning: `sourceZipName` only needs to be unique,
- *     which `name`+`version` already guarantees; `archiveRootPrefix` only
- *     needs to be non-empty, which any derived value satisfies.)
+ *     by this pair. (The runtime's in-memory `libKey` — used to key the
+ *     prefetch manifest cache — is just `${name}@${version}`, computed on
+ *     the fly; not a separate field here. `sourceZipName`, `archiveRootPrefix`,
+ *     and `folderName` are also derived from `name`/`version` — see
+ *     findLibrary() — rather than written here, since their exact text
+ *     carries no meaning: `sourceZipName`/`folderName` only need to be
+ *     unique, which `name`+`version` already guarantees; `archiveRootPrefix`
+ *     only needs to be non-empty, which any derived value satisfies.
+ *     `folderName` (`${name}-${version}`) is the expected directory name
+ *     under `deploy-assets/library/` — not just `name` alone, so two
+ *     different versions of the same-named library can be placed
+ *     side by side, e.g. for two deploy.config.mjs profiles each pinned
+ *     to a different stdlib version. See ROADMAP.md "Curated Multi-Library
+ *     Support".)
  *   - includeSubpath: matches the library's own `.agda-lib`'s `include:`
  *     field (empty string if `include: .`). Only paths under this subpath,
  *     plus agdaLibFile itself, are kept when extracting into the VFS.
@@ -54,10 +59,11 @@
  *
  * Adding a library/version that follows the same shape as stdlib/cubical
  * (one `.agda-lib` at the source root) should only require a new entry
- * here plus the raw source placed under `deploy-assets/library/<name>/` (see
- * deploy-assets/README.md). See ROADMAP.md "Curated Multi-Library Support"
- * before adding plfa/agda-unimath/1lab — their exact `.agda-lib` layout and
- * type-theory compatibility with existing entries hasn't been confirmed yet.
+ * here plus the raw source placed under
+ * `deploy-assets/library/<name>-<version>/` (see deploy-assets/README.md).
+ * See ROADMAP.md "Curated Multi-Library Support" before adding
+ * plfa/agda-unimath/1lab — their exact `.agda-lib` layout and type-theory
+ * compatibility with existing entries hasn't been confirmed yet.
  */
 
 export const LIBRARY_CATALOG = [
@@ -104,11 +110,13 @@ export function findLibrary(name, version) {
   }
   return {
     ...lib,
-    // Derived, not written by hand: sourceZipName only needs to be unique
-    // (name+version already guarantees that), archiveRootPrefix only needs
-    // to be non-empty (see the header comment above) — neither value's
-    // exact text matters, so there's nothing to write/get-wrong by hand.
+    // Derived, not written by hand: sourceZipName/folderName only need to
+    // be unique (name+version already guarantees that), archiveRootPrefix
+    // only needs to be non-empty (see the header comment above) — none of
+    // these values' exact text matters, so there's nothing to
+    // write/get-wrong by hand.
     sourceZipName: `${lib.name}-${lib.version}.zip`,
     archiveRootPrefix: lib.name,
+    folderName: `${lib.name}-${lib.version}`,
   }
 }

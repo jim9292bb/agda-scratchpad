@@ -4,20 +4,27 @@
  * placed by hand" into "what the browser runtime actually fetches".
  *
  * Per selected library:
- *   - zips deploy-assets/library/<name>/ (excluding _build/, agdai-manifest.json,
- *     everything/ and dots/ — the dependency-graph working files, see
- *     deploy-assets/README.md — and any leftover Everything.agda) into
- *     static/library/<sourceZipName>, wrapped under a folder named
- *     archiveRootPrefix — this reproduces the shape of a GitHub
- *     tag-archive zip, so the browser's existing client-side unzip
- *     (which strips that wrapper) needs no changes.
- *   - if deploy-assets/library/<name>/_build/ exists, copies it as-is into
- *     static/agdai/<name>/_build/ (already individual .agdai files — no
- *     zip involved at any point for these; they're served flat on demand).
- *   - if deploy-assets/library/<name>/agdai-manifest.json exists, copies it
- *     to static/agdai/<name>/agdai-manifest.json unchanged (it's already
- *     the final shape — see deploy-assets/dot-to-manifest.mjs). If absent,
- *     prefetching for that library is simply disabled at runtime
+ *   - zips deploy-assets/library/<folderName>/ (excluding _build/,
+ *     agdai-manifest.json, everything/ and dots/ — the dependency-graph
+ *     working files, see deploy-assets/README.md — and any leftover
+ *     Everything.agda) into static/library/<sourceZipName>, wrapped under
+ *     a folder named archiveRootPrefix — this reproduces the shape of a
+ *     GitHub tag-archive zip, so the browser's existing client-side unzip
+ *     (which strips that wrapper) needs no changes. `folderName`
+ *     (`<name>-<version>`) is staging-side only — so two different
+ *     versions of the same-named library can be placed side by side — not
+ *     to be confused with the static output below, which is still keyed
+ *     by `name` alone (only one version of a given library is currently
+ *     servable per static/ build; see ROADMAP.md "Curated Multi-Library
+ *     Support").
+ *   - if deploy-assets/library/<folderName>/_build/ exists, copies it as-is
+ *     into static/agdai/<name>/_build/ (already individual .agdai files —
+ *     no zip involved at any point for these; they're served flat on
+ *     demand).
+ *   - if deploy-assets/library/<folderName>/agdai-manifest.json exists,
+ *     copies it to static/agdai/<name>/agdai-manifest.json unchanged (it's
+ *     already the final shape — see deploy-assets/dot-to-manifest.mjs). If
+ *     absent, prefetching for that library is simply disabled at runtime
  *     (src/lib/agda/prefetch.js degrades gracefully per library).
  *
  * Per selected ALS version (each one isolated under its own
@@ -60,7 +67,7 @@ async function main() {
   await mkdir(join(STATIC, 'agdai'), { recursive: true })
 
   for (const lib of getSelectedLibraries()) {
-    const libRoot = join(DEPLOY_ASSETS, 'library', lib.name)
+    const libRoot = join(DEPLOY_ASSETS, 'library', lib.folderName)
 
     console.log(`[${lib.name}] zipping source into static/library/${lib.sourceZipName}...`)
     await zipDirectory(libRoot, join(STATIC, 'library', lib.sourceZipName), {

@@ -18,8 +18,8 @@ agda-categories — plfa, agda-unimath, 1lab.
 
 1. `git clone` this repo.
 2. Place the library and ALS files you need, **raw** (no zips), into
-   `deploy-assets/library/<name>/` and `deploy-assets/als/` — see "What to
-   place" below. `npm run auto-configure` does this step for this
+   `deploy-assets/library/<name>-<version>/` and `deploy-assets/als/` —
+   see "What to place" below. `npm run auto-configure` does this step for this
    project's own shipped defaults (stdlib 2.3, cubical 0.9,
    agda-categories 0.3.0, ALS 2.8.0) — it downloads the same archives a
    self-deployer would, and extracts them into the same raw layout, so
@@ -45,7 +45,10 @@ npm run auto-configure && npm run setup && npm run check && npm run build
 ```
 deploy-assets/
   library/
-    <name>/                          # e.g. stdlib/, cubical/, agda-categories/
+    <name>-<version>/                # e.g. stdlib-2.3/, cubical-0.9/, agda-categories-0.3.0/ —
+                                      #   includes the version so two versions of the same
+                                      #   library can be placed side by side (see ROADMAP.md
+                                      #   "Curated Multi-Library Support")
       <agdaLibFile>                   # at whatever depth the library uses
       src/...                         # wherever includeSubpath points — raw .agda source
       _build/<agdaiCacheVersion>/agda/...   # optional: raw prebuilt .agdai files
@@ -107,8 +110,8 @@ own library/ALS version gets you nothing from it. See
    library-file.
 3. Reference the new entry from a `deploy.config.mjs` profile.
 4. Place the library's raw source (or the ALS's wasm/`agda-data/`) under
-   `deploy-assets/library/<name>/` or `deploy-assets/als/` by hand, then run
-   `npm run setup`.
+   `deploy-assets/library/<name>-<version>/` or `deploy-assets/als/` by
+   hand, then run `npm run setup`.
 5. Regenerate the dependency graph (below) if you want prefetching for it.
 
 Check [ROADMAP.md](../ROADMAP.md) before adding plfa/agda-unimath/1lab — their exact
@@ -118,7 +121,7 @@ hasn't been confirmed yet.
 ### Regenerating the dependency graph
 
 Each library has its own dependency graph
-(`deploy-assets/library/<name>/agdai-manifest.json`, copied to
+(`deploy-assets/library/<name>-<version>/agdai-manifest.json`, copied to
 `static/agdai/<name>/agdai-manifest.json` by `npm run setup`) — never one
 combined file. A session only ever loads the graphs for its active
 profile's libraries, so adding a library later never touches an existing
@@ -136,7 +139,7 @@ needing mutually exclusive options, and no one `{-# OPTIONS #-}` line
 covers both).
 
 1. **Write one or more `Everything.agda`-style files** under
-   `deploy-assets/library/<name>/everything/` — each one `import`s
+   `deploy-assets/library/<name>-<version>/everything/` — each one `import`s
    whichever modules you've grouped together, with whatever
    `{-# OPTIONS #-}` line (if any) that group needs at the top. One file
    covering every module is enough for libraries whose modules don't
@@ -158,33 +161,34 @@ covers both).
 2. **Write the shared library-file** agda needs to resolve `depend:`
    across libraries (e.g. agda-categories on standard-library) — one line
    per *currently-selected* library (`deploy.config.mjs`), each the
-   absolute path to `deploy-assets/library/<name>/<agdaLibFile>` (look up
-   `agdaLibFile` in `libraries.mjs`). Every selected library needs to be
-   listed here even if you're only regenerating one of them.
+   absolute path to `deploy-assets/library/<name>-<version>/<agdaLibFile>`
+   (look up `agdaLibFile` in `libraries.mjs`). Every selected library
+   needs to be listed here even if you're only regenerating one of them.
 
 3. **Run `agda` yourself**, once per file you wrote in step 1:
 
    ```sh
    agda --library-file=<your library-file from step 2> \
-        -i <deploy-assets/library/<name>/ + includeSubpath from libraries.mjs> \
-        -i deploy-assets/library/<name>/everything \
+        -i <deploy-assets/library/<name>-<version>/ + includeSubpath from libraries.mjs> \
+        -i deploy-assets/library/<name>-<version>/everything \
         --only-scope-checking \
-        --dependency-graph=deploy-assets/library/<name>/dots/<whatever>.dot \
-        deploy-assets/library/<name>/everything/<whatever>.agda
+        --dependency-graph=deploy-assets/library/<name>-<version>/dots/<whatever>.dot \
+        deploy-assets/library/<name>-<version>/everything/<whatever>.agda
    ```
 
    The second `-i` is required — confirmed empirically that without it,
    `agda` rejects the entry file with `ModuleNameDoesntMatchFileName`
    (it needs to find your file via some `-i` search path, since
    `everything/` isn't part of the library's own registered include
-   path). Run with your working directory at `deploy-assets/library/<name>/`.
+   path). Run with your working directory at
+   `deploy-assets/library/<name>-<version>/`.
    Requires a **native** `agda` binary on `PATH` (not the WASM build).
    Read its output: `agda` exits non-zero on warnings alone (e.g.
    deprecated modules) even when the `.dot` file it wrote is complete, so
    a non-zero exit by itself isn't proof of a real problem — but a real
    error (confirmed: e.g. a missing required option) means no `.dot` file
    gets written at all. Place the resulting `.dot` file under
-   `deploy-assets/library/<name>/dots/`.
+   `deploy-assets/library/<name>-<version>/dots/`.
 
 4. **Convert the `.dot` file(s) into the manifest:**
 
@@ -192,14 +196,16 @@ covers both).
    node deploy-assets/dot-to-manifest.mjs --library <name>
    ```
 
-   This is pure parsing — no `agda` needed. It merges every `.dot` file
-   under `deploy-assets/library/<name>/dots/`, checks that every module
-   the library actually defines (scanned directly from its source tree,
-   not from your `everything/` files, so it doesn't matter how you
-   grouped them) got a label somewhere across them — erroring out by name
-   if not, rather than silently recording a missing module as having no
-   dependencies — and writes
-   `deploy-assets/library/<name>/agdai-manifest.json` (dependency edges
+   This is pure parsing — no `agda` needed (`<name>` here is the catalog's
+   bare `name`, e.g. `stdlib`, not `<name>-<version>` — the script resolves
+   the rest via `deploy.config.mjs`/`libraries.mjs`). It merges every
+   `.dot` file under `deploy-assets/library/<name>-<version>/dots/`,
+   checks that every module the library actually defines (scanned
+   directly from its source tree, not from your `everything/` files, so
+   it doesn't matter how you grouped them) got a label somewhere across
+   them — erroring out by name if not, rather than silently recording a
+   missing module as having no dependencies — and writes
+   `deploy-assets/library/<name>-<version>/agdai-manifest.json` (dependency edges
    may still name modules from other libraries by name, which is fine:
    the browser loads every active-profile library's manifest together).
    This check only confirms a module got labeled, not that its specific
@@ -248,7 +254,7 @@ library, so a missing one only disables prefetching for that library.
   `static/als/<version>/agda-data.zip`. Runs automatically as part of
   `npm run setup`.
 - **`dot-to-manifest.mjs`** — converts a library's placed `.dot` file(s)
-  (`deploy-assets/library/<name>/dots/`) into its dependency-graph
+  (`deploy-assets/library/<name>-<version>/dots/`) into its dependency-graph
   manifest — see "Regenerating the dependency graph" above. This project
   doesn't generate `.dot` files itself; that's always a manual step.
 - **`auto-configure.mjs`** — fetches and extracts this project's own

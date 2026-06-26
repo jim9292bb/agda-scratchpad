@@ -443,6 +443,45 @@ Done (agda-categories, second library proving the system generalizes):
       types — `fetchWASMAndData()` always fetches and hard-fails on
       failure, matching the wasm fetch's existing behavior, instead of a
       conditional fetch-or-skip.
+- [x] Validate that no two libraries selected together in one
+      `deploy.config.mjs` profile declare the same `libraryName`.
+      `libraryName` is copied verbatim from a library's own `.agda-lib`
+      `name:` field into the VFS's `~/.config/agda/libraries`/`defaults`
+      files — a duplicate would make Agda's `depend:` resolution between
+      the two libraries ambiguous, and nothing caught this ahead of time
+      (`getSelectedLibraries()` only dedupes by this project's own
+      `name`+`version` key, not by `libraryName`).
+      `resolveProfileLibraries()` (`src/lib/runtime/interface.ts`) now
+      throws a clear error naming both conflicting libraries if it finds
+      a duplicate, validated eagerly for every configured profile at
+      module load (matching `agdaVersionMap`'s existing eager-build
+      pattern). Verified by temporarily duplicating agda-categories'
+      `libraryName` to match stdlib's and confirming the error surfaces in
+      the browser console — `npm run build` doesn't catch it (`ssr =
+      false`, so this module only executes client-side), so this is a
+      runtime guard, not a build-time one.
+- [x] Added a `folderName` field (`${name}-${version}`, derived in
+      `findLibrary()` like `sourceZipName`/`archiveRootPrefix`) so two
+      different versions of the same-named library can be placed side by
+      side under `deploy-assets/library/` — e.g. `stdlib-2.3/` and
+      `stdlib-2.2/` for two different `deploy.config.mjs` profiles each
+      pinned to a different stdlib version. Previously every library's
+      staging directory was just `deploy-assets/library/<name>/` (no
+      version), so only one version of a given library could ever be
+      placed at a time — directly blocking the "multiple versions of a
+      given library" goal above. Moved this project's own three libraries'
+      staging directories to the new convention
+      (`stdlib-2.3/`, `cubical-0.9/`, `agda-categories-0.3.0/`) and updated
+      `build-static-assets.mjs`, `print-required-files.mjs`,
+      `dot-to-manifest.mjs`, and `auto-configure.mjs`'s hardcoded defaults
+      accordingly. Scope note: this only fixes the deploy-assets staging
+      side — `static/agdai/<name>/` (build output) and
+      `src/lib/runtime/interface.ts`'s `manifestAsset`/`sourceZipAsset`
+      (runtime fetch paths) are still keyed by bare `name`, so two
+      different versions of the same library still can't both be *served*
+      from one static/ build yet; only one version can be staged-then-built
+      at a time today. Fixing that is separate follow-up work, not done
+      here.
 
 Not yet implemented:
 

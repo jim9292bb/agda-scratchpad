@@ -3,7 +3,7 @@
  * running native `agda --only-scope-checking --dependency-graph` yourself
  * against your own Everything.agda-style file(s) (see
  * deploy-assets/README.md "Regenerating the dependency graph") — into
- * that library's `deploy-assets/library/<name>/agdai-manifest.json`,
+ * that library's `deploy-assets/library/<folderName>/agdai-manifest.json`,
  * used by the browser runtime to prefetch .agdai files in parallel
  * (src/lib/agda/prefetch.js).
  *
@@ -14,12 +14,12 @@
  * all of them), so splitting modules into groups — and writing the right
  * options for each — needs a human who understands the library's
  * structure. You place as many `.agda` "import everything in this group"
- * files as you need under `deploy-assets/library/<name>/everything/`, run
- * `agda --dependency-graph` against each yourself (so you see its real
+ * files as you need under `deploy-assets/library/<folderName>/everything/`,
+ * run `agda --dependency-graph` against each yourself (so you see its real
  * output directly, not a wrapper's guess at whether it succeeded), and
  * place the resulting `.dot` files under
- * `deploy-assets/library/<name>/dots/`. This script only merges whatever
- * `.dot` files it finds there.
+ * `deploy-assets/library/<folderName>/dots/`. This script only merges
+ * whatever `.dot` files it finds there.
  *
  * Each library's manifest only contains modules that library itself
  * defines (`{ graph: { [ownModule]: [deps...] } }` — deps may reference
@@ -111,7 +111,7 @@ async function main() {
     throw new Error(`"${args.library}" is not a currently-selected library — check deploy.config.mjs. Selected: ${names}`)
   }
 
-  const libRoot = join(DEPLOY_ASSETS, 'library', lib.name)
+  const libRoot = join(DEPLOY_ASSETS, 'library', lib.folderName)
   const agdaLibPath = join(libRoot, lib.agdaLibFile)
   const include = parseAgdaLibInclude(await readFile(agdaLibPath, 'utf8'))
   const includeDir = include ? join(libRoot, include) : libRoot

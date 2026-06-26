@@ -101,20 +101,23 @@ async function main() {
   try {
     console.log("Fetching this project's own shipped default assets...")
 
-    // library/<name>/ — stdlib 2.3, cubical 0.9, agda-categories 0.3.0:
-    // source archives (wrapper-stripped), prebuilt .agdai caches (already
-    // laid out as _build/<version>/agda/... inside the zip), and each
-    // library's own dependency graph — maintainer-produced (see
+    // library/<name>-<version>/ — stdlib 2.3, cubical 0.9, agda-categories
+    // 0.3.0: source archives (wrapper-stripped), prebuilt .agdai caches
+    // (already laid out as _build/<version>/agda/... inside the zip), and
+    // each library's own dependency graph — maintainer-produced (see
     // deploy-assets/README.md "Regenerating the dependency graph" +
     // deploy-assets/dot-to-manifest.mjs), uploaded to the same release.
     // Self-deployers who change
     // deploy.config.mjs get nothing here and must produce their own (see
     // deploy-assets/README.md). The manifest fetch is best-effort per
     // library: prefetching is optional, so a missing release asset
-    // shouldn't fail the whole fetch.
-    async function fetchManifest(name) {
+    // shouldn't fail the whole fetch. Release asset names (e.g.
+    // stdlib-manifest.json) are still keyed by bare name, not folderName —
+    // this project's cache-2.8.0 release only ever shipped one version per
+    // library, so there's no folderName-shaped asset to fetch instead.
+    async function fetchManifest(name, folderName) {
       try {
-        await fetchFile(`${RELEASE}/${name}-manifest.json`, join(DEPLOY_ASSETS, 'library', name, 'agdai-manifest.json'))
+        await fetchFile(`${RELEASE}/${name}-manifest.json`, join(DEPLOY_ASSETS, 'library', folderName, 'agdai-manifest.json'))
       } catch (err) {
         console.warn(`  could not fetch ${name}-manifest.json (prefetching will be disabled for ${name}): ${err.message}`)
       }
@@ -122,30 +125,30 @@ async function main() {
 
     await fetchSource(
       'https://github.com/agda/agda-stdlib/archive/refs/tags/v2.3.zip',
-      join(DEPLOY_ASSETS, 'library', 'stdlib'), workDir)
+      join(DEPLOY_ASSETS, 'library', 'stdlib-2.3'), workDir)
     await fetchFlatZip(
       `${RELEASE}/stdlib-agdai.zip`,
-      join(DEPLOY_ASSETS, 'library', 'stdlib'), workDir,
-      join(DEPLOY_ASSETS, 'library', 'stdlib', '_build'))
-    await fetchManifest('stdlib')
+      join(DEPLOY_ASSETS, 'library', 'stdlib-2.3'), workDir,
+      join(DEPLOY_ASSETS, 'library', 'stdlib-2.3', '_build'))
+    await fetchManifest('stdlib', 'stdlib-2.3')
 
     await fetchSource(
       'https://github.com/agda/cubical/archive/refs/tags/v0.9.zip',
-      join(DEPLOY_ASSETS, 'library', 'cubical'), workDir)
+      join(DEPLOY_ASSETS, 'library', 'cubical-0.9'), workDir)
     await fetchFlatZip(
       `${RELEASE}/cubical-agdai.zip`,
-      join(DEPLOY_ASSETS, 'library', 'cubical'), workDir,
-      join(DEPLOY_ASSETS, 'library', 'cubical', '_build'))
-    await fetchManifest('cubical')
+      join(DEPLOY_ASSETS, 'library', 'cubical-0.9'), workDir,
+      join(DEPLOY_ASSETS, 'library', 'cubical-0.9', '_build'))
+    await fetchManifest('cubical', 'cubical-0.9')
 
     await fetchSource(
       'https://github.com/agda/agda-categories/archive/refs/tags/v0.3.0.zip',
-      join(DEPLOY_ASSETS, 'library', 'agda-categories'), workDir)
+      join(DEPLOY_ASSETS, 'library', 'agda-categories-0.3.0'), workDir)
     await fetchFlatZip(
       `${RELEASE}/agda-categories-agdai.zip`,
-      join(DEPLOY_ASSETS, 'library', 'agda-categories'), workDir,
-      join(DEPLOY_ASSETS, 'library', 'agda-categories', '_build'))
-    await fetchManifest('agda-categories')
+      join(DEPLOY_ASSETS, 'library', 'agda-categories-0.3.0'), workDir,
+      join(DEPLOY_ASSETS, 'library', 'agda-categories-0.3.0', '_build'))
+    await fetchManifest('agda-categories', 'agda-categories-0.3.0')
 
     // als/2.8.0/ — ALS 2.8.0 wasm (flat file) and the Agda builtins data
     // directory (already laid out relative to the VFS root inside the

@@ -14,8 +14,8 @@
  * agda-data/ directory, both required for every version.
  *
  * Each library's own dependency graph
- * (deploy-assets/library/<name>/agdai-manifest.json) is always optional —
- * prefetch.js degrades gracefully per library without one.
+ * (deploy-assets/library/<folderName>/agdai-manifest.json) is always
+ * optional — prefetch.js degrades gracefully per library without one.
  *
  * Usage: node deploy-assets/print-required-files.mjs
  */
@@ -39,17 +39,17 @@ async function main() {
   let missing = false
 
   for (const lib of getSelectedLibraries()) {
-    const libRoot = join(DEPLOY_ASSETS, 'library', lib.name)
+    const libRoot = join(DEPLOY_ASSETS, 'library', lib.folderName)
     const agdaLibPath = join(libRoot, lib.agdaLibFile)
     if (!(await exists(agdaLibPath))) {
-      console.error(`MISSING: deploy-assets/library/${lib.name}/${lib.agdaLibFile}`)
+      console.error(`MISSING: deploy-assets/library/${lib.folderName}/${lib.agdaLibFile}`)
       missing = true
     }
     if (lib.agdaiCacheVersion && !(await exists(join(libRoot, '_build')))) {
-      console.log(`(optional, not found) deploy-assets/library/${lib.name}/_build/ — no prebuilt .agdai cache, will type-check from source`)
+      console.log(`(optional, not found) deploy-assets/library/${lib.folderName}/_build/ — no prebuilt .agdai cache, will type-check from source`)
     }
     if (!(await exists(join(libRoot, 'agdai-manifest.json')))) {
-      console.log(`(optional, not found) deploy-assets/library/${lib.name}/agdai-manifest.json — prefetch disabled for this library, .agdai files still load on demand`)
+      console.log(`(optional, not found) deploy-assets/library/${lib.folderName}/agdai-manifest.json — prefetch disabled for this library, .agdai files still load on demand`)
     }
   }
 
@@ -70,7 +70,7 @@ async function main() {
     console.error('')
     console.error('Some required library/ALS files are missing. Either:')
     console.error("  - run 'npm run auto-configure' to fetch this project's own shipped defaults, or")
-    console.error('  - place them by hand in deploy-assets/library/<name>/ or deploy-assets/als/ (see deploy-assets/README.md)')
+    console.error('  - place them by hand in deploy-assets/library/<name>-<version>/ or deploy-assets/als/ (see deploy-assets/README.md)')
     process.exit(1)
   }
 }
