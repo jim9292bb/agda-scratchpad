@@ -79,7 +79,7 @@ function runtimeSummary() {
   const profile = agdaController.activeProfile
   return [
     { label: 'Agda runtime', value: `v${profile.alsVersion}` },
-    ...profile.libraries.map(lib => ({ label: lib.name, value: `v${lib.version}` })),
+    ...profile.libraries.map(lib => ({ label: lib.name ?? lib.folderName, value: lib.version ? `v${lib.version}` : lib.folderName })),
   ]
 }
 
@@ -948,11 +948,12 @@ async function loadAgdaFile() {
   agdaController.editorView?.dispatch({ effects: clearGoals.of() })
 
   const prefetchFn = agdaController.backend?.prefetchAgdai?.bind(agdaController.backend)
-  if (prefetchFn && agdaController.editorView) {
+  if (prefetchFn && agdaController.editorView && agdaController.receivedNumericAgdaVersion) {
     triggerPrefetch(
       agdaController.editorView.state.doc.toString(),
       prefetchFn,
       resolveProfileLibraries(agdaController.activeProfile),
+      agdaController.receivedNumericAgdaVersion,
     )
   }
 

@@ -37,12 +37,13 @@
  * you split modules into groups.
  *
  * Usage:
- *   node deploy-assets/dot-to-manifest.mjs --library <name>
+ *   node deploy-assets/dot-to-manifest.mjs --library <folderName>
  */
 
 import { readFile, writeFile, readdir } from 'node:fs/promises'
 import { join, relative, sep } from 'node:path'
 import { REPO_ROOT, getSelectedLibraries } from './resolve-deploy-config.mjs'
+import { parseAgdaLibInclude } from './agda-lib-utils.mjs'
 
 const DEPLOY_ASSETS = join(REPO_ROOT, 'deploy-assets')
 // Directories under a library's own root that are never part of its own
@@ -58,7 +59,7 @@ function parseArgs(argv) {
     else throw new Error(`unknown argument: ${argv[i]}`)
   }
   if (!args.library) {
-    throw new Error('--library <name> is required — pass the name of exactly one currently-selected library (deploy.config.mjs) to process.')
+    throw new Error('--library <folderName> is required — pass the folderName of exactly one currently-selected library (deploy.config.mjs) to process.')
   }
   return args
 }
@@ -73,12 +74,6 @@ function parseDot(content) {
     if (s && d) edges[s].push(d)
   }
   return edges
-}
-
-function parseAgdaLibInclude(src) {
-  const m = src.match(/^include:\s*(.+)/m)
-  const include = m ? m[1].trim().split(/\s+/)[0] : '.'
-  return include === '.' ? '' : include
 }
 
 async function findAgdaFiles(dir, result = []) {
@@ -105,9 +100,9 @@ function isExcluded(mod) {
 async function main() {
   const args = parseArgs(process.argv.slice(2))
 
-  const lib = getSelectedLibraries().find(l => l.name === args.library)
+  const lib = getSelectedLibraries().find(l => l.folderName === args.library)
   if (!lib) {
-    const names = getSelectedLibraries().map(l => l.name).join(', ') || '(none)'
+    const names = getSelectedLibraries().map(l => l.folderName).join(', ') || '(none)'
     throw new Error(`"${args.library}" is not a currently-selected library — check deploy.config.mjs. Selected: ${names}`)
   }
 
@@ -143,7 +138,7 @@ async function main() {
   // its real output, instead of this script trying to guess for you.
   const missing = ownModules.filter(mod => !isExcluded(mod) && !(mod in edges))
   if (missing.length > 0) {
-    throw new Error(`[${lib.name}] missing ${missing.length} expected module(s) across the .dot files in ${relative(REPO_ROOT, dotsDir)} (e.g. ${missing.slice(0, 3).join(', ')}) — check that every module is covered by one of your everything/ files and that its agda run succeeded.`)
+    throw new Error(`[${lib.folderName}] missing ${missing.length} expected module(s) across the .dot files in ${relative(REPO_ROOT, dotsDir)} (e.g. ${missing.slice(0, 3).join(', ')}) — check that every module is covered by one of your everything/ files and that its agda run succeeded.`)
   }
 
   // Every owned module gets a key, even with an empty deps array — a
@@ -160,7 +155,7 @@ async function main() {
   const json = JSON.stringify({ graph })
   const manifestPath = join(libRoot, 'agdai-manifest.json')
   await writeFile(manifestPath, json)
-  console.log(`[${lib.name}] wrote ${Object.keys(graph).length} modules, ${(json.length / 1024).toFixed(0)} KB to ${relative(REPO_ROOT, manifestPath)}`)
+  console.log(`[${lib.folderName}] wrote ${Object.keys(graph).length} modules, ${(json.length / 1024).toFixed(0)} KB to ${relative(REPO_ROOT, manifestPath)}`)
   console.log('Run `npm run setup` to copy it into static/.')
 }
 

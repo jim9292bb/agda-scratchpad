@@ -7,25 +7,23 @@
  *   - zips deploy-assets/library/<folderName>/ (excluding _build/,
  *     agdai-manifest.json, everything/ and dots/ — the dependency-graph
  *     working files, see deploy-assets/README.md — and any leftover
- *     Everything.agda) into static/library/<sourceZipName>, wrapped under
- *     a folder named archiveRootPrefix — this reproduces the shape of a
- *     GitHub tag-archive zip, so the browser's existing client-side unzip
- *     (which strips that wrapper) needs no changes. `folderName`
- *     (`<name>-<version>`) is staging-side only — so two different
- *     versions of the same-named library can be placed side by side — not
- *     to be confused with the static output below, which is still keyed
- *     by `name` alone (only one version of a given library is currently
- *     servable per static/ build; see ROADMAP.md "Curated Multi-Library
- *     Support").
+ *     Everything.agda) into static/library/<folderName>.zip, wrapped under
+ *     a folder named folderName — this reproduces the shape of a GitHub
+ *     tag-archive zip, so the browser's existing client-side unzip (which
+ *     strips that wrapper) needs no changes.
  *   - if deploy-assets/library/<folderName>/_build/ exists, copies it as-is
- *     into static/agdai/<name>/_build/ (already individual .agdai files —
- *     no zip involved at any point for these; they're served flat on
- *     demand).
+ *     into static/agdai/<folderName>/_build/ (already individual .agdai
+ *     files — no zip involved at any point for these; they're served flat
+ *     on demand).
  *   - if deploy-assets/library/<folderName>/agdai-manifest.json exists,
- *     copies it to static/agdai/<name>/agdai-manifest.json unchanged (it's
- *     already the final shape — see deploy-assets/dot-to-manifest.mjs). If
- *     absent, prefetching for that library is simply disabled at runtime
- *     (src/lib/agda/prefetch.js degrades gracefully per library).
+ *     copies it to static/agdai/<folderName>/agdai-manifest.json unchanged
+ *     (it's already the final shape — see deploy-assets/dot-to-manifest.mjs).
+ *     If absent, prefetching for that library is simply disabled at
+ *     runtime (src/lib/agda/prefetch.js degrades gracefully per library).
+ *     Everything below is keyed by folderName end to end (staging,
+ *     static output, and the browser's runtime fetch paths in
+ *     src/lib/runtime/interface.ts), so two different versions of the
+ *     same-named library can be staged, built, and served side by side.
  *
  * Per selected ALS version (each one isolated under its own
  * deploy-assets/als/<version>/ and static/als/<version>/ — see
@@ -69,7 +67,7 @@ async function main() {
   for (const lib of getSelectedLibraries()) {
     const libRoot = join(DEPLOY_ASSETS, 'library', lib.folderName)
 
-    console.log(`[${lib.name}] zipping source into static/library/${lib.sourceZipName}...`)
+    console.log(`[${lib.folderName}] zipping source into static/library/${lib.sourceZipName}...`)
     await zipDirectory(libRoot, join(STATIC, 'library', lib.sourceZipName), {
       prefix: lib.archiveRootPrefix,
       exclude: ['_build', 'Everything.agda', 'agdai-manifest.json', 'everything', 'dots'],
@@ -77,17 +75,17 @@ async function main() {
 
     const buildDir = join(libRoot, '_build')
     if (await exists(buildDir)) {
-      console.log(`[${lib.name}] copying prebuilt .agdai cache into static/agdai/${lib.name}/_build/...`)
-      await cp(buildDir, join(STATIC, 'agdai', lib.name, '_build'), { recursive: true })
+      console.log(`[${lib.folderName}] copying prebuilt .agdai cache into static/agdai/${lib.folderName}/_build/...`)
+      await cp(buildDir, join(STATIC, 'agdai', lib.folderName, '_build'), { recursive: true })
     }
 
     const manifestSrc = join(libRoot, 'agdai-manifest.json')
     if (await exists(manifestSrc)) {
-      console.log(`[${lib.name}] copying agdai-manifest.json...`)
-      await mkdir(join(STATIC, 'agdai', lib.name), { recursive: true })
-      await cp(manifestSrc, join(STATIC, 'agdai', lib.name, 'agdai-manifest.json'))
+      console.log(`[${lib.folderName}] copying agdai-manifest.json...`)
+      await mkdir(join(STATIC, 'agdai', lib.folderName), { recursive: true })
+      await cp(manifestSrc, join(STATIC, 'agdai', lib.folderName, 'agdai-manifest.json'))
     } else {
-      console.log(`[${lib.name}] no agdai-manifest.json — prefetching disabled for this library (.agdai files still load on demand).`)
+      console.log(`[${lib.folderName}] no agdai-manifest.json — prefetching disabled for this library (.agdai files still load on demand).`)
     }
   }
 

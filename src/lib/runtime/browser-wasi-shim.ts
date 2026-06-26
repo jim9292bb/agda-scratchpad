@@ -170,6 +170,9 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
     await trace.measure('Read ALS version', () =>
       this._workerInitData!.getALSVersion().then(ver => callbacks.onVersionReceived(ver)))
 
+    await trace.measure('Read Agda numeric version', () =>
+      this._workerInitData!.getNumericAgdaVersion().then(ver => callbacks.onNumericAgdaVersionReceived(ver)))
+
     if (this._wasmLoadingProgress.source.type === 'url' &&
         this._wasmLoadingProgress.source.url.startsWith('blob:')) {
       URL.revokeObjectURL(this._wasmLoadingProgress.source.url)
@@ -191,7 +194,7 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
     trace: ReturnType<typeof createPerformanceTrace>,
     trackLib: <T>(p: Promise<T>) => Promise<T>,
   ): Promise<LibraryToLoad> {
-    const zip = await trackLib(trace.measure(`Fetch ${lib.name}@${lib.version} zip`, () =>
+    const zip = await trackLib(trace.measure(`Fetch ${lib.folderName} zip`, () =>
       fetch(lib.sourceZipAsset).then(x => x.arrayBuffer())))
     return {
       folderName: lib.folderName,

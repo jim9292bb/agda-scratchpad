@@ -4,7 +4,7 @@ import type { WASMLoadingProgress, PerformanceEntry, DriveProxyStats } from '$li
 import { asset } from '$app/paths'
 import { DEPLOY_CONFIG } from '../../../deploy.config.mjs'
 import { ALS_CATALOG, AGDA_DATA_ZIP_NAME } from '../../../deploy-assets/als-catalog.mjs'
-import { findLibrary } from '../../../deploy-assets/libraries.mjs'
+import { GENERATED_LIBRARY_INFO } from '../../../deploy-assets/generated-libraries.mjs'
 
 // ── Deployment profiles ───────────────────────────────────────────────────────
 //
@@ -18,48 +18,61 @@ export { DEPLOY_CONFIG }
 export const deployProfiles = DEPLOY_CONFIG.profiles
 export type DeployProfile = (typeof deployProfiles)[number]
 
-/** A library catalog entry resolved with its source zip asset URL (via asset()). */
+/**
+ * A library reference resolved with its asset URLs and the
+ * includeSubpath/libraryName generated from its real `.agda-lib` content
+ * (deploy-assets/generated-libraries.mjs — see
+ * deploy-assets/generate-library-info.mjs).
+ */
 export interface ResolvedLibrary {
-  name: string
-  version: string
-  /** In-memory identifier for the prefetch manifest cache — just `name@version`. */
+  /** Directory name under deploy-assets/library/ — also this library's
+   *  identity for every internal purpose below (cache key, asset paths,
+   *  VFS folder name). */
+  folderName: string
+  /** Cosmetic only (e.g. shown in the UI) — not used to build any path or cache key. */
+  name?: string
+  /** Cosmetic only (e.g. shown in the UI) — not used to build any path or cache key. */
+  version?: string
+  /** In-memory identifier for the prefetch manifest cache — just folderName. */
   libKey: string
   sourceZipAsset: string
   /** This library's own dependency-graph manifest (see deploy-assets/dot-to-manifest.mjs). */
   manifestAsset: string
-  /** folder name to extract this library under in the VFS, e.g. "stdlib" */
-  folderName: string
   archiveRootPrefix: string
   includeSubpath: string
   agdaLibFile: string
   libraryName: string
-  /** Agda interface-format version the prebuilt .agdai cache was built with, if any. */
-  agdaiCacheVersion?: string
 }
 
-/** Resolves a profile's `libraries` references against deploy-assets/libraries.mjs's catalog. */
+/** Resolves a profile's `libraries` references against deploy-assets/generated-libraries.mjs. */
 export function resolveProfileLibraries(profile: DeployProfile): ResolvedLibrary[] {
-  const resolved = profile.libraries.map(({ name, version }) => {
-    let entry
-    try {
-      entry = findLibrary(name, version)
-    } catch {
-      throw new Error(`deploy.config.mjs profile "${profile.id}" references ${name}@${version} with no matching deploy-assets/libraries.mjs entry`)
+  const seenRaw = new Map<string, DeployProfile['libraries'][number]>()
+  const resolved: ResolvedLibrary[] = []
+  for (const lib of profile.libraries) {
+    const prevRaw = seenRaw.get(lib.folderName)
+    if (prevRaw && JSON.stringify(prevRaw) !== JSON.stringify(lib)) {
+      throw new Error(`deploy.config.mjs profile "${profile.id}" references folderName "${lib.folderName}" with two different specs (${JSON.stringify(prevRaw)} vs ${JSON.stringify(lib)}) — every reference to the same folderName must describe the same library.`)
     }
-    return {
-      name: entry.name,
-      version: entry.version,
-      libKey: `${entry.name}@${entry.version}`,
-      sourceZipAsset: asset(`/library/${entry.sourceZipName}`),
-      manifestAsset: asset(`/agdai/${entry.name}/agdai-manifest.json`),
-      folderName: entry.name,
-      archiveRootPrefix: entry.archiveRootPrefix,
-      includeSubpath: entry.includeSubpath,
-      agdaLibFile: entry.agdaLibFile,
-      libraryName: entry.libraryName,
-      agdaiCacheVersion: entry.agdaiCacheVersion,
+    if (prevRaw) continue
+    seenRaw.set(lib.folderName, lib)
+
+    const info = GENERATED_LIBRARY_INFO[lib.folderName as keyof typeof GENERATED_LIBRARY_INFO]
+    if (!info) {
+      throw new Error(`deploy.config.mjs profile "${profile.id}" references folderName "${lib.folderName}" with no matching entry in deploy-assets/generated-libraries.mjs — run \`npm run setup\` after placing deploy-assets/library/${lib.folderName}/.`)
     }
-  })
+    resolved.push({
+      folderName: lib.folderName,
+      name: lib.name,
+      version: lib.version,
+      libKey: lib.folderName,
+      sourceZipAsset: asset(`/library/${lib.folderName}.zip`),
+      manifestAsset: asset(`/agdai/${lib.folderName}/agdai-manifest.json`),
+      archiveRootPrefix: lib.folderName,
+      includeSubpath: info.includeSubpath,
+      agdaLibFile: lib.agdaLibFile,
+      libraryName: info.libraryName,
+    })
+  }
 
   // Every resolved library gets registered with Agda together (see
   // src/lib/worker/als-wasi-shim.ts's libraries/defaults config files);
@@ -143,6 +156,10 @@ export interface BackendCallbacks {
   onWASMLoadingProgressChange(progress: WASMLoadingProgress | null): void
   onWASMLoaded(): void
   onVersionReceived(version: string): void
+  /** Bare numeric Agda version (`agda --numeric-version`, e.g. "2.8.0") — used
+   *  to build the prefetch .agdai cache path (replaces the old hand-maintained
+   *  agdaiCacheVersion catalog field; see src/lib/agda/prefetch.js). */
+  onNumericAgdaVersionReceived(version: string): void
   onLibraryFetchProgress(fetched: number, total: number): void
   onDriveCreated(): void
   onPerformanceEntries(entries: PerformanceEntry[]): void

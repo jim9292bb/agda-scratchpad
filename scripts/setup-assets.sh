@@ -17,6 +17,9 @@ DEPLOY_ASSETS="$SCRIPT_DIR/../deploy-assets"
 echo "Verifying required assets are present..."
 node "$DEPLOY_ASSETS/print-required-files.mjs"
 
+echo "Generating deploy-assets/generated-libraries.mjs from placed .agda-lib files..."
+node "$DEPLOY_ASSETS/generate-library-info.mjs"
+
 echo "Building static/ from deploy-assets/{library,als}/..."
 node "$DEPLOY_ASSETS/build-static-assets.mjs"
 

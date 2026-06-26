@@ -51,6 +51,7 @@ export interface WASISpawnOptions extends Partial<_WASISpawnOptions> {}
 
 export interface ALSWorkerInitResultProxied {
   getALSVersion: () => Promise<string>
+  getNumericAgdaVersion: () => Promise<string>
   start: () => Promise<number>
   spawn: (args: string[], options?: WASISpawnOptions) =>
     Promise<{exitCode: number, stdout: string, stderr: string}>

@@ -6,7 +6,8 @@
     "deploy-assets/build-static-assets.mjs",
     "deploy-assets/dot-to-manifest.mjs",
     "deploy-assets/auto-configure.mjs",
-    "deploy-assets/print-required-files.mjs"
+    "deploy-assets/print-required-files.mjs",
+    "deploy-assets/generate-library-info.mjs"
   ],
   "ignore": [
     "experiments/**"

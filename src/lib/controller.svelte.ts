@@ -98,6 +98,9 @@ export class AgdaController {
   wasmLoadingProgress = $state<WASMLoadingProgress | null>(null)
   wasmLibraryFetchProgress = $state<{ fetched: number; total: number } | null>(null)
   receivedALSVersion = $state<string | undefined>()
+  /** Bare numeric Agda version (`agda --numeric-version`) — used by triggerPrefetch
+   *  to locate the matching prebuilt .agdai cache, if any (see prefetch.js). */
+  receivedNumericAgdaVersion = $state<string | undefined>()
   driveIsCreated = $state(false)
   currentFilePath = $state('/source.agda')
   iotcmStatus = $state<AgdaIOTCMStatus>('init')
@@ -219,6 +222,7 @@ export class AgdaController {
         onWASMLoadingProgressChange: (p) => { this.wasmLoadingProgress = p },
         onWASMLoaded: () => { this.alsWorkerStatus = 'loaded' },
         onVersionReceived: (ver) => { this.receivedALSVersion = ver },
+        onNumericAgdaVersionReceived: (ver) => { this.receivedNumericAgdaVersion = ver },
         onLibraryFetchProgress: (fetched, total) => { this.wasmLibraryFetchProgress = { fetched, total } },
         onDriveCreated: () => { this.driveIsCreated = true },
         onPerformanceEntries: (entries) => { this.appendPerformanceEntries(entries) },

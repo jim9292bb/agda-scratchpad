@@ -6,8 +6,9 @@
  *
  * Per library: its .agda-lib file (required — confirms the library's
  * source was placed at all) and its _build/ prebuilt .agdai cache
- * (optional, like agdaiCacheVersion itself — without it the library still
- * works, just without prefetching/caching).
+ * (optional — without it the library still works, just without
+ * prefetching/caching; which version it was built for is detected live
+ * at runtime via `agda --numeric-version`, not declared here).
  *
  * Per ALS version (each isolated under deploy-assets/als/<version>/ — see
  * deploy-assets/als-catalog.mjs for why): its wasm file and its
@@ -45,7 +46,7 @@ async function main() {
       console.error(`MISSING: deploy-assets/library/${lib.folderName}/${lib.agdaLibFile}`)
       missing = true
     }
-    if (lib.agdaiCacheVersion && !(await exists(join(libRoot, '_build')))) {
+    if (!(await exists(join(libRoot, '_build')))) {
       console.log(`(optional, not found) deploy-assets/library/${lib.folderName}/_build/ — no prebuilt .agdai cache, will type-check from source`)
     }
     if (!(await exists(join(libRoot, 'agdai-manifest.json')))) {
@@ -70,7 +71,7 @@ async function main() {
     console.error('')
     console.error('Some required library/ALS files are missing. Either:')
     console.error("  - run 'npm run auto-configure' to fetch this project's own shipped defaults, or")
-    console.error('  - place them by hand in deploy-assets/library/<name>-<version>/ or deploy-assets/als/ (see deploy-assets/README.md)')
+    console.error('  - place them by hand in deploy-assets/library/<folderName>/ or deploy-assets/als/ (see deploy-assets/README.md)')
     process.exit(1)
   }
 }

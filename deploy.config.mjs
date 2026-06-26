@@ -16,8 +16,21 @@
  *
  *   - id, label: identify the profile in the profile selector / local storage.
  *   - alsVersion: must have a matching entry in deploy-assets/als-catalog.mjs.
- *   - libraries: name+version pairs, each must have a matching entry in
- *     deploy-assets/libraries.mjs.
+ *   - libraries: this *is* the library catalog now — there's no separate
+ *     deploy-assets/libraries.mjs to cross-reference.
+ *       - folderName (required): the directory name under
+ *         deploy-assets/library/ — also this library's identity for every
+ *         internal purpose (cache keys, asset paths, VFS folder name). Must
+ *         be unique; if the same folderName is referenced from more than one
+ *         profile, every reference must agree on agdaLibFile/name/version
+ *         (it's the same library, not a second one).
+ *       - agdaLibFile (required): the `.agda-lib` filename at that
+ *         library's root. `npm run setup` reads this file directly to learn
+ *         its `include:`/`name:` (written to deploy-assets/generated-libraries.mjs
+ *         — see deploy-assets/generate-library-info.mjs) — neither is
+ *         hand-maintained here, so they can't drift from the real file.
+ *       - name, version (optional): cosmetic only (e.g. shown in the UI) —
+ *         nothing reads these to build a path or a cache key.
  *
  * You are responsible for verifying that the libraries within one profile
  * are actually compatible with each other (same underlying type theory —
@@ -36,8 +49,8 @@ export const DEPLOY_CONFIG = {
       label: 'Standard Library v2.3 + Cubical v0.9 (ALS 2.8.0)',
       alsVersion: '2.8.0',
       libraries: [
-        { name: 'stdlib', version: '2.3' },
-        { name: 'cubical', version: '0.9' },
+        { folderName: 'stdlib-2.3', agdaLibFile: 'standard-library.agda-lib', name: 'stdlib', version: '2.3' },
+        { folderName: 'cubical-0.9', agdaLibFile: 'cubical.agda-lib', name: 'cubical', version: '0.9' },
       ],
     },
     {
@@ -45,8 +58,8 @@ export const DEPLOY_CONFIG = {
       label: 'Standard Library v2.3 + agda-categories v0.3.0 (ALS 2.8.0)',
       alsVersion: '2.8.0',
       libraries: [
-        { name: 'stdlib', version: '2.3' },
-        { name: 'agda-categories', version: '0.3.0' },
+        { folderName: 'stdlib-2.3', agdaLibFile: 'standard-library.agda-lib', name: 'stdlib', version: '2.3' },
+        { folderName: 'agda-categories-0.3.0', agdaLibFile: 'agda-categories.agda-lib', name: 'agda-categories', version: '0.3.0' },
       ],
     },
   ],

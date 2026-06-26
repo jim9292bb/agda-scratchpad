@@ -393,6 +393,7 @@ async function init({
   }
 
   let cachedVersion: string | null = null
+  let cachedNumericVersion: string | null = null
 
   return Comlink.proxy({
     getALSVersion: async () => {
@@ -402,6 +403,19 @@ async function init({
       wasiInst.start(versionInstance)
       cachedVersion = captured.join('').trim()
       return cachedVersion
+    },
+
+    /** Bare numeric version (e.g. "2.8.0") — used to locate the matching
+     *  static/agdai/<folderName>/_build/<this>/ prebuilt .agdai cache, if
+     *  any (see src/lib/agda/prefetch.js). Distinct from getALSVersion()'s
+     *  `--version` output, which includes extra text. */
+    getNumericAgdaVersion: async () => {
+      if (cachedNumericVersion) return cachedNumericVersion
+      const { wasiInst, captured } = makeSpawnWasi(root, ['--numeric-version'])
+      const versionInstance = new WebAssembly.Instance(module, { wasi_snapshot_preview1: wasiInst.wasiImport })
+      wasiInst.start(versionInstance)
+      cachedNumericVersion = captured.join('').trim()
+      return cachedNumericVersion
     },
 
     start: async (): Promise<number> => {

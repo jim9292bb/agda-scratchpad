@@ -44,12 +44,14 @@ function collectDeps(mod, graph, visited = new Set()) {
 /**
  * @param {string} mod  e.g. "Data.Nat.Base"
  * @param {import('$lib/runtime/interface').ResolvedLibrary} lib
+ * @param {string} agdaVersion  bare numeric version, e.g. "2.8.0" (agda --numeric-version) —
+ *   replaces the old hand-maintained agdaiCacheVersion catalog field: querying the
+ *   currently-running Agda live means this can never name the wrong _build/ subdirectory.
  */
-function modToAgdaiPath(mod, lib) {
-  if (!lib.agdaiCacheVersion) return null
+function modToAgdaiPath(mod, lib, agdaVersion) {
   const rel = mod.replaceAll('.', '/')
   const sub = lib.includeSubpath ? `${lib.includeSubpath}/` : ''
-  return `${lib.folderName}/_build/${lib.agdaiCacheVersion}/agda/${sub}${rel}.agdai`
+  return `${lib.folderName}/_build/${agdaVersion}/agda/${sub}${rel}.agdai`
 }
 
 /**
@@ -73,8 +75,9 @@ function parseTopLevelImports(src) {
  *   - the currently-active profile's resolved libraries; every one of
  *     their manifests is loaded so cross-library dependency edges (e.g.
  *     agda-categories importing stdlib modules) resolve correctly.
+ * @param {string} agdaVersion  - bare numeric Agda version (agda --numeric-version)
  */
-export async function triggerPrefetch(src, prefetchFn, activeLibraries) {
+export async function triggerPrefetch(src, prefetchFn, activeLibraries, agdaVersion) {
   const libByKey = new Map(activeLibraries.map(lib => [lib.libKey, lib]))
 
   /** @type {Record<string, string[]>} */
@@ -99,8 +102,7 @@ export async function triggerPrefetch(src, prefetchFn, activeLibraries) {
   for (const mod of allDeps) {
     const lib = libByKey.get(libOf[mod])
     if (!lib) continue
-    const path = modToAgdaiPath(mod, lib)
-    if (path) paths.push(path)
+    paths.push(modToAgdaiPath(mod, lib, agdaVersion))
   }
 
   if (paths.length > 0) {
