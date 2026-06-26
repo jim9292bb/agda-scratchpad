@@ -6,8 +6,8 @@
  * directory), automated for this project's own shipped defaults
  * specifically (stdlib 2.3, cubical 0.9, agda-categories 0.3.0, ALS 2.8.0).
  *
- * This is NOT a generic, deploy.config.mjs-driven downloader — it doesn't
- * read the catalogs or deploy.config.mjs at all. If you add a library/ALS
+ * This is NOT a generic, deploy.config.json-driven downloader — it doesn't
+ * read the catalogs or deploy.config.json at all. If you add a library/ALS
  * version of your own, this script knows nothing about it; place that
  * file/directory in deploy-assets/library/<name>/ or deploy-assets/als/ by
  * hand instead. See deploy-assets/README.md.
@@ -108,7 +108,7 @@ async function main() {
     // deploy-assets/README.md "Regenerating the dependency graph" +
     // deploy-assets/dot-to-manifest.mjs), uploaded to the same release.
     // Self-deployers who change
-    // deploy.config.mjs get nothing here and must produce their own (see
+    // deploy.config.json get nothing here and must produce their own (see
     // deploy-assets/README.md). The manifest fetch is best-effort per
     // library: prefetching is optional, so a missing release asset
     // shouldn't fail the whole fetch. Release asset names (e.g.

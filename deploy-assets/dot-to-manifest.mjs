@@ -59,7 +59,7 @@ function parseArgs(argv) {
     else throw new Error(`unknown argument: ${argv[i]}`)
   }
   if (!args.library) {
-    throw new Error('--library <folderName> is required — pass the folderName of exactly one currently-selected library (deploy.config.mjs) to process.')
+    throw new Error('--library <folderName> is required — pass the folderName of exactly one currently-selected library (deploy.config.json) to process.')
   }
   return args
 }
@@ -103,7 +103,7 @@ async function main() {
   const lib = getSelectedLibraries().find(l => l.folderName === args.library)
   if (!lib) {
     const names = getSelectedLibraries().map(l => l.folderName).join(', ') || '(none)'
-    throw new Error(`"${args.library}" is not a currently-selected library — check deploy.config.mjs. Selected: ${names}`)
+    throw new Error(`"${args.library}" is not a currently-selected library — check deploy.config.json. Selected: ${names}`)
   }
 
   const libRoot = join(DEPLOY_ASSETS, 'library', lib.folderName)

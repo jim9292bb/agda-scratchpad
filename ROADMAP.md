@@ -113,8 +113,9 @@ users are choosing from a menu, not supplying an arbitrary external server.
 No new trust boundary, no hash pinning, no warning dialogs needed.
 
 Self-deployers configure which Agda environment combinations their
-deployment offers via `deploy.config.mjs` (repo root) — see that file's
-comments for the schema. The schema is a flat list of `profiles`; each
+deployment offers via `deploy.config.json` (repo root, plain JSON — see
+deploy-assets/README.md "`deploy.config.json` schema" for the field
+docs). The schema is a flat list of `profiles`; each
 profile is a complete, ready-to-use combination (one ALS version + a
 compatible library set), not a separate "pick an ALS version" + "pick a
 library set" pair of independent choices — every option is valid by
@@ -517,12 +518,43 @@ Done (agda-categories, second library proving the system generalizes):
       `_build/<version>/` path is now built from whatever Agda version is
       *actually* running, never a hand-typed guess that could drift from
       reality.
+- [x] Converted `deploy.config.mjs` to plain JSON (`deploy.config.json`).
+      With `libraries` entries down to 4 flat string fields (after the
+      `libraries.mjs` deletion above), the in-file comments were the only
+      remaining reason to keep this a `.mjs` module instead of pure data —
+      moved them to `deploy-assets/README.md`'s new "`deploy.config.json`
+      schema" section instead. `deploy-assets/resolve-deploy-config.mjs`
+      (Node) imports it via `with { type: 'json' }` (stable in Node 22);
+      `src/lib/runtime/interface.ts` (Vite/browser) imports it as a plain
+      default import, relying on `tsconfig.base.json`'s existing
+      `resolveJsonModule` + `moduleResolution: "bundler"`. Had to update
+      `tsconfigs/tsconfig.app.json`'s hardcoded include entry (pointed at
+      the now-deleted `.mjs` path). Considered keeping it a trimmed-down
+      `.mjs` with one-line inline reminders instead (the constraints —
+      `folderName` uniqueness, `name`/`version` being purely cosmetic —
+      are the kind of thing a deployer benefits from seeing at the moment
+      they're editing, not just in a separate doc they'd have to already
+      know to check) — decided the full JSON conversion was worth it
+      anyway, with a config-validation pre-flight step (run before `npm
+      run setup`, catching mistakes deterministically rather than relying
+      on a deployer having read the right comment) as explicit deferred
+      follow-up work instead of inline comments. That validation step
+      itself is not yet implemented — see "Not yet implemented" below.
 
 Not yet implemented:
 
-- [ ] Add specs for plfa, agda-unimath, 1lab to `deploy.config.mjs`
+- [ ] Add specs for plfa, agda-unimath, 1lab to `deploy.config.json`
       (confirm each library's actual `.agda-lib` name/include path/required
-      OPTIONS first), and add corresponding profile(s) to `deploy.config.mjs`.
+      OPTIONS first), and add corresponding profile(s) to `deploy.config.json`.
+- [ ] A `deploy.config.json` validation step, run before `npm run setup`
+      (or as part of `print-required-files.mjs`), checking the kinds of
+      mistakes a deployer could otherwise only discover from a thrown
+      error deep in the browser (e.g. `resolveProfileLibraries()`'s
+      folderName/libraryName uniqueness checks in
+      `src/lib/runtime/interface.ts`) — surfacing them up front instead,
+      with a clear message, before any build/zip work happens. Explicit
+      deferred follow-up from converting `deploy.config.mjs` to plain JSON
+      above (no more inline comments to warn a deployer at edit time).
 
 Considered and rejected: having `npm run setup` skip libraries outside some
 "default" profile. The runtime is already lazy where it matters — a browser

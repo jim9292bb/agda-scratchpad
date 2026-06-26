@@ -1,19 +1,24 @@
 /**
- * Resolves deploy.config.mjs — validating it up front so a typo or
+ * Resolves deploy.config.json — validating it up front so a typo or
  * conflicting reference fails fast with a clear error instead of silently
  * building the wrong thing. ALS versions still cross-reference
  * deploy-assets/als-catalog.mjs; libraries no longer cross-reference a
- * separate catalog — deploy.config.mjs's own `libraries` entries (each a
+ * separate catalog — deploy.config.json's own `libraries` entries (each a
  * `{ folderName, agdaLibFile, name?, version? }`) are already everything
  * this project's tooling needs structurally. (`includeSubpath`/
  * `libraryName` are not in that shape — they're generated from the real
  * `.agda-lib` content by deploy-assets/generate-library-info.mjs instead,
  * which only the browser runtime needs; see its own header comment.)
+ *
+ * deploy.config.json is plain JSON, not a `.mjs` module — see
+ * deploy-assets/README.md "Adding a library or ALS version" for the field
+ * docs that used to live as comments in the old `.mjs` version (JSON has
+ * no comment syntax).
  */
 
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { DEPLOY_CONFIG } from '../deploy.config.mjs'
+import DEPLOY_CONFIG from '../deploy.config.json' with { type: 'json' }
 import { findAls } from './als-catalog.mjs'
 
 export { DEPLOY_CONFIG }
@@ -47,7 +52,7 @@ export function getSelectedLibraries() {
     for (const lib of profile.libraries) {
       const prevRaw = seenRaw.get(lib.folderName)
       if (prevRaw && JSON.stringify(prevRaw) !== JSON.stringify(lib)) {
-        throw new Error(`deploy.config.mjs: folderName "${lib.folderName}" is referenced with two different specs (${JSON.stringify(prevRaw)} vs ${JSON.stringify(lib)}) — every reference to the same folderName must describe the same library.`)
+        throw new Error(`deploy.config.json: folderName "${lib.folderName}" is referenced with two different specs (${JSON.stringify(prevRaw)} vs ${JSON.stringify(lib)}) — every reference to the same folderName must describe the same library.`)
       }
       if (!prevRaw) {
         seenRaw.set(lib.folderName, lib)

@@ -4,7 +4,7 @@ export type WASMSource =
 
 /** A library to extract into the WASI shim VFS at startup. See
  *  ResolvedLibrary in src/lib/runtime/interface.ts, which the main thread
- *  resolves a deploy.config.mjs profile's libraries into before fetching
+ *  resolves a deploy.config.json profile's libraries into before fetching
  *  each one's zip and constructing this. */
 export interface LibraryToLoad {
   /** folder to extract this library under in the VFS, e.g. "stdlib" */

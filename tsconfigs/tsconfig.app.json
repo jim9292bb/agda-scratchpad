@@ -26,7 +26,7 @@
     // generated-libraries.mjs doesn't exist until `npm run setup` (or the
     // predev/precheck/prebuild package.json hooks) generate it — gitignored,
     // see deploy-assets/generate-library-info.mjs.
-    "../deploy.config.mjs",
+    "../deploy.config.json",
     "../deploy-assets/als-catalog.mjs",
     "../deploy-assets/generated-libraries.mjs"
   ],

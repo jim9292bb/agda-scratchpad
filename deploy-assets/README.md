@@ -25,13 +25,13 @@ stdlib/cubical/agda-categories — plfa, agda-unimath, 1lab.
    self-deployer would, and extracts them into the same raw layout, so
    there's no separate mechanism, just an automated version of the same
    manual step.
-3. Edit **`../deploy.config.mjs`** (repo root) to select which
+3. Edit **`../deploy.config.json`** (repo root) to select which
    libraries/ALS versions to bundle. There's no separate library catalog to
    cross-reference any more — each profile's `libraries` entry (`{
    folderName, agdaLibFile, name?, version? }`) is everything this
    project's tooling needs structurally (see "Adding a library or ALS
    version" below).
-4. `npm run setup` — verifies everything `deploy.config.mjs` needs is
+4. `npm run setup` — verifies everything `deploy.config.json` needs is
    present, generates `deploy-assets/generated-libraries.mjs` from the
    real `.agda-lib` files you placed, then zips/copies everything into
    `static/` for serving.
@@ -49,7 +49,7 @@ npm run auto-configure && npm run setup && npm run check && npm run build
 ```
 deploy-assets/
   library/
-    <folderName>/                    # whatever you set as folderName in deploy.config.mjs —
+    <folderName>/                    # whatever you set as folderName in deploy.config.json —
                                       #   e.g. stdlib-2.3/, cubical-0.9/, agda-categories-0.3.0/.
                                       #   Naming it <name>-<version> is just a convention, not a
                                       #   requirement — it can be anything; including a version
@@ -99,14 +99,57 @@ below.) There is no "fill in a URL" option anywhere in this project.
 `npm run auto-configure` is the one exception, and it's deliberately
 narrow: a hardcoded script that fetches only the exact files this
 project's own shipped defaults need. It doesn't read `als-catalog.mjs` or
-`deploy.config.mjs` — adding your own library/ALS version gets you
+`deploy.config.json` — adding your own library/ALS version gets you
 nothing from it. See `deploy-assets/auto-configure.mjs`'s own header
 comment.
+
+### `deploy.config.json` schema
+
+`deploy.config.json` (repo root) is plain JSON — no comment syntax, so the
+full field docs live here instead of inline in the file itself. Default
+reproduces this project's own deployment (ALS 2.8.0 with Standard
+Library v2.3 + Cubical v0.9) unchanged.
+
+Schema: a flat list of `profiles`. Each profile is a complete,
+ready-to-use combination — one ALS/Agda version plus the library set that
+goes with it. There is deliberately no separate "pick an ALS version" +
+"pick a library set" pair of independent choices: every option in
+`profiles` is valid by construction, so the UI only needs a single
+profile selector (shown below the ALS status card when more than one
+profile is configured) and can never present an incompatible pairing.
+
+- `id`, `label`: identify the profile in the profile selector / local storage.
+- `alsVersion`: must have a matching entry in `deploy-assets/als-catalog.mjs`.
+- `libraries`: a list of `{ folderName, agdaLibFile, name?, version? }` —
+  this *is* the library catalog now, there's no separate file to
+  cross-reference:
+  - `folderName` (required): the directory name under
+    `deploy-assets/library/` — also this library's identity for every
+    internal purpose (cache keys, asset paths, VFS folder name). Must be
+    unique; if the same `folderName` is referenced from more than one
+    profile, every reference must agree on `agdaLibFile`/`name`/`version`
+    (it's the same library, not a second one).
+  - `agdaLibFile` (required): the `.agda-lib` filename at that library's
+    root. `npm run setup` reads this file directly to learn its
+    `include:`/`name:` (written to `deploy-assets/generated-libraries.mjs`
+    — see "What `npm run setup` generates" below) — neither is
+    hand-maintained here, so they can't drift from the real file.
+  - `name`, `version` (optional): cosmetic only (e.g. shown in the UI) —
+    nothing reads these to build a path or a cache key.
+
+You are responsible for verifying that the libraries within one profile
+are actually compatible with each other (same underlying type theory —
+e.g. don't mix a Cubical library with a non-Cubical one — and no
+conflicting transitive version requirements, e.g. two different stdlib
+versions) and that they work with the chosen `alsVersion`. Nothing here
+checks this automatically. See [ROADMAP.md](../ROADMAP.md) "Curated
+Multi-Library Support" for context and known compatibility concerns
+between candidate libraries (agda-categories, plfa, agda-unimath, 1lab).
 
 ### Adding a library or ALS version
 
 1. Add a `{ folderName, agdaLibFile, name?, version? }` entry directly to
-   a `deploy.config.mjs` profile's `libraries` — there's no separate
+   a `deploy.config.json` profile's `libraries` — there's no separate
    library catalog file to add an entry to first. (For ALS, add an entry
    to `als-catalog.mjs`: `version`, `wasmFilename`. See its own header
    comment for what each field means.) `folderName` and `agdaLibFile` are
@@ -215,9 +258,9 @@ covers both).
 
 2. **Write the shared library-file** agda needs to resolve `depend:`
    across libraries (e.g. agda-categories on standard-library) — one line
-   per *currently-selected* library (`deploy.config.mjs`), each the
+   per *currently-selected* library (`deploy.config.json`), each the
    absolute path to `deploy-assets/library/<folderName>/<agdaLibFile>`
-   (look up `folderName`/`agdaLibFile` in `deploy.config.mjs`). Every
+   (look up `folderName`/`agdaLibFile` in `deploy.config.json`). Every
    selected library needs to be listed here even if you're only
    regenerating one of them.
 
@@ -285,15 +328,15 @@ library, so a missing one only disables prefetching for that library.
 
 - **`als-catalog.mjs`** — every ALS/Agda WASM build this project knows how
   to fetch and run. Pure metadata. (Libraries have no equivalent catalog —
-  `deploy.config.mjs`'s own `libraries` entries are already everything
+  `deploy.config.json`'s own `libraries` entries are already everything
   this project's tooling needs structurally; see "Adding a library or ALS
   version" above.)
-- **`resolve-deploy-config.mjs`** — resolves `deploy.config.mjs`,
+- **`resolve-deploy-config.mjs`** — resolves `deploy.config.json`,
   validating every reference up front (a typo or a folderName referenced
   with two conflicting specs fails fast with a clear error). Exports
   `getSelectedLibraries()` and `getSelectedAlsVersions()` — deduplicated
   across all configured profiles — used by the scripts below instead of
-  reading `deploy.config.mjs`/`als-catalog.mjs` directly.
+  reading `deploy.config.json`/`als-catalog.mjs` directly.
 - **`agda-lib-utils.mjs`** — tiny shared parsers for raw `.agda-lib` file
   content (`include:`/`name:`), no `agda` binary needed. Used by both
   `generate-library-info.mjs` and `dot-to-manifest.mjs`.
@@ -301,7 +344,7 @@ library, so a missing one only disables prefetching for that library.
 ### Scripts
 
 - **`print-required-files.mjs`** — checks `deploy-assets/{library,als}/` for
-  everything the currently-configured `deploy.config.mjs` needs (files and
+  everything the currently-configured `deploy.config.json` needs (files and
   directories), printing `MISSING: ...` lines and exiting non-zero if
   anything required is absent. Run automatically by `npm run setup` before
   it builds `static/`.

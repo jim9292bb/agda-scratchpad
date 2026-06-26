@@ -108,7 +108,7 @@ export class AgdaController {
   queryResults = $state<Array<{ id: number; label: string; content: string }>>([])
   private _nextQueryId = 0
 
-  /** Which deploy.config.mjs profile (ALS version + library set) is currently active.
+  /** Which deploy.config.json profile (ALS version + library set) is currently active.
    *  Switching requires a session restart — see switchProfile(). */
   selectedProfileId = $state<string>(deployProfiles[0]?.id ?? '')
 
@@ -245,7 +245,7 @@ export class AgdaController {
     return this.startALSWASM()
   }
 
-  /** Switches to a different deploy.config.mjs profile (ALS version + library set).
+  /** Switches to a different deploy.config.json profile (ALS version + library set).
    *  Always restarts: a new WASM instance and VFS are needed either way. */
   async switchProfile(profileId: string) {
     if (profileId === this.selectedProfileId) return

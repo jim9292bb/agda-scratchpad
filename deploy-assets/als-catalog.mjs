@@ -1,9 +1,9 @@
 /**
  * Catalog of ALS/Agda WASM builds this project knows how to fetch and run.
- * A deployment's `deploy.config.mjs` picks a subset (`alsVersions`) to bundle.
+ * A deployment's `deploy.config.json` picks a subset (`alsVersions`) to bundle.
  *
  * Library/ALS version compatibility is declared the other way around, on
- * each `librarySet` in `deploy.config.mjs` (`compatibleAlsVersions`), not
+ * each `librarySet` in `deploy.config.json` (`compatibleAlsVersions`), not
  * here — that's the single place deployers configure compatibility.
  *
  * This catalog is pure metadata — it does not say where to download a

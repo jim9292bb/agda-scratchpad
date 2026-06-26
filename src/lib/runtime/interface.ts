@@ -2,17 +2,19 @@ import type { SPSCReader } from 'spsc/reader'
 import type { SPSCWriter } from 'spsc/writer'
 import type { WASMLoadingProgress, PerformanceEntry, DriveProxyStats } from '$lib/worker/types'
 import { asset } from '$app/paths'
-import { DEPLOY_CONFIG } from '../../../deploy.config.mjs'
+import DEPLOY_CONFIG from '../../../deploy.config.json'
 import { ALS_CATALOG, AGDA_DATA_ZIP_NAME } from '../../../deploy-assets/als-catalog.mjs'
 import { GENERATED_LIBRARY_INFO } from '../../../deploy-assets/generated-libraries.mjs'
 
 // ── Deployment profiles ───────────────────────────────────────────────────────
 //
 // Which ALS/library combinations this deployment offers is configured in
-// deploy.config.mjs, not hardcoded here. Each profile is a complete,
+// deploy.config.json, not hardcoded here. Each profile is a complete,
 // ready-to-use combination (one ALS version + a compatible library set);
 // there's no separate "ALS version" + "library set" pair of independent
-// choices to keep in sync.
+// choices to keep in sync. See deploy-assets/README.md "Adding a library
+// or ALS version" for the field docs (deploy.config.json is plain JSON,
+// no comment syntax to carry them inline).
 
 export { DEPLOY_CONFIG }
 export const deployProfiles = DEPLOY_CONFIG.profiles
@@ -51,14 +53,14 @@ export function resolveProfileLibraries(profile: DeployProfile): ResolvedLibrary
   for (const lib of profile.libraries) {
     const prevRaw = seenRaw.get(lib.folderName)
     if (prevRaw && JSON.stringify(prevRaw) !== JSON.stringify(lib)) {
-      throw new Error(`deploy.config.mjs profile "${profile.id}" references folderName "${lib.folderName}" with two different specs (${JSON.stringify(prevRaw)} vs ${JSON.stringify(lib)}) — every reference to the same folderName must describe the same library.`)
+      throw new Error(`deploy.config.json profile "${profile.id}" references folderName "${lib.folderName}" with two different specs (${JSON.stringify(prevRaw)} vs ${JSON.stringify(lib)}) — every reference to the same folderName must describe the same library.`)
     }
     if (prevRaw) continue
     seenRaw.set(lib.folderName, lib)
 
     const info = GENERATED_LIBRARY_INFO[lib.folderName as keyof typeof GENERATED_LIBRARY_INFO]
     if (!info) {
-      throw new Error(`deploy.config.mjs profile "${profile.id}" references folderName "${lib.folderName}" with no matching entry in deploy-assets/generated-libraries.mjs — run \`npm run setup\` after placing deploy-assets/library/${lib.folderName}/.`)
+      throw new Error(`deploy.config.json profile "${profile.id}" references folderName "${lib.folderName}" with no matching entry in deploy-assets/generated-libraries.mjs — run \`npm run setup\` after placing deploy-assets/library/${lib.folderName}/.`)
     }
     resolved.push({
       folderName: lib.folderName,
@@ -82,7 +84,7 @@ export function resolveProfileLibraries(profile: DeployProfile): ResolvedLibrary
   for (const lib of resolved) {
     const prevLibKey = seenBy.get(lib.libraryName)
     if (prevLibKey) {
-      throw new Error(`deploy.config.mjs profile "${profile.id}" selects two libraries with the same libraryName "${lib.libraryName}" (${prevLibKey} and ${lib.libKey}) — Agda's depend: resolution between them would be ambiguous`)
+      throw new Error(`deploy.config.json profile "${profile.id}" selects two libraries with the same libraryName "${lib.libraryName}" (${prevLibKey} and ${lib.libKey}) — Agda's depend: resolution between them would be ambiguous`)
     }
     seenBy.set(lib.libraryName, lib.libKey)
   }
@@ -114,7 +116,7 @@ export const agdaVersionMap: Record<SupportedAgdaVersion, AgdaVersionSpec> = Obj
 for (const version of supportedAgdaVersions) {
   const entry = ALS_CATALOG.find(e => e.version === version)
   if (!entry) {
-    throw new Error(`deploy.config.mjs lists ALS version "${version}" with no matching deploy-assets/als-catalog.mjs entry`)
+    throw new Error(`deploy.config.json lists ALS version "${version}" with no matching deploy-assets/als-catalog.mjs entry`)
   }
   agdaVersionMap[version] = {
     path: asset(`/als/${entry.version}/${entry.wasmFilename}`),

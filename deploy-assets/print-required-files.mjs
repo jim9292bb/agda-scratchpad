@@ -1,6 +1,6 @@
 /**
  * Verifies deploy-assets/{library,als}/ contains everything the currently
- * configured deploy.config.mjs needs, before scripts/setup-assets.sh zips
+ * configured deploy.config.json needs, before scripts/setup-assets.sh zips
  * and copies it into static/. Prints MISSING: lines for anything absent
  * and exits non-zero if anything required is missing.
  *
