@@ -82,7 +82,17 @@ deploy-assets/
                                       #   `--version` to confirm the file inside genuinely is
                                       #   that build, not just correctly named.
       <wasmFilename>                   # a single binary file
-      agda-data/                       # raw extracted Agda builtin data (required)
+      agda-data/                       # raw extracted Agda builtin data (required) — contains
+        Agda/Builtin/*.agda            #   primitive source (.agda) — ships with the Agda
+                                      #   compiler itself, see below for how to get it
+        agda-builtins.agda-lib         #   the .agda-lib for the above (`name: agda-builtins`)
+        _build/<numeric agda version>/agda/Agda/Builtin/*.agdai   # precompiled interface
+                                      #   cache for those same primitives. Safe to share even
+                                      #   without the per-version directory below — already
+                                      #   namespaced by its own version subpath, same as a
+                                      #   library's own _build/ above, so a mismatched ALS
+                                      #   version simply won't find it and recompiles from the
+                                      #   source half instead
 ```
 
 Each ALS version gets its own directory rather than sharing one flat
@@ -93,6 +103,21 @@ syntax/BUILTINs an older compiler doesn't recognize. `agda-data/` is
 required for every ALS version (`npm run setup` refuses to proceed
 without it) — there's no optional "run without prebuilt builtin data"
 mode.
+
+**Getting `agda-data/`:** it's just `lib/prim/` from wherever your
+**native** `agda` binary (matching the ALS version you're placing it
+for) keeps its own bundled data — find it with `agda --print-agda-dir`,
+then it's `<that path>/lib/prim/`. The `_build/<version>/` cache inside
+isn't something you build with a separate command — confirmed
+empirically (by comparing file timestamps): it's generated automatically,
+in place, the first time that `agda` binary type-checks *anything* that
+transitively uses Agda's builtins (which is effectively everything,
+including any of this project's own libraries). If you've already run
+native `agda` once for any reason (e.g. via `experiments/build-library`
+to produce a library's own prebuilt `.agdai` cache), the prim cache is
+already sitting there — just copy the whole `lib/prim/` directory over.
+If not, run `agda` against any trivial file first (even one that just
+declares `module M where`), then copy.
 
 No zips anywhere in `deploy-assets/` — `npm run setup` is what zips a
 library's source tree (and `agda-data/`) into the zips the browser fetches
