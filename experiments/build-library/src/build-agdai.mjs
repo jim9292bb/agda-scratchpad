@@ -9,7 +9,14 @@
  * .agda-lib), so it needs stdlib's source extracted and registered in the
  * shared `libraries` config file even when only building agda-categories.
  *
- * Prerequisites: `agda` 2.8.0 binary in $PATH.
+ * Prerequisites: `agda` 2.8.0 binary in $PATH, and `npm run setup` already
+ * run at least once (this script reads `static/library/<sourceZipName>.zip`
+ * — produced by `npm run setup` — and
+ * deploy-assets/generated-libraries.mjs — produced by `npm run setup` /
+ * deploy-assets/generate-library-info.mjs — for includeSubpath, since
+ * that's no longer a field findLibrary() can hand back directly now that
+ * deploy-assets/libraries.mjs is gone; see ROADMAP.md "Curated
+ * Multi-Library Support").
  *
  * Usage:
  *   node src/build-agdai.mjs                    # stdlib, cubical, agda-categories
@@ -25,16 +32,26 @@ import { join, dirname } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createReadStream } from 'node:fs'
 import JSZip from '../node_modules/jszip/dist/jszip.js'
-import { findLibrary } from '../../../deploy-assets/libraries.mjs'
+import { getSelectedLibraries } from '../../../deploy-assets/resolve-deploy-config.mjs'
+import { GENERATED_LIBRARY_INFO } from '../../../deploy-assets/generated-libraries.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT   = join(__dirname, '..')
 const STATIC = join(__dirname, '../../../static')
 const RESULTS = join(ROOT, 'results')
 
-const STDLIB_ENTRY          = findLibrary('stdlib', '2.3')
-const CUBICAL_ENTRY         = findLibrary('cubical', '0.9')
-const AGDA_CATEGORIES_ENTRY = findLibrary('agda-categories', '0.3.0')
+/** @param {string} folderName */
+function findLibraryEntry(folderName) {
+  const entry = getSelectedLibraries().find(l => l.folderName === folderName)
+  if (!entry) throw new Error(`no currently-selected library with folderName "${folderName}" — check deploy.config.json`)
+  const info = GENERATED_LIBRARY_INFO[folderName]
+  if (!info) throw new Error(`no entry for folderName "${folderName}" in deploy-assets/generated-libraries.mjs — run \`npm run setup\` first`)
+  return { ...entry, includeSubpath: info.includeSubpath }
+}
+
+const STDLIB_ENTRY          = findLibraryEntry('stdlib-2.3')
+const CUBICAL_ENTRY         = findLibraryEntry('cubical-0.9')
+const AGDA_CATEGORIES_ENTRY = findLibraryEntry('agda-categories-0.3.0')
 
 const STDLIB_ZIP          = join(STATIC, 'library', STDLIB_ENTRY.sourceZipName)
 const CUBICAL_ZIP         = join(STATIC, 'library', CUBICAL_ENTRY.sourceZipName)
@@ -185,7 +202,7 @@ async function main() {
       const t1 = performance.now()
       const stdlibCount = await extractZip(STDLIB_ZIP, stdlibDir, stripArchiveRoot(STDLIB_ENTRY))
       console.log(`  ${stdlibCount} files in ${((performance.now() - t1) / 1000).toFixed(1)}s`)
-      registeredLibs.push(join(stdlibDir, 'standard-library.agda-lib'))
+      registeredLibs.push(join(stdlibDir, STDLIB_ENTRY.agdaLibFile))
     }
 
     if (runCubical) {
@@ -193,7 +210,7 @@ async function main() {
       const t2 = performance.now()
       const cubicalCount = await extractZip(CUBICAL_ZIP, cubicalDir, stripArchiveRoot(CUBICAL_ENTRY))
       console.log(`  ${cubicalCount} files in ${((performance.now() - t2) / 1000).toFixed(1)}s`)
-      registeredLibs.push(join(cubicalDir, 'cubical.agda-lib'))
+      registeredLibs.push(join(cubicalDir, CUBICAL_ENTRY.agdaLibFile))
     }
 
     if (runCategories) {
@@ -201,7 +218,7 @@ async function main() {
       const t3 = performance.now()
       const categoriesCount = await extractZip(AGDA_CATEGORIES_ZIP, categoriesDir, stripArchiveRoot(AGDA_CATEGORIES_ENTRY))
       console.log(`  ${categoriesCount} files in ${((performance.now() - t3) / 1000).toFixed(1)}s`)
-      registeredLibs.push(join(categoriesDir, 'agda-categories.agda-lib'))
+      registeredLibs.push(join(categoriesDir, AGDA_CATEGORIES_ENTRY.agdaLibFile))
     }
 
     // Write libraries config file (paths must be absolute for native Agda).
