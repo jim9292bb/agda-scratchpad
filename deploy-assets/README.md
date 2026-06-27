@@ -49,95 +49,100 @@ npm run auto-configure && npm run setup && npm run check && npm run build
 ```
 deploy-assets/
   library/
-    <folderName>/                    # whatever you set as folderName in deploy.config.json —
-                                      #   e.g. stdlib-2.3/, cubical-0.9/, agda-categories-0.3.0/.
-                                      #   Naming it <name>-<version> is just a convention, not a
-                                      #   requirement — it can be anything; including a version
-                                      #   string lets two versions of the same library be placed
-                                      #   side by side (see ROADMAP.md "Curated Multi-Library
-                                      #   Support")
-      <agdaLibFile>                   # at whatever depth the library uses
-      src/...                         # wherever this file's own `include:` points — raw .agda source
-      _build/<numeric agda version>/agda/...   # optional: raw prebuilt .agdai files — the
-                                      #   subdirectory name must exactly match the numeric
-                                      #   Agda version of whatever ALS build will run against
-                                      #   it (parsed live from that build's own `--version`
-                                      #   output, not declared anywhere — see below). To
-                                      #   produce this yourself: `cd` into this library's own
-                                      #   root (where its .agda-lib lives) and run native
-                                      #   `agda --build-library` — writes the _build/ tree
-                                      #   here directly, no separate collection step. If it
-                                      #   `depend:`s on another library (e.g. agda-categories
-                                      #   on standard-library), register that other library
-                                      #   first via `--library-file=` the same way described
-                                      #   under "Regenerating the dependency graph" below;
-                                      #   confirmed empirically that a library with no
-                                      #   `depend:` (e.g. cubical) needs no `--library-file=`
-                                      #   at all
-      agdai-manifest.json             # optional: this library's own dependency graph (see below)
-      everything/                     # optional: only while regenerating the dependency graph —
-        *.agda                        #   your own Everything.agda-style file(s), see below
-      dots/                           # optional: only while regenerating the dependency graph —
-        *.dot                         #   agda's output for each file in everything/, see below
+    <folderName>/                    # see notes below
+      <agdaLibFile>                  # at whatever depth the library uses
+      src/...                        # raw .agda source
+      _build/<numeric agda version>/agda/...   # optional, see notes below
+      agdai-manifest.json            # optional, see notes below
+      everything/                    # optional, see notes below
+        *.agda
+      dots/                          # optional, see notes below
+        *.dot
   als/
-    <version>/                        # e.g. 2.8.0/ — one directory per ALS version. Unlike
-                                      #   library folderName (any name you like), this one
-                                      #   must be byte-for-byte identical to that version's
-                                      #   `alsVersion` in deploy.config.json — it's used
-                                      #   directly as a lookup path (deploy-assets/build-static-assets.mjs,
-                                      #   print-required-files.mjs), not just a label. A
-                                      #   mismatch (e.g. "2.8" here vs "2.8.0" in
-                                      #   deploy.config.json) means `npm run setup` reports
-                                      #   the wasm/agda-data as MISSING even though you placed them.
-                                      #   `npm run setup` also actually runs the wasm with
-                                      #   `--version` to confirm the file inside genuinely is
-                                      #   that build, not just correctly named.
-      <wasmFilename>                   # a single binary file
-      agda-data/                       # raw extracted Agda builtin data (required) — contains
-        Agda/Builtin/*.agda            #   primitive source (.agda) — ships with the Agda
-                                      #   compiler itself, see below for how to get it
-        agda-builtins.agda-lib         #   the .agda-lib for the above (`name: agda-builtins`)
-        _build/<numeric agda version>/agda/Agda/Builtin/*.agdai   # precompiled interface
-                                      #   cache for those same primitives. Safe to share even
-                                      #   without the per-version directory below — already
-                                      #   namespaced by its own version subpath, same as a
-                                      #   library's own _build/ above, so a mismatched ALS
-                                      #   version simply won't find it and recompiles from the
-                                      #   source half instead
+    <version>/                       # see notes below
+      <wasmFilename>                 # a single binary file
+      agda-data/                     # required, see notes below
+        Agda/Builtin/*.agda
+        agda-builtins.agda-lib
+        _build/<numeric agda version>/agda/Agda/Builtin/*.agdai
 ```
-
-Each ALS version gets its own directory rather than sharing one flat
-`als/` — `agda-data/` (the `Agda.Builtin.*` primitive source files that
-ship with a given Agda compiler build) isn't safely interchangeable
-across versions: a newer compiler's primitive sources can use
-syntax/BUILTINs an older compiler doesn't recognize. `agda-data/` is
-required for every ALS version (`npm run setup` refuses to proceed
-without it) — there's no optional "run without prebuilt builtin data"
-mode.
-
-**Getting `agda-data/`:** it's just `lib/prim/` from wherever your
-**native** `agda` binary (matching the ALS version you're placing it
-for) keeps its own bundled data — find it with `agda --print-agda-dir`,
-then it's `<that path>/lib/prim/`. The `_build/<version>/` cache inside
-isn't something you build with a separate command — confirmed
-empirically (by comparing file timestamps): it's generated automatically,
-in place, the first time that `agda` binary type-checks *anything* that
-transitively uses Agda's builtins (which is effectively everything,
-including any of this project's own libraries). If you've already run
-native `agda` once for any reason (e.g. via `experiments/build-library`
-to produce a library's own prebuilt `.agdai` cache), the prim cache is
-already sitting there — just copy the whole `lib/prim/` directory over.
-If not, run `agda` against any trivial file first (even one that just
-declares `module M where`), then copy.
 
 No zips anywhere in `deploy-assets/` — `npm run setup` is what zips a
 library's source tree (and `agda-data/`) into the zips the browser fetches
 at runtime, and copies a `_build/` tree as-is into `static/agdai/<folderName>/`
 (those are served flat, one `.agdai` file per request, never as a zip).
-`everything/` and `dots/` are excluded from the source zip entirely —
-they're working files for regenerating the dependency graph, not
-something the browser ever needs. Both `deploy-assets/library/` and
-`deploy-assets/als/` are gitignored; nothing in them is committed.
+Both `deploy-assets/library/` and `deploy-assets/als/` are gitignored;
+nothing in them is committed.
+
+**`deploy-assets/library/<folderName>/`** — `folderName` is whatever you
+set it to in `deploy.config.json` — e.g. `stdlib-2.3/`, `cubical-0.9/`,
+`agda-categories-0.3.0/`. Naming it `<name>-<version>` is just a
+convention, not a requirement — it can be anything; including a version
+string lets two versions of the same library be placed side by side (see
+ROADMAP.md "Curated Multi-Library Support").
+
+**`deploy-assets/library/<folderName>/_build/<numeric agda version>/agda/...`**
+— optional raw prebuilt `.agdai` files. The subdirectory name must
+exactly match the numeric Agda version of whatever ALS build will run
+against it (parsed live from that build's own `--version` output, not
+declared anywhere). To produce this yourself: `cd` into this library's
+own root (where its `.agda-lib` lives) and run native
+`agda --build-library` — writes the `_build/` tree here directly, no
+separate collection step. If it `depend:`s on another library (e.g.
+agda-categories on standard-library), register that other library first
+via `--library-file=` the same way described under "Regenerating the
+dependency graph" below; confirmed empirically that a library with no
+`depend:` (e.g. cubical) needs no `--library-file=` at all.
+
+**`deploy-assets/library/<folderName>/agdai-manifest.json`** — optional,
+this library's own dependency graph; see "Regenerating the dependency
+graph" below.
+
+**`deploy-assets/library/<folderName>/everything/`,
+`deploy-assets/library/<folderName>/dots/`** — optional, only while
+regenerating the dependency graph: your own `Everything.agda`-style
+file(s), and `agda`'s `.dot` output for each one, respectively (see
+below). Excluded from the source zip entirely — working files, not
+something the browser ever needs.
+
+**`deploy-assets/als/<version>/`** — unlike a library's `folderName` (any
+name you like), this one must be byte-for-byte identical to that
+version's `alsVersion` in `deploy.config.json` — it's used directly as a
+lookup path (`deploy-assets/build-static-assets.mjs`,
+`print-required-files.mjs`), not just a label. A mismatch (e.g. `"2.8"`
+here vs `"2.8.0"` in `deploy.config.json`) means `npm run setup` reports
+the wasm/`agda-data` as `MISSING` even though you placed them. `npm run
+setup` also actually runs the wasm with `--version` to confirm the file
+inside genuinely is that build, not just correctly named. Each version
+gets its own directory rather than sharing one flat `als/` because
+`agda-data/`'s primitive source files (below) aren't safely
+interchangeable across versions: a newer compiler's primitive sources can
+use syntax/BUILTINs an older compiler doesn't recognize.
+
+**`deploy-assets/als/<version>/agda-data/`** — raw extracted Agda builtin
+data, required for every ALS version (`npm run setup` refuses to proceed
+without it) — there's no optional "run without prebuilt builtin data"
+mode. Two halves: `Agda/Builtin/*.agda` is primitive source that ships
+with the Agda compiler itself; `_build/<numeric agda version>/agda/...`
+is a precompiled interface cache for those same primitives, safe to
+share across versions even without the per-version directory above —
+already namespaced by its own version subpath, same as a library's own
+`_build/`, so a mismatched ALS version simply won't find it and
+recompiles from the source half instead.
+
+To get it: it's just `lib/prim/` from wherever your **native** `agda`
+binary (matching the ALS version you're placing it for) keeps its own
+bundled data — find it with `agda --print-agda-dir`, then it's
+`<that path>/lib/prim/`. The `_build/<version>/` cache inside isn't
+something you build with a separate command — confirmed empirically (by
+comparing file timestamps): it's generated automatically, in place, the
+first time that `agda` binary type-checks *anything* that transitively
+uses Agda's builtins (which is effectively everything, including any of
+this project's own libraries). If you've already run native `agda` once
+for any reason (e.g. to produce a library's own prebuilt `.agdai` cache,
+above), the prim cache is already sitting there — just copy the whole
+`lib/prim/` directory over. If not, run `agda` against any trivial file
+first (even one that just declares `module M where`), then copy.
 
 Neither libraries nor ALS versions have a separate catalog file to
 cross-reference any more — every profile's own fields in
