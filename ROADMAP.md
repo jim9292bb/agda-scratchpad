@@ -595,6 +595,28 @@ Done (agda-categories, second library proving the system generalizes):
       scripts, 0 failures) still pass — this whole class of bug was
       invisible to that suite too, since the on-demand fallback masks it
       functionally; only direct network/console inspection caught it.
+- [x] `print-required-files.mjs` now actually runs each placed `als` wasm
+      with `--version` (new `deploy-assets/run-als-version.mjs`, via
+      Node's built-in `node:wasi` — confirmed it needs no special CLI
+      flag to work, just produces a harmless `ExperimentalWarning`) and
+      checks the output names the `alsVersion` it's configured under,
+      printing `MISMATCH: ...` and failing `npm run setup` if not.
+      Motivation: `deploy-assets/als/<version>/`'s directory name was
+      already documented as needing to exactly match `alsVersion` (see
+      bullet above this one and "What to place" in
+      deploy-assets/README.md), but nothing actually checked that the
+      *wasm file itself* placed there really is that build — a
+      deployer could place the wrong wasm in a correctly-named directory
+      and nothing would catch it. Implementation note: Node's WASI
+      writes directly to the real stdout file descriptor, bypassing
+      `process.stdout.write`, so in-process monkey-patching can't capture
+      it (confirmed empirically) — `run-als-version.mjs` is always
+      invoked as a child process instead, whose real stdout the parent
+      pipes normally. Verified by temporarily placing the 2.8.0 wasm
+      under a deliberately-mismatched alsVersion's directory and
+      confirming `print-required-files.mjs` reports the expected
+      `MISMATCH:` and fails — and that it still passes cleanly against
+      the project's own real (correct) data afterward.
 
 - [ ] Add specs for plfa, agda-unimath, 1lab to `deploy.config.json`
       (confirm each library's actual `.agda-lib` name/include path/required

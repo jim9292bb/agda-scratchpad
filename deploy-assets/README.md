@@ -78,6 +78,9 @@ deploy-assets/
                                       #   mismatch (e.g. "2.8" here vs "2.8.0" in
                                       #   deploy.config.json) means `npm run setup` reports
                                       #   the wasm/agda-data as MISSING even though you placed them.
+                                      #   `npm run setup` also actually runs the wasm with
+                                      #   `--version` to confirm the file inside genuinely is
+                                      #   that build, not just correctly named.
       <wasmFilename>                   # a single binary file
       agda-data/                       # raw extracted Agda builtin data (required)
 ```
@@ -365,8 +368,18 @@ above.
 - **`print-required-files.mjs`** — checks `deploy-assets/{library,als}/` for
   everything the currently-configured `deploy.config.json` needs (files and
   directories), printing `MISSING: ...` lines and exiting non-zero if
-  anything required is absent. Run automatically by `npm run setup` before
-  it builds `static/`.
+  anything required is absent. Also actually runs each placed `als` wasm
+  with `--version` (via `run-als-version.mjs`) to confirm it reports
+  itself as the `alsVersion` it's configured under — printing
+  `MISMATCH: ...` if not, since the directory name alone is just a string
+  you typed and doesn't guarantee the wasm file inside is actually that
+  build. Run automatically by `npm run setup` before it builds `static/`.
+- **`run-als-version.mjs`** — runs a given `als` wasm path with `--version`
+  via Node's built-in WASI and prints its stdout verbatim. Always invoked
+  as a child process (by `print-required-files.mjs`), never imported —
+  Node's WASI implementation writes directly to the real stdout file
+  descriptor, bypassing `process.stdout.write`, so only a parent process
+  piping this one's actual stdout can capture it.
 - **`generate-library-info.mjs`** — generates
   `deploy-assets/generated-libraries.mjs` from the real `.agda-lib` files
   in `deploy-assets/library/` — see "What `npm run setup` generates"

@@ -8,11 +8,16 @@
  * source was placed at all) and its _build/ prebuilt .agdai cache
  * (optional — without it the library still works, just without
  * prefetching/caching; which version it was built for is detected live
- * at runtime via `agda --numeric-version`, not declared here).
+ * at runtime by parsing the running ALS's own `--version` output, not
+ * declared here).
  *
  * Per ALS version (each isolated under deploy-assets/als/<version>/ — see
- * deploy-assets/README.md "What to place" for why): its wasm file and its
- * agda-data/ directory, both required for every version.
+ * deploy-assets/README.md "What to place" for why): its wasm file
+ * (required, and actually run with `--version` via Node's own WASI to
+ * confirm it reports itself as the alsVersion you configured it under —
+ * the directory name alone is just a string you typed; this catches the
+ * wasm file itself being the wrong build) and its agda-data/ directory
+ * (required), both for every version.
  *
  * Each library's own dependency graph
  * (deploy-assets/library/<folderName>/agdai-manifest.json) is always
@@ -22,10 +27,12 @@
  */
 
 import { access } from 'node:fs/promises'
+import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import { REPO_ROOT, getSelectedAlsVersions, getSelectedLibraries } from './resolve-deploy-config.mjs'
 
 const DEPLOY_ASSETS = join(REPO_ROOT, 'deploy-assets')
+const RUN_ALS_VERSION_SCRIPT = join(DEPLOY_ASSETS, 'run-als-version.mjs')
 
 async function exists(path) {
   try {
@@ -33,6 +40,23 @@ async function exists(path) {
     return true
   } catch {
     return false
+  }
+}
+
+/**
+ * Runs a placed `als` wasm with `--version` (in a child process — see
+ * run-als-version.mjs's own header comment for why) and returns its
+ * stdout, or null if it couldn't be run at all (corrupt file, wrong
+ * architecture, etc).
+ */
+function tryGetWasmVersionString(wasmPath) {
+  try {
+    return execFileSync(process.execPath, [RUN_ALS_VERSION_SCRIPT, wasmPath], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+  } catch {
+    return null
   }
 }
 
@@ -60,6 +84,12 @@ async function main() {
     if (!(await exists(wasmPath))) {
       console.error(`MISSING: deploy-assets/als/${als.version}/${als.wasmFilename}`)
       missing = true
+    } else {
+      const versionString = tryGetWasmVersionString(wasmPath)
+      if (!versionString || !versionString.includes(`Agda v${als.version}`)) {
+        console.error(`MISMATCH: deploy-assets/als/${als.version}/${als.wasmFilename} reports itself as "${versionString ?? '(could not run it)'}", but deploy.config.json's alsVersion for it is "${als.version}" — these must match. Place the right wasm build under deploy-assets/als/${als.version}/.`)
+        missing = true
+      }
     }
     if (!(await exists(join(alsRoot, 'agda-data')))) {
       console.error(`MISSING: deploy-assets/als/${als.version}/agda-data/`)
