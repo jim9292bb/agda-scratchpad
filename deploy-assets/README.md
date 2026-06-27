@@ -59,16 +59,25 @@ deploy-assets/
       <agdaLibFile>                   # at whatever depth the library uses
       src/...                         # wherever this file's own `include:` points — raw .agda source
       _build/<numeric agda version>/agda/...   # optional: raw prebuilt .agdai files — the
-                                      #   subdirectory name must be the exact `agda
-                                      #   --numeric-version` of whatever ALS build will run
-                                      #   against it (detected live, not declared anywhere)
+                                      #   subdirectory name must exactly match the numeric
+                                      #   Agda version of whatever ALS build will run against
+                                      #   it (parsed live from that build's own `--version`
+                                      #   output, not declared anywhere — see below)
       agdai-manifest.json             # optional: this library's own dependency graph (see below)
       everything/                     # optional: only while regenerating the dependency graph —
         *.agda                        #   your own Everything.agda-style file(s), see below
       dots/                           # optional: only while regenerating the dependency graph —
         *.dot                         #   agda's output for each file in everything/, see below
   als/
-    <version>/                        # e.g. 2.8.0/ — one directory per ALS version
+    <version>/                        # e.g. 2.8.0/ — one directory per ALS version. Unlike
+                                      #   library folderName (any name you like), this one
+                                      #   must be byte-for-byte identical to that version's
+                                      #   `alsVersion` in deploy.config.json — it's used
+                                      #   directly as a lookup path (deploy-assets/build-static-assets.mjs,
+                                      #   print-required-files.mjs), not just a label. A
+                                      #   mismatch (e.g. "2.8" here vs "2.8.0" in
+                                      #   deploy.config.json) means `npm run setup` reports
+                                      #   the wasm/agda-data as MISSING even though you placed them.
       <wasmFilename>                   # a single binary file
       agda-data/                       # raw extracted Agda builtin data (required)
 ```
@@ -211,14 +220,19 @@ reaches `generate-library-info.mjs` after
 
 Each ALS version's own prebuilt `.agdai` cache version is no longer
 declared anywhere either (the old `agdaiCacheVersion` catalog field is
-gone) — `src/lib/agda/prefetch.js` asks the running ALS itself, live, via
-`agda --numeric-version` (`src/lib/worker/als-wasi-shim.ts`'s
-`getNumericAgdaVersion()`), and uses that to build the `_build/<version>/`
-prefetch path. This means a placed `_build/` cache only ever gets used if
-its subdirectory name matches the *actual* running Agda version exactly —
-no possibility of a hand-typed version guess drifting from reality. A
-mismatch (or no `_build/` at all) just means a slower from-source
-recompile instead of a cache hit, never an error.
+gone) — `src/lib/agda/prefetch.js` asks the running ALS itself, live, for
+its numeric Agda version (`src/lib/worker/als-wasi-shim.ts`'s
+`getNumericAgdaVersion()`), and uses that to build the
+`_build/<version>/` prefetch path. (There's no `--numeric-version` flag
+on `als` itself — confirmed empirically, it's not one of the few options
+`als --help` lists, and isn't forwarded to the underlying Agda library
+either; `getNumericAgdaVersion()` parses the version number straight out
+of `als`'s own `--version` output instead, which *is* a real flag.) This
+means a placed `_build/` cache only ever gets used if its subdirectory
+name matches the *actual* running Agda version exactly — no possibility
+of a hand-typed version guess drifting from reality. A mismatch (or no
+`_build/` at all) just means a slower from-source recompile instead of a
+cache hit, never an error.
 
 ### Regenerating the dependency graph
 
