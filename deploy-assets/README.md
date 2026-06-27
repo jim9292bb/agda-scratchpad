@@ -62,7 +62,18 @@ deploy-assets/
                                       #   subdirectory name must exactly match the numeric
                                       #   Agda version of whatever ALS build will run against
                                       #   it (parsed live from that build's own `--version`
-                                      #   output, not declared anywhere — see below)
+                                      #   output, not declared anywhere — see below). To
+                                      #   produce this yourself: `cd` into this library's own
+                                      #   root (where its .agda-lib lives) and run native
+                                      #   `agda --build-library` — writes the _build/ tree
+                                      #   here directly, no separate collection step. If it
+                                      #   `depend:`s on another library (e.g. agda-categories
+                                      #   on standard-library), register that other library
+                                      #   first via `--library-file=` the same way described
+                                      #   under "Regenerating the dependency graph" below;
+                                      #   confirmed empirically that a library with no
+                                      #   `depend:` (e.g. cubical) needs no `--library-file=`
+                                      #   at all
       agdai-manifest.json             # optional: this library's own dependency graph (see below)
       everything/                     # optional: only while regenerating the dependency graph —
         *.agda                        #   your own Everything.agda-style file(s), see below
