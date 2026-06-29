@@ -664,6 +664,61 @@ Done (agda-categories, second library proving the system generalizes):
       required hand-writing it and resolving option conflicts; per-module
       `--dependency-graph` or a greedy covering algorithm both took
       14–17 minutes even parallelized).
+- [x] Added `deploy-assets/build-agdai-cache.mjs`: a fallback for
+      producing a library's `_build/` `.agdai` cache on a native `agda`
+      older than 2.8.0 (no `--build-library`). Drives one
+      `agda --interaction-json` session and sends a `Cmd_load` for each
+      "source vertex" of the dependency graph (a module nothing else in
+      the library imports, read from the already-generated
+      `agdai-manifest.json`) — provably both necessary (nothing else can
+      ever reach a source vertex) and sufficient (the graph is a DAG, so
+      every module is reachable from some source vertex) to cover every
+      module, with everything else cached as a side effect of whichever
+      source vertex imports it. Confirmed empirically real
+      `agda --build-library` was the wrong baseline to beat with a
+      cleverer covering algorithm first: tried prioritizing "source
+      vertices" (no incoming edge) for the unrelated
+      `--dependency-graph`-generation problem earlier in this section and
+      found zero improvement over arbitrary order (91% of stdlib modules
+      qualify, no discriminating power there) — but for *this* problem
+      the same set is the *exact*, provably-optimal minimum covering set,
+      confirmed by computing it from the real graph (333 source vertices
+      for stdlib, closure union covers all 1153 modules) and finding an
+      independently-implemented exact greedy (repeatedly pick the
+      largest-closure uncovered module) converges on the identical 333.
+      Also confirmed empirically: two modules with mutually exclusive
+      `{-# OPTIONS #-}`, loaded via separate `Cmd_load` calls with no
+      combining import edge between them, both load cleanly — sidestepping
+      the `InfectiveImport`/`CoInfectiveImport` problem a hand-written
+      combined `Everything.agda` hits. Real run on stdlib: 333 `Cmd_load`
+      calls, ~480s, all 1153 `.agdai` produced — within noise of
+      `--build-library`'s own ~456s. Separately confirmed *naive*
+      per-file invocation (looping plain `agda <file>.agda`, even at
+      16-way parallelism) is **not** a viable alternative to either of
+      these despite `.agdai` persisting across separate processes:
+      measured ~19.8 minutes total for stdlib from a clean `_build/`,
+      ~2.6x slower than `--build-library`, because `.agdai` writes are
+      not atomic (confirmed in `agda`'s own source,
+      `Agda/TypeChecking/Serialise.hs`'s `encodeFile` is a plain
+      `writeFile`, no temp-file-then-rename) — concurrent processes
+      racing to build the same not-yet-cached shared dependency can read
+      a partially-written file, safely fail to decode it (no crash,
+      `decodeInterface` runs in `MaybeT`), and silently redo the work,
+      and even a *single* separate process loading an already-fully-cached
+      deep dependency chain still pays a real, non-trivial deserialization
+      cost every time (measured ~2.5s to reload a real stdlib chain from
+      cache, regardless of whether anything was actually re-type-checked)
+      since nothing is shared in memory across separate processes the way
+      it is within one `agda --interaction-json` session
+      (`Cmd_load`'s `resetState` preserves `stDecodedModules` but not
+      `stVisitedModules`, confirmed in `Agda/TypeChecking/Monad/Base.hs`).
+      Checked whether this combination of techniques is documented
+      practice elsewhere first: `agda/cubical`'s own `GNUmakefile`
+      confirms the historical (pre-2.8.0) standard approach really was
+      generating an `Everything.agda`-style combined file and running one
+      `agda` invocation on it (switched straight to `--build-library`
+      once it shipped) — no evidence found of the source-vertex/
+      multi-`Cmd_load` combination being prior art anywhere.
 - [ ] Add specs for plfa, agda-unimath, 1lab to `deploy.config.json`
       (confirm each library's actual `.agda-lib` name/include path/required
       OPTIONS first), and add corresponding profile(s) to `deploy.config.json`.

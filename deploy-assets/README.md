@@ -94,6 +94,22 @@ path to `deploy-assets/library/<folderName>/<agdaLibFile>` (look up
 empirically that a library with no `depend:` (e.g. cubical) needs no
 `--library-file=` at all.
 
+If your native `agda` predates 2.8.0 (no `--build-library`), use
+`node deploy-assets/build-agdai-cache.mjs --library <folderName>`
+instead — run `generate-manifest.mjs` for that library first if you
+haven't already, since this reads its `agdai-manifest.json`. It drives
+one `agda --interaction-json` session and sends a `Cmd_load` for each
+"source vertex" of the dependency graph (a module nothing else in the
+library imports — provably both necessary, since nothing else will ever
+reach it, and sufficient, since the graph is a DAG so every module is
+reachable from some source vertex), letting everything else get loaded
+and cached as a side effect. Confirmed empirically on the real stdlib
+(333 source vertices covering all 1153 modules): takes about the same
+time as `--build-library` itself (~480s vs. ~456s) and produces the
+exact same `_build/` tree, with no `Everything.agda`/option-conflict
+problem to work around (each `Cmd_load` is an independent top-level
+module — no combined entry point is ever written).
+
 **`deploy-assets/library/<folderName>/agdai-manifest.json`** — optional,
 this library's own dependency graph; see "Regenerating the dependency
 graph" below.
@@ -396,6 +412,10 @@ above.
   manifest directly from its own placed source tree, via
   `agda --interaction-json`'s `Cmd_tokenHighlighting` — see "Regenerating
   the dependency graph" above.
+- **`build-agdai-cache.mjs`** — fallback for producing a library's
+  `_build/` `.agdai` cache on a native `agda` older than 2.8.0 (no
+  `--build-library`) — see "What to place" above. Reads the
+  `agdai-manifest.json` `generate-manifest.mjs` already produced.
 - **`auto-configure.mjs`** — fetches and extracts this project's own
   shipped default library/ALS files into the raw layout. Hardcoded, not
   catalog-driven — see its own header comment.
