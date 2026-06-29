@@ -54,10 +54,6 @@ deploy-assets/
       src/...                        # raw .agda source
       _build/<numeric agda version>/agda/...   # optional, see notes below
       agdai-manifest.json            # optional, see notes below
-      everything/                    # optional, see notes below
-        *.agda
-      dots/                          # optional, see notes below
-        *.dot
   als/
     <version>/                       # see notes below
       <wasmFilename>                 # a single binary file
@@ -90,20 +86,17 @@ own root (where its `.agda-lib` lives) and run native
 `agda --build-library` — writes the `_build/` tree here directly, no
 separate collection step. If it `depend:`s on another library (e.g.
 agda-categories on standard-library), register that other library first
-via `--library-file=` the same way described under "Regenerating the
-dependency graph" below; confirmed empirically that a library with no
-`depend:` (e.g. cubical) needs no `--library-file=` at all.
+via a library-file: a plain text file with one line per
+*currently-selected* library (`deploy.config.json`), each the absolute
+path to `deploy-assets/library/<folderName>/<agdaLibFile>` (look up
+`folderName`/`agdaLibFile` in `deploy.config.json`), passed to
+`--build-library` as `--library-file=<path to that file>`; confirmed
+empirically that a library with no `depend:` (e.g. cubical) needs no
+`--library-file=` at all.
 
 **`deploy-assets/library/<folderName>/agdai-manifest.json`** — optional,
 this library's own dependency graph; see "Regenerating the dependency
 graph" below.
-
-**`deploy-assets/library/<folderName>/everything/`,
-`deploy-assets/library/<folderName>/dots/`** — optional, only while
-regenerating the dependency graph: your own `Everything.agda`-style
-file(s), and `agda`'s `.dot` output for each one, respectively (see
-below). Excluded from the source zip entirely — working files, not
-something the browser ever needs.
 
 **`deploy-assets/als/<version>/`** — unlike a library's `folderName` (any
 name you like), this one must be byte-for-byte identical to that
@@ -219,9 +212,9 @@ between candidate libraries (agda-categories, plfa, agda-unimath, 1lab).
    exact `name:` declared inside the library's own `.agda-lib`, which is
    what `depend:` actually matches against) is read directly from that
    file by `npm run setup`, not hand-declared anywhere in this project.
-   Regenerating the dependency graph (below) is the one place this isn't
-   automatic — you register the dependency yourself when you write the
-   shared library-file.
+   Regenerating the dependency graph (below) needs no extra step either —
+   `generate-manifest.mjs` extracts each module's own `import` targets by
+   name, whichever library they happen to belong to.
 3. Place the library's raw source (or the ALS's wasm/`agda-data/`) under
    `deploy-assets/library/<folderName>/` or `deploy-assets/als/` by
    hand, then run `npm run setup` (this is also what generates
@@ -289,94 +282,50 @@ one's manifest. These are never auto-fetched for libraries/ALS versions
 you've added or changed — `npm run auto-configure` only ever supplies
 this project's own shipped default graphs.
 
-This project does not generate `Everything.agda` or invoke `agda` for
-you — you do both yourself, so you see `agda`'s real output directly
-(not a wrapper script's guess at whether something went wrong), and so
-you can split a library's modules into more than one file if it needs
-incompatible `{-# OPTIONS #-}` in different parts (confirmed: a single
-combined import file can't always work — some libraries mix modules
-needing mutually exclusive options, and no one `{-# OPTIONS #-}` line
-covers both).
+```sh
+node deploy-assets/generate-manifest.mjs --library <folderName>
+```
 
-1. **Write one or more `Everything.agda`-style files** under
-   `deploy-assets/library/<folderName>/everything/` — each one `import`s
-   whichever modules you've grouped together, with whatever
-   `{-# OPTIONS #-}` line (if any) that group needs at the top. One file
-   covering every module is enough for libraries whose modules don't
-   conflict on options — this project's own three libraries each only
-   need one:
+That's the whole process — no `Everything.agda` to hand-write, no shared
+library-file, no native `--dependency-graph` run. For every file under
+the library's own `.agda-lib` `include:` (any extension `agda` itself
+recognizes — `.agda` and every literate variant), this spawns
+`agda --interaction-json` and asks it for `Cmd_tokenHighlighting`: a
+real Agda interaction command that returns purely lexical token
+highlighting for that one file *without* loading, resolving, or
+type-checking any of its imports (confirmed: it works even when an
+imported module doesn't exist). Every highlighted range that isn't a
+`keyword` — comments (including nested ones), literate prose/code-fence
+markup, symbols, holes, pragma bodies, string/number literals — gets
+replaced with a single space; matching `\bimport\b\s*(\S+)\s` against
+what's left correctly extracts that file's own direct import targets,
+immune to every edge case found while building this (multi-line
+`import`, a comment sitting between `import` and the module name with
+zero surrounding whitespace, semicolon-glued declarations, literate
+prose that happens to contain text shaped like an import statement).
+Requires a **native** `agda` binary on `PATH` (not the WASM build) —
+same prerequisite as before, just no other setup. Runs at
+`os.cpus().length`-way parallelism; regenerating all of stdlib (1153
+files) takes about 10 seconds.
 
-   | library          | `{-# OPTIONS #-}` for its one `everything/` file        |
-   |------------------|-----------------------------------------------------------|
-   | `stdlib`         | `{-# OPTIONS --rewriting --guardedness --sized-types #-}` |
-   | `cubical`        | `{-# OPTIONS --cubical --guardedness #-}`                  |
-   | `agda-categories`| *(none — not every file declares `--without-K`/`--safe`   |
-   |                  | consistently, so giving the file either trips a            |
-   |                  | `CoInfectiveImport` error)*                                 |
+There's no `--no-options`/option-conflict problem to work around either
+(unlike the old `Everything.agda` approach, which had to split
+`agda-categories` across multiple files because no single
+`{-# OPTIONS #-}` line satisfies every one of its modules) — each file
+is scanned on its own, never combined into one synthetic entry point.
 
-   This isn't always the same as the library's own `.agda-lib` `flags:`
-   — confirmed empirically that `.agda-lib` flags don't apply to a
-   hand-written `Everything.agda`.
-
-2. **Write the shared library-file** agda needs to resolve `depend:`
-   across libraries (e.g. agda-categories on standard-library) — one line
-   per *currently-selected* library (`deploy.config.json`), each the
-   absolute path to `deploy-assets/library/<folderName>/<agdaLibFile>`
-   (look up `folderName`/`agdaLibFile` in `deploy.config.json`). Every
-   selected library needs to be listed here even if you're only
-   regenerating one of them.
-
-3. **Run `agda` yourself**, once per file you wrote in step 1:
-
-   ```sh
-   agda --library-file=<your library-file from step 2> \
-        -i <deploy-assets/library/<folderName>/ + that library's own .agda-lib `include:`> \
-        -i deploy-assets/library/<folderName>/everything \
-        --only-scope-checking \
-        --dependency-graph=deploy-assets/library/<folderName>/dots/<whatever>.dot \
-        deploy-assets/library/<folderName>/everything/<whatever>.agda
-   ```
-
-   The second `-i` is required — confirmed empirically that without it,
-   `agda` rejects the entry file with `ModuleNameDoesntMatchFileName`
-   (it needs to find your file via some `-i` search path, since
-   `everything/` isn't part of the library's own registered include
-   path). Run with your working directory at
-   `deploy-assets/library/<folderName>/`.
-   Requires a **native** `agda` binary on `PATH` (not the WASM build).
-   Read its output: `agda` exits non-zero on warnings alone (e.g.
-   deprecated modules) even when the `.dot` file it wrote is complete, so
-   a non-zero exit by itself isn't proof of a real problem — but a real
-   error (confirmed: e.g. a missing required option) means no `.dot` file
-   gets written at all. Place the resulting `.dot` file under
-   `deploy-assets/library/<folderName>/dots/`.
-
-4. **Convert the `.dot` file(s) into the manifest:**
-
-   ```sh
-   node deploy-assets/dot-to-manifest.mjs --library <folderName>
-   ```
-
-   This is pure parsing — no `agda` needed. It merges every
-   `.dot` file under `deploy-assets/library/<folderName>/dots/`,
-   checks that every module the library actually defines (scanned
-   directly from its source tree, not from your `everything/` files, so
-   it doesn't matter how you grouped them) got a label somewhere across
-   them — erroring out by name if not, rather than silently recording a
-   missing module as having no dependencies — and writes
-   `deploy-assets/library/<folderName>/agdai-manifest.json` (dependency edges
-   may still name modules from other libraries by name, which is fine:
-   the browser loads every active-profile library's manifest together).
-   This check only confirms a module got labeled, not that its specific
-   edges are complete — there's no independent way to verify that short
-   of reimplementing Agda's own import resolution, which is the other
-   reason you watch `agda`'s real output yourself in step 3 instead of
-   trusting an automated check alone.
-
-Run `npm run setup` afterward to copy the manifest into `static/`. (If
-the native `agda`'s interface format version doesn't match a placed
-`_build/` cache, step 3 still produces a correct result, just slower —
-full recompile instead of a cache hit.)
+This is strictly more complete than the old `--dependency-graph`-based
+graph, not just simpler: confirmed by reproducing this project's
+previously-shipped manifests exactly — applying standard transitive
+reduction to the new tool's output reproduces the old file edge-for-edge
+for all three of this project's libraries. The old approach was
+silently dropping real direct edges, because `agda --dependency-graph`'s
+Dot backend applies a transitive reduction (for graph-visualization
+purposes) that this project's old pipeline took as the manifest's
+source of truth. `prefetch.js`'s `collectDeps` only does a transitive-
+closure walk, so the extra edges this script keeps don't change
+prefetch behavior (closure is invariant under transitive reduction) —
+they just make each module's own edge list accurate.
 
 This project's own shipped graphs (for stdlib, cubical, and
 agda-categories) are produced this same way by a maintainer and uploaded
@@ -402,7 +351,7 @@ above.
   `deploy.config.json` directly.
 - **`agda-lib-utils.mjs`** — tiny shared parsers for raw `.agda-lib` file
   content (`include:`/`name:`), no `agda` binary needed. Used by both
-  `generate-library-info.mjs` and `dot-to-manifest.mjs`.
+  `generate-library-info.mjs` and `generate-manifest.mjs`.
 
 ### Scripts
 
@@ -432,10 +381,10 @@ above.
   selected ALS version's wasm, and zips its `agda-data/` into
   `static/als/<version>/agda-data.zip`. Runs automatically as part of
   `npm run setup`.
-- **`dot-to-manifest.mjs`** — converts a library's placed `.dot` file(s)
-  (`deploy-assets/library/<folderName>/dots/`) into its dependency-graph
-  manifest — see "Regenerating the dependency graph" above. This project
-  doesn't generate `.dot` files itself; that's always a manual step.
+- **`generate-manifest.mjs`** — generates a library's dependency-graph
+  manifest directly from its own placed source tree, via
+  `agda --interaction-json`'s `Cmd_tokenHighlighting` — see "Regenerating
+  the dependency graph" above.
 - **`auto-configure.mjs`** — fetches and extracts this project's own
   shipped default library/ALS files into the raw layout. Hardcoded, not
   catalog-driven — see its own header comment.
@@ -444,12 +393,11 @@ above.
 
 ## How the manifest is used at runtime
 
-A native `agda --only-scope-checking --dependency-graph` run (yours, by
-hand — see "Regenerating the dependency graph" above) produces a Dot
-graph from your own `Everything.agda`-style file(s); `dot-to-manifest.mjs`
-merges and parses them into one `{ graph }` per library. The Dot output
-is transitively-reduced (only direct edges), so each manifest stores
-direct dependencies per module. At runtime,
+`generate-manifest.mjs` (see "Regenerating the dependency graph" above)
+asks `agda --interaction-json` for each of a library's own files' direct
+`import` targets and writes one `{ graph }` per library, keyed by
+module name, each value the list of modules it directly imports — the
+full direct-edge graph, not transitively reduced. At runtime,
 `src/lib/agda/prefetch.js` loads every active-profile library's manifest,
 merges them into one working graph (deriving which library owns each
 module from which file it came from — there's no `libOf` field in the

@@ -4,7 +4,7 @@
     "src/app.d.ts",
     "static/coi-serviceworker.js",
     "deploy-assets/build-static-assets.mjs",
-    "deploy-assets/dot-to-manifest.mjs",
+    "deploy-assets/generate-manifest.mjs",
     "deploy-assets/auto-configure.mjs",
     "deploy-assets/print-required-files.mjs",
     "deploy-assets/generate-library-info.mjs",

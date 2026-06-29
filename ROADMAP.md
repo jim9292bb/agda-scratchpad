@@ -618,6 +618,52 @@ Done (agda-categories, second library proving the system generalizes):
       `MISMATCH:` and fails — and that it still passes cleanly against
       the project's own real (correct) data afterward.
 
+- [x] Replaced the manual `Everything.agda`/`.dot`/`dot-to-manifest.mjs`
+      dependency-graph workflow with `deploy-assets/generate-manifest.mjs`:
+      for every file under a library's own `include:`, spawns
+      `agda --interaction-json` and asks for `Cmd_tokenHighlighting` — a
+      real Agda interaction command that returns purely lexical token
+      highlighting for one file without loading, resolving, or
+      type-checking any of its imports (confirmed: works even when an
+      import target doesn't exist). Replacing every highlighted range
+      that isn't a `keyword` with a single space and matching
+      `\bimport\b\s*(\S+)\s` against the result correctly extracts that
+      file's own direct import targets — verified against every edge case
+      found while developing this (multi-line `import`, a comment with
+      zero surrounding whitespace between `import` and the module name —
+      including nested comments, confirmed correctly handled since
+      nesting can't be matched by a regular expression and Agda's own
+      lexer tracks it with a depth counter — semicolon-glued declarations,
+      literate `.lagda.md`/`.lagda.org` prose and code-fence markup).
+      No more hand-written `Everything.agda` (and no more splitting a
+      library across multiple `everything/` files to dodge
+      `InfectiveImport`/`CoInfectiveImport` errors from mutually exclusive
+      `{-# OPTIONS #-}`, the reason `agda-categories` needed one before —
+      each file is scanned on its own, never combined into one synthetic
+      entry point) and no shared library-file (`Cmd_tokenHighlighting`
+      never resolves imports, so nothing needs to be found).
+      Verified against all three of this project's real libraries:
+      regenerated each library's `agdai-manifest.json` with the new
+      script and confirmed applying standard transitive reduction to the
+      result reproduces the previously-shipped manifest exactly
+      (1153/1153 stdlib modules, 1091/1091 cubical, 502/502
+      agda-categories once cross-library reachability through stdlib's
+      own graph is accounted for) — proving the *old* manifest had been
+      silently dropping real direct edges all along, because
+      `agda --dependency-graph`'s Dot backend applies
+      `Graph.transitiveReduction` twice (confirmed in `agda`'s own source)
+      for graph-visualization purposes, and the old pipeline took that
+      visualization-optimized graph as the manifest's source of truth.
+      `prefetch.js`'s `collectDeps` only does a transitive-closure walk
+      (invariant under transitive reduction), so this is a strict
+      accuracy improvement with no prefetch behavior change. Also much
+      faster: regenerating all of stdlib (1153 files) takes about 10
+      seconds at `os.cpus().length`-way parallelism, versus minutes for
+      the old `--dependency-graph`-based approaches explored along the
+      way (a single combined `Everything.agda` took ~27s but still
+      required hand-writing it and resolving option conflicts; per-module
+      `--dependency-graph` or a greedy covering algorithm both took
+      14–17 minutes even parallelized).
 - [ ] Add specs for plfa, agda-unimath, 1lab to `deploy.config.json`
       (confirm each library's actual `.agda-lib` name/include path/required
       OPTIONS first), and add corresponding profile(s) to `deploy.config.json`.
