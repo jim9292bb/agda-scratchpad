@@ -308,6 +308,17 @@ same prerequisite as before, just no other setup. Runs at
 `os.cpus().length`-way parallelism; regenerating all of stdlib (1153
 files) takes about 10 seconds.
 
+This relies on `--interaction-json` (introduced in Agda 2.6.1 — won't
+work at all on older versions) and parses its `Cmd_tokenHighlighting`
+JSON response's `payload`/`atoms`/`range` fields. That JSON API has had
+real breaking changes between versions before (e.g. 2.6.2 changed how
+errors/warnings are represented) and Agda makes no documented stability
+promise about it, though no change to the specific fields this script
+reads has been found in any release notes from 2.6.0 through 2.8.0. Run
+the native `agda` you actually intend to deploy with (matching this
+project's `alsVersion`) — same versioning caveat as everything else
+that shells out to native `agda` in this file.
+
 There's no `--no-options`/option-conflict problem to work around either
 (unlike the old `Everything.agda` approach, which had to split
 `agda-categories` across multiple files because no single
