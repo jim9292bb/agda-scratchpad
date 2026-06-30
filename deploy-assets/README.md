@@ -95,9 +95,13 @@ empirically that a library with no `depend:` (e.g. cubical) needs no
 `--library-file=` at all.
 
 If your native `agda` predates 2.8.0 (no `--build-library`), use
-`node deploy-assets/build-agdai-cache.mjs --library <folderName>`
+`node deploy-assets/build-agdai-cache.mjs --library <folderName> [--agda-bin <path>]`
 instead — run `generate-manifest.mjs` for that library first if you
-haven't already, since this reads its `agdai-manifest.json`. It drives
+haven't already, since this reads its `agdai-manifest.json`. The
+optional `--agda-bin` flag defaults to the `agda` on your PATH; pass
+the full path to a specific binary if you have multiple Agda versions
+installed (the version used determines the `_build/<version>/`
+subdirectory name, so it must match the `alsVersion` you are targeting). It drives
 one `agda --interaction-json` session and sends a `Cmd_load` for each
 "source vertex" of the dependency graph (a module nothing else in the
 library imports — provably both necessary, since nothing else will ever

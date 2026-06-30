@@ -42,9 +42,10 @@ import { parseAgdaLibInclude } from './agda-lib-utils.mjs'
 const DEPLOY_ASSETS = join(REPO_ROOT, 'deploy-assets')
 
 function parseArgs(argv) {
-  const args = { library: null }
+  const args = { library: null, agdaBin: 'agda' }
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--library') args.library = argv[++i]
+    else if (argv[i] === '--agda-bin') args.agdaBin = argv[++i]
     else throw new Error(`unknown argument: ${argv[i]}`)
   }
   if (!args.library) {
@@ -93,7 +94,7 @@ async function main() {
   const sourceVertices = findSourceVertices(graph)
   console.log(`[${lib.folderName}] ${sourceVertices.length} source vertices to Cmd_load (covers all ${Object.keys(graph).length} modules)`)
 
-  const versionResult = spawnSync('agda', ['--numeric-version'], { encoding: 'utf8' })
+  const versionResult = spawnSync(args.agdaBin, ['--numeric-version'], { encoding: 'utf8' })
   const agdaVersion = versionResult.stdout?.trim()
   if (!agdaVersion) throw new Error('could not determine native agda\'s numeric version (`agda --numeric-version` produced no output)')
   console.log(`native agda version: ${agdaVersion}`)
@@ -109,7 +110,7 @@ async function main() {
     allLibs.map(l => join(DEPLOY_ASSETS, 'library', l.folderName, l.agdaLibFile)).join('\n') + '\n',
   )
 
-  const proc = spawn('agda', ['--interaction-json', `--library-file=${libraryFile}`], { cwd: libRoot })
+  const proc = spawn(args.agdaBin, ['--interaction-json', `--library-file=${libraryFile}`], { cwd: libRoot })
   let buf = ''
   let pending = null
   proc.stdout.on('data', d => {
