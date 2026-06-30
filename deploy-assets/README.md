@@ -23,7 +23,7 @@ git clone https://github.com/jim9292bb/agda-playground.git
 cd agda-playground/als-demo
 npm install
 npm run auto-configure   # download stdlib/cubical/agda-categories + ALS 2.8.0,
-                         # create deploy.local.json, fetch prebuilt .agdai + manifests
+                         # create deploy.config.json, fetch prebuilt .agdai + manifests
 npm run setup            # zip/copy everything into static/
 npm run check
 npm run build
@@ -41,12 +41,12 @@ npm install
 
 **2. Place library source and ALS files** — see "What to place" below.
 
-**3. Create `deploy.local.json`** from the example, and fill in OS-absolute paths
+**3. Create `deploy.config.json`** from the example, and fill in OS-absolute paths
 to each library's `.agda-lib` file:
 
 ```sh
-cp deploy.local.example.json deploy.local.json
-# Edit deploy.local.json — set agdaLibPath for each library
+cp deploy.config.example.json deploy.config.json
+# Edit deploy.config.json — set agdaLibPath for each library
 ```
 
 **4. (Optional) Generate or import prebuilt `.agdai` cache:**
@@ -82,7 +82,7 @@ npm run build
 ### What to place
 
 Library source trees can live anywhere on your OS — their location is
-recorded in the gitignored `deploy.local.json` (`agdaLibPath`), not in a
+recorded in the gitignored `deploy.config.json` (`agdaLibPath`), not in a
 fixed project subdirectory. The only thing you need to place inside the
 project is the ALS wasm and data:
 
@@ -102,7 +102,7 @@ deploy-assets/
 do not edit it by hand.
 
 (`npm run auto-configure` also downloads library sources into
-`deploy-assets/library/<name>/` and points `deploy.local.json` at them —
+`deploy-assets/library/<name>/` and points `deploy.config.json` at them —
 that directory is gitignored too, and using it is entirely optional.)
 
 **`deploy-assets/als/<version>/agda-data/`** — raw extracted Agda builtin
@@ -140,16 +140,22 @@ full path if you have multiple versions installed.
 
 ### `deploy.config.json` schema
 
-`deploy.config.json` (repo root) is plain JSON — no comment syntax, so the
-full field docs live here. It is committed; it never contains OS-specific
-paths (those live in the gitignored `deploy.local.json`).
+`deploy.config.json` (repo root, gitignored) is plain JSON — no comment
+syntax, so the full field docs live here. Created from
+`deploy.config.example.json` automatically on a fresh clone (by
+`ensure-deploy-config.mjs`), or manually:
 
-Schema: a flat list of `profiles`. Each profile is a complete, ready-to-use
-combination — one ALS/Agda version plus the library set that goes with it.
-There is deliberately no separate "pick an ALS version" + "pick a library set"
-pair of independent choices: every option in `profiles` is valid by
-construction, so the UI only needs a single profile selector and can never
-present an incompatible pairing.
+```sh
+cp deploy.config.example.json deploy.config.json
+```
+
+Top-level fields:
+
+**`profiles`** — a flat list of complete, ready-to-use ALS/library
+combinations. There is deliberately no separate "pick an ALS version" +
+"pick a library set" pair of independent choices: every option in `profiles`
+is valid by construction, so the UI only needs a single profile selector and
+can never present an incompatible pairing.
 
 - `id`, `label`: identify the profile in the UI / local storage.
 - `alsVersion`, `wasmFilename`: which ALS build this profile uses. If the same
@@ -157,36 +163,24 @@ present an incompatible pairing.
   `wasmFilename`.
 - `libraries`: a list of `{ name, label?, version? }`:
   - `name` (required): the `.agda-lib` `name:` value — used as the
-    static-asset key (`static/library/<name>.zip`,
-    `static/agdai/<name>/`), the VFS folder name inside the browser's virtual
-    filesystem, and the identifier for looking up entries in `deploy.local.json`.
-    Must be unique per profile; if the same `name` appears in multiple profiles,
-    every reference must agree on `label`/`version`.
-  - `label` (optional): UI display name (e.g. `"stdlib"`). Shown in the
-    library selector. If absent, `name` is used.
+    static-asset key (`static/library/<name>.zip`, `static/agdai/<name>/`),
+    the VFS folder name, and the identifier for looking up entries in
+    `libraries` below. Must be unique per profile; if the same `name` appears
+    in multiple profiles, every reference must agree on `label`/`version`.
+  - `label` (optional): UI display name (e.g. `"stdlib"`). If absent, `name` is used.
   - `version` (optional): version string shown in the UI (e.g. `"2.3"`).
     Cosmetic only — nothing reads it to build a path or cache key.
 
-### `deploy.local.json` schema
-
-`deploy.local.json` (repo root, gitignored) maps library names to OS-specific
-paths. Create it from the example:
-
-```sh
-cp deploy.local.example.json deploy.local.json
-```
-
-Schema: a list of `{ name, agdaLibPath, useAgdai? }`:
-- `name`: must match a library `name` in `deploy.config.json`.
+**`libraries`** — per-library local configuration, a list of `{ name, agdaLibPath, useAgdai? }`:
+- `name`: must match a library `name` in a `profiles` entry.
 - `agdaLibPath`: absolute OS path to that library's `.agda-lib` file
   (e.g. `/home/user/agda-stdlib/standard-library.agda-lib`).
-- `useAgdai` (optional, default `false`): whether to generate/serve the `.agdai`
-  cache for this library. Set to `true` after running `npm run import-agdai` or
-  `npm run build-agdai`.
+- `useAgdai` (optional, default `false`): whether to generate/serve the
+  `.agdai` cache for this library. Set to `true` after running
+  `npm run import-agdai` or `npm run build-agdai`.
 
-`npm run auto-configure` creates this file automatically (with `useAgdai: true`)
-when it doesn't already exist, pointing at the sources it downloads into
-`deploy-assets/library/`.
+`npm run auto-configure` creates `deploy.config.json` automatically (with
+`useAgdai: true` for downloaded libraries) when it doesn't already exist.
 
 ### Adding a library or ALS version
 
@@ -194,7 +188,7 @@ when it doesn't already exist, pointing at the sources it downloads into
    `libraries`. For a new ALS version, set that profile's `alsVersion` /
    `wasmFilename` directly. No separate catalog file to update.
 
-2. Add a matching entry to `deploy.local.json`:
+2. Add a matching entry to `deploy.config.json`:
 
    ```json
    { "name": "my-library", "agdaLibPath": "/absolute/path/to/my-library.agda-lib" }
@@ -234,7 +228,7 @@ project, so they can never drift from what the real `.agda-lib` says.
 This generated file is gitignored — `npm run setup` always regenerates it. It's
 also regenerated as a `predev`/`precheck`/`prebuild` step (`package.json`), so
 `npm run check`/`npm run build`/`npm run dev` never hard-fail just because
-`deploy.local.json` hasn't been set up yet (a library without a configured path
+`deploy.config.json` hasn't been set up yet (a library without a configured path
 is just skipped with a warning — the resulting empty/partial file is enough for
 the build to type-check and compile, since the actual `GENERATED_LIBRARY_INFO`
 content is only read once a real browser session runs the app).
@@ -297,7 +291,7 @@ entry point.
 ### Scripts
 
 - **`resolve-deploy-config.mjs`** — reads `deploy.config.json` and
-  `deploy.local.json`, auto-assigns stable random IDs for each `agdaLibPath`
+  `deploy.config.json`, auto-assigns stable random IDs for each `agdaLibPath`
   in `deploy-assets/.cache/index.json`. Exports `getLocalLibraries()` and
   `getSelectedAlsVersions()` — used by the scripts below.
 - **`agda-lib-utils.mjs`** — shared parsers for raw `.agda-lib` content
@@ -335,7 +329,7 @@ entry point.
 - **`check-agdai-status.mjs`** — prints per-library status of the `.agdai`
   cache and manifest in `deploy-assets/.cache/`.
 - **`auto-configure.mjs`** — fetches and extracts this project's own shipped
-  default library/ALS files, creates `deploy.local.json`, and downloads
+  default library/ALS files, creates `deploy.config.json`, and downloads
   prebuilt `.agdai` + manifests. Hardcoded, not catalog-driven — see its own
   header comment.
 - **`zip-utils.mjs`** — shared minimal ZIP extraction/creation helpers (no

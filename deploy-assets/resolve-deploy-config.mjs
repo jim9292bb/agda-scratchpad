@@ -1,42 +1,37 @@
 /**
- * Resolves the two deploy config files into validated, ready-to-use
- * library and ALS-version records that all deploy-time scripts consume.
+ * Resolves deploy.config.json into validated, ready-to-use library and
+ * ALS-version records that all deploy-time scripts consume.
  *
- * deploy.config.json  (committed) — profiles and ALS version info; no
- *                     OS-specific paths; imported by the TypeScript
- *                     bundle (interface.ts) as well.
- *
- * deploy.local.json   (gitignored, created from deploy.local.example.json)
- *                     — per-library { name, agdaLibPath, useAgdai }.
- *                     Only read by Node.js deploy scripts, never bundled.
- *                     Optional: if absent, getLocalLibraries() returns [].
+ * deploy.config.json  (gitignored, created from deploy.config.example.json)
+ *                     — profiles, ALS version info, and per-library
+ *                     { agdaLibPath, useAgdai }. Also imported by the
+ *                     TypeScript bundle (interface.ts) at build time.
+ *                     deploy-assets/ensure-deploy-config.mjs copies the
+ *                     example into place automatically on a fresh clone.
  *
  * deploy-assets/.cache/index.json  (gitignored, auto-managed here) —
  *                     maps each agdaLibPath to a stable random cache-dir
  *                     ID so generated .agdai and manifests persist across
- *                     runs even if deploy.local.json is recreated.
+ *                     runs even if deploy.config.json is recreated.
  */
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { randomBytes } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import DEPLOY_CONFIG from '../deploy.config.json' with { type: 'json' }
-
-export { DEPLOY_CONFIG }
 
 export const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 const CACHE_DIR = join(REPO_ROOT, 'deploy-assets', '.cache')
 const INDEX_PATH = join(CACHE_DIR, 'index.json')
 
-// ── deploy.local.json ─────────────────────────────────────────────────────────
+// ── deploy.config.json ────────────────────────────────────────────────────────
 
-function readLocalConfig() {
+function readDeployConfig() {
   try {
-    return JSON.parse(readFileSync(join(REPO_ROOT, 'deploy.local.json'), 'utf8'))
+    return JSON.parse(readFileSync(join(REPO_ROOT, 'deploy.config.json'), 'utf8'))
   } catch {
-    return { libraries: [] }
+    return { profiles: [], libraries: [] }
   }
 }
 
@@ -72,9 +67,10 @@ function ensureCacheId(agdaLibPath, index) {
  * Throws if the same alsVersion is used with two different wasmFilenames.
  */
 export function getSelectedAlsVersions() {
+  const { profiles } = readDeployConfig()
   const seenRaw = new Map()
   const resolved = new Map()
-  for (const profile of DEPLOY_CONFIG.profiles) {
+  for (const profile of profiles) {
     const { alsVersion, wasmFilename } = profile
     const prev = seenRaw.get(alsVersion)
     if (prev && prev !== wasmFilename) {
@@ -90,28 +86,29 @@ export function getSelectedAlsVersions() {
 
 /**
  * All libraries that appear in any profile AND have an entry in
- * deploy.local.json with a non-empty agdaLibPath. Each entry has:
+ * deploy.config.json's `libraries` array with a non-empty agdaLibPath.
+ * Each entry has:
  *   name        — the .agda-lib `name:` value (identifier + static-asset key)
  *   agdaLibPath — absolute OS path to the .agda-lib file
  *   useAgdai    — whether to generate/serve .agdai cache (default false)
  *   cacheId     — stable random ID for deploy-assets/.cache/<cacheId>/
  *   cacheDir    — absolute path to that cache directory
  *
- * Also prunes any index entry whose agdaLibPath is no longer in
- * deploy.local.json, to keep the index tidy.
+ * Also prunes any index entry whose agdaLibPath is no longer in the
+ * config, to keep the index tidy.
  */
 export function getLocalLibraries() {
-  const local = readLocalConfig()
+  const config = readDeployConfig()
   const index = readCacheIndex()
   let dirty = false
 
   // All library names referenced in any profile
   const profileNames = new Set()
-  for (const profile of DEPLOY_CONFIG.profiles) {
+  for (const profile of config.profiles) {
     for (const lib of profile.libraries) profileNames.add(lib.name)
   }
 
-  const localByName = new Map(local.libraries.map(l => [l.name, l]))
+  const localByName = new Map((config.libraries ?? []).map(l => [l.name, l]))
   const activeAgdaLibPaths = new Set()
   const result = []
 

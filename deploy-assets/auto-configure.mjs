@@ -1,7 +1,7 @@
 /**
  * Fetches this project's own shipped default library/ALS files, places
  * library sources into deploy-assets/library/<name>/, creates or updates
- * deploy.local.json to point at them, and populates
+ * deploy.config.json to point at them, and populates
  * deploy-assets/.cache/<id>/ with prebuilt .agdai and dependency-graph
  * manifests from the release.
  *
@@ -18,7 +18,7 @@
  * Usage: node deploy-assets/auto-configure.mjs
  */
 
-import { mkdir, mkdtemp, rm, readdir, cp, access, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, readdir, cp, access, writeFile, readFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -107,21 +107,25 @@ async function fetchFile(url, destPath) {
   await download(url, destPath)
 }
 
-async function ensureDeployLocalJson(libraries) {
-  const localPath = join(REPO_ROOT, 'deploy.local.json')
-  if (await exists(localPath)) {
-    console.log(`  already present: deploy.local.json (leaving as-is — delete it to regenerate)`)
+async function ensureDeployConfig(libraries) {
+  const configPath = join(REPO_ROOT, 'deploy.config.json')
+  if (await exists(configPath)) {
+    console.log(`  already present: deploy.config.json (leaving as-is — delete it to regenerate)`)
     return
   }
+  const example = JSON.parse(await readFile(join(REPO_ROOT, 'deploy.config.example.json'), 'utf8'))
+  const libByName = new Map(libraries.map(l => [l.name, l]))
   const config = {
-    libraries: libraries.map(({ name, agdaLibPath }) => ({
-      name,
-      agdaLibPath,
-      useAgdai: true,
-    })),
+    ...example,
+    libraries: (example.libraries ?? []).map(entry => {
+      const downloaded = libByName.get(entry.name)
+      return downloaded
+        ? { name: entry.name, agdaLibPath: downloaded.agdaLibPath, useAgdai: true }
+        : entry
+    }),
   }
-  await writeFile(localPath, JSON.stringify(config, null, 2) + '\n')
-  console.log(`  created deploy.local.json`)
+  await writeFile(configPath, JSON.stringify(config, null, 2) + '\n')
+  console.log(`  created deploy.config.json`)
 }
 
 async function main() {
@@ -137,8 +141,8 @@ async function main() {
       libsWithPaths.push({ name: lib.name, agdaLibPath: join(destDir, lib.agdaLibFile), releaseAssetPrefix: lib.releaseAssetPrefix })
     }
 
-    // 2. Create deploy.local.json if absent (points at the downloaded sources)
-    await ensureDeployLocalJson(libsWithPaths)
+    // 2. Create deploy.config.json if absent (points at the downloaded sources)
+    await ensureDeployConfig(libsWithPaths)
 
     // 3. Resolve cache dirs (getLocalLibraries re-reads deploy.local.json and assigns IDs)
     const resolvedLibs = getLocalLibraries()

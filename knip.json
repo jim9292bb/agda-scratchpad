@@ -3,6 +3,7 @@
   "entry": [
     "src/app.d.ts",
     "static/coi-serviceworker.js",
+    "deploy-assets/ensure-deploy-config.mjs",
     "deploy-assets/build-static-assets.mjs",
     "deploy-assets/generate-manifest.mjs",
     "deploy-assets/build-agdai-cache.mjs",

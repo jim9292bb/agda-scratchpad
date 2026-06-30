@@ -12,9 +12,10 @@ node_modules
 # Vite
 vite.config.js.timestamp-*
 
-# Local deploy configuration — created by the user from deploy.local.example.json.
+# Local deploy configuration — created from deploy.config.example.json by
+# ensure-deploy-config.mjs (runs automatically before dev/check/build).
 # Contains OS-specific paths (agdaLibPath) that vary per machine; not committed.
-/deploy.local.json
+/deploy.config.json
 
 # Library/ALS staging areas (populated by `npm run auto-configure` or placed
 # by hand — see deploy-assets/README.md). Zipped/copied into static/ for
