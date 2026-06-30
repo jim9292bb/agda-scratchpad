@@ -19,6 +19,9 @@ stdlib/cubical/agda-categories — plfa, agda-unimath, 1lab.
 ### Quick start (this project's own shipped defaults)
 
 ```sh
+git clone https://github.com/jim9292bb/agda-playground.git
+cd agda-playground/als-demo
+npm install
 npm run auto-configure   # download stdlib/cubical/agda-categories + ALS 2.8.0,
                          # create deploy.local.json, fetch prebuilt .agdai + manifests
 npm run setup            # zip/copy everything into static/
