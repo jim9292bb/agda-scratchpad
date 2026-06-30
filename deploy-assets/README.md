@@ -78,12 +78,13 @@ npm run build
 
 ### What to place
 
+Library source trees can live anywhere on your OS — their location is
+recorded in the gitignored `deploy.local.json` (`agdaLibPath`), not in a
+fixed project subdirectory. The only thing you need to place inside the
+project is the ALS wasm and data:
+
 ```
 deploy-assets/
-  library/
-    <name>/                            # library name: value from its .agda-lib
-      <name>.agda-lib                  # (or whatever filename the library uses)
-      src/...                          # raw .agda source
   als/
     <version>/                         # must match alsVersion in deploy.config.json
       <wasmFilename>                   # a single binary file
@@ -91,25 +92,15 @@ deploy-assets/
         Agda/Builtin/*.agda
         agda-builtins.agda-lib
         _build/<numeric agda version>/agda/Agda/Builtin/*.agdai
-
-deploy-assets/.cache/                  # gitignored, auto-managed — do not edit by hand
-  index.json                           # maps agdaLibPath → cache ID
-  <id>/
-    _build/<numeric agda version>/agda/...   # prebuilt .agdai files
-    agdai-manifest.json                      # dependency graph for prefetching
 ```
 
-No zips anywhere in `deploy-assets/` — `npm run setup` is what zips library
-source and `agda-data/` into the archives the browser fetches at runtime.
-`deploy-assets/library/` and `deploy-assets/als/` are gitignored; nothing in
-them is committed. `.cache/` is also gitignored and auto-managed by the npm
-scripts — do not edit it by hand.
+`deploy-assets/als/` is gitignored; nothing in it is committed.
+`deploy-assets/.cache/` is gitignored and auto-managed by the npm scripts —
+do not edit it by hand.
 
-**`deploy-assets/library/<name>/`** — `name` is the `.agda-lib` `name:` value
-(e.g. `standard-library`, `cubical`, `agda-categories`). This is also the
-static-asset key: library zip served as `static/library/<name>.zip`, `.agdai`
-files served under `static/agdai/<name>/`. If you need two versions of the
-same library side by side, see ROADMAP.md "Curated Multi-Library Support".
+(`npm run auto-configure` also downloads library sources into
+`deploy-assets/library/<name>/` and points `deploy.local.json` at them —
+that directory is gitignored too, and using it is entirely optional.)
 
 **`deploy-assets/als/<version>/agda-data/`** — raw extracted Agda builtin
 data, required for every ALS version. Two halves: `Agda/Builtin/*.agda` is
