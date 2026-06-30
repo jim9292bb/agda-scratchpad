@@ -1,0 +1,19 @@
+{
+  "libraries": [
+    {
+      "name": "standard-library",
+      "agdaLibPath": "/absolute/path/to/agda-stdlib/standard-library.agda-lib",
+      "useAgdai": false
+    },
+    {
+      "name": "cubical",
+      "agdaLibPath": "/absolute/path/to/cubical/cubical.agda-lib",
+      "useAgdai": false
+    },
+    {
+      "name": "agda-categories",
+      "agdaLibPath": "/absolute/path/to/agda-categories/agda-categories.agda-lib",
+      "useAgdai": false
+    }
+  ]
+}

@@ -1,35 +1,23 @@
 /**
- * Verifies deploy-assets/{library,als}/ contains everything the currently
- * configured deploy.config.json needs, before scripts/setup-assets.sh zips
- * and copies it into static/. Prints MISSING: lines for anything absent
- * and exits non-zero if anything required is missing.
+ * Verifies that everything needed for `npm run setup` is present:
+ *   - Each configured library's .agda-lib file (confirms the source is
+ *     reachable at the agdaLibPath in deploy.local.json).
+ *   - Each ALS version's wasm file (confirmed to report the expected version
+ *     via --version) and agda-data/ directory.
  *
- * Per library: its .agda-lib file (required — confirms the library's
- * source was placed at all) and its _build/ prebuilt .agdai cache
- * (optional — without it the library still works, just without
- * prefetching/caching; which version it was built for is detected live
- * at runtime by parsing the running ALS's own `--version` output, not
- * declared here).
+ * Libraries with useAgdai: true that are missing their cache (.agdai files
+ * or manifest) get a non-fatal warning — the library still works, just
+ * without prefetching.
  *
- * Per ALS version (each isolated under deploy-assets/als/<version>/ — see
- * deploy-assets/README.md "What to place" for why): its wasm file
- * (required, and actually run with `--version` via Node's own WASI to
- * confirm it reports itself as the alsVersion you configured it under —
- * the directory name alone is just a string you typed; this catches the
- * wasm file itself being the wrong build) and its agda-data/ directory
- * (required), both for every version.
- *
- * Each library's own dependency graph
- * (deploy-assets/library/<folderName>/agdai-manifest.json) is always
- * optional — prefetch.js degrades gracefully per library without one.
+ * Exits non-zero if any required file is missing.
  *
  * Usage: node deploy-assets/print-required-files.mjs
  */
 
 import { access } from 'node:fs/promises'
 import { execFileSync } from 'node:child_process'
-import { join } from 'node:path'
-import { REPO_ROOT, getSelectedAlsVersions, getSelectedLibraries } from './resolve-deploy-config.mjs'
+import { dirname, join } from 'node:path'
+import { REPO_ROOT, getLocalLibraries, getSelectedAlsVersions } from './resolve-deploy-config.mjs'
 
 const DEPLOY_ASSETS = join(REPO_ROOT, 'deploy-assets')
 const RUN_ALS_VERSION_SCRIPT = join(DEPLOY_ASSETS, 'run-als-version.mjs')
@@ -43,12 +31,6 @@ async function exists(path) {
   }
 }
 
-/**
- * Runs a placed `als` wasm with `--version` (in a child process — see
- * run-als-version.mjs's own header comment for why) and returns its
- * stdout, or null if it couldn't be run at all (corrupt file, wrong
- * architecture, etc).
- */
 function tryGetWasmVersionString(wasmPath) {
   try {
     return execFileSync(process.execPath, [RUN_ALS_VERSION_SCRIPT, wasmPath], {
@@ -62,19 +44,26 @@ function tryGetWasmVersionString(wasmPath) {
 
 async function main() {
   let missing = false
+  const libs = getLocalLibraries()
 
-  for (const lib of getSelectedLibraries()) {
-    const libRoot = join(DEPLOY_ASSETS, 'library', lib.folderName)
-    const agdaLibPath = join(libRoot, lib.agdaLibFile)
-    if (!(await exists(agdaLibPath))) {
-      console.error(`MISSING: deploy-assets/library/${lib.folderName}/${lib.agdaLibFile}`)
+  if (libs.length === 0) {
+    console.error('No libraries configured — create deploy.local.json from deploy.local.example.json and set agdaLibPath for each library.')
+    process.exit(1)
+  }
+
+  for (const lib of libs) {
+    if (!(await exists(lib.agdaLibPath))) {
+      console.error(`MISSING: ${lib.agdaLibPath}  (library "${lib.name}" — check agdaLibPath in deploy.local.json)`)
       missing = true
     }
-    if (!(await exists(join(libRoot, '_build')))) {
-      console.log(`(optional, not found) deploy-assets/library/${lib.folderName}/_build/ — no prebuilt .agdai cache, will type-check from source`)
-    }
-    if (!(await exists(join(libRoot, 'agdai-manifest.json')))) {
-      console.log(`(optional, not found) deploy-assets/library/${lib.folderName}/agdai-manifest.json — prefetch disabled for this library, .agdai files still load on demand`)
+
+    if (lib.useAgdai) {
+      if (!(await exists(join(lib.cacheDir, '_build')))) {
+        console.log(`(optional, not found) .cache/${lib.cacheId}/_build/ for "${lib.name}" — no prebuilt .agdai, run \`npm run build-agdai\``)
+      }
+      if (!(await exists(join(lib.cacheDir, 'agdai-manifest.json')))) {
+        console.log(`(optional, not found) .cache/${lib.cacheId}/agdai-manifest.json for "${lib.name}" — prefetch disabled, run \`npm run generate-manifest\``)
+      }
     }
   }
 
@@ -87,7 +76,7 @@ async function main() {
     } else {
       const versionString = tryGetWasmVersionString(wasmPath)
       if (!versionString || !versionString.includes(`Agda v${als.version}`)) {
-        console.error(`MISMATCH: deploy-assets/als/${als.version}/${als.wasmFilename} reports itself as "${versionString ?? '(could not run it)'}", but deploy.config.json's alsVersion for it is "${als.version}" — these must match. Place the right wasm build under deploy-assets/als/${als.version}/.`)
+        console.error(`MISMATCH: deploy-assets/als/${als.version}/${als.wasmFilename} reports itself as "${versionString ?? '(could not run it)'}", but deploy.config.json's alsVersion for it is "${als.version}" — these must match.`)
         missing = true
       }
     }
@@ -99,9 +88,9 @@ async function main() {
 
   if (missing) {
     console.error('')
-    console.error('Some required library/ALS files are missing. Either:')
+    console.error('Some required files are missing. Either:')
     console.error("  - run 'npm run auto-configure' to fetch this project's own shipped defaults, or")
-    console.error('  - place them by hand in deploy-assets/library/<folderName>/ or deploy-assets/als/ (see deploy-assets/README.md)')
+    console.error('  - configure deploy.local.json with paths to your installed libraries (see deploy.local.example.json)')
     process.exit(1)
   }
 }

@@ -6,8 +6,8 @@
       "alsVersion": "2.8.0",
       "wasmFilename": "als-2.8ext.wasm",
       "libraries": [
-        { "folderName": "stdlib-2.3", "agdaLibFile": "standard-library.agda-lib", "name": "stdlib", "version": "2.3" },
-        { "folderName": "cubical-0.9", "agdaLibFile": "cubical.agda-lib", "name": "cubical", "version": "0.9" }
+        { "name": "standard-library", "label": "stdlib", "version": "2.3" },
+        { "name": "cubical", "label": "cubical", "version": "0.9" }
       ]
     },
     {
@@ -16,8 +16,8 @@
       "alsVersion": "2.8.0",
       "wasmFilename": "als-2.8ext.wasm",
       "libraries": [
-        { "folderName": "stdlib-2.3", "agdaLibFile": "standard-library.agda-lib", "name": "stdlib", "version": "2.3" },
-        { "folderName": "agda-categories-0.3.0", "agdaLibFile": "agda-categories.agda-lib", "name": "agda-categories", "version": "0.3.0" }
+        { "name": "standard-library", "label": "stdlib", "version": "2.3" },
+        { "name": "agda-categories", "label": "agda-categories", "version": "0.3.0" }
       ]
     }
   ]

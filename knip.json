@@ -6,6 +6,8 @@
     "deploy-assets/build-static-assets.mjs",
     "deploy-assets/generate-manifest.mjs",
     "deploy-assets/build-agdai-cache.mjs",
+    "deploy-assets/import-agdai-cache.mjs",
+    "deploy-assets/check-agdai-status.mjs",
     "deploy-assets/auto-configure.mjs",
     "deploy-assets/print-required-files.mjs",
     "deploy-assets/generate-library-info.mjs",

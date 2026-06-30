@@ -1,9 +1,9 @@
 /**
- * Generates a library's `deploy-assets/library/<folderName>/agdai-manifest.json`
- * — the dependency graph `src/lib/agda/prefetch.js` uses to prefetch
- * `.agdai` files — directly from the library's own placed source tree, no
- * hand-written `Everything.agda` and no native `--dependency-graph` run
- * required.
+ * Generates `deploy-assets/.cache/<id>/agdai-manifest.json` — the
+ * dependency graph `src/lib/agda/prefetch.js` uses to prefetch `.agdai`
+ * files — directly from each library's own source tree at the OS path
+ * recorded in `deploy.local.json`, no hand-written `Everything.agda` and
+ * no native `--dependency-graph` run required.
  *
  * For each of the library's own source files, this spawns
  * `agda --interaction-json` and sends `Cmd_tokenHighlighting` — an Agda
@@ -31,17 +31,19 @@
  * accurate.
  *
  * Usage:
- *   node deploy-assets/generate-manifest.mjs --library <folderName>
+ *   node deploy-assets/generate-manifest.mjs [--library <name>]
+ *
+ * Without --library, processes all libraries in deploy.local.json that
+ * have useAgdai: true. With --library <name>, processes only that one
+ * (regardless of its useAgdai setting — useful for one-off regeneration).
  */
 
-import { readFile, writeFile, readdir } from 'node:fs/promises'
-import { join, relative, sep } from 'node:path'
+import { readFile, writeFile, readdir, mkdir } from 'node:fs/promises'
+import { dirname, join, relative, sep } from 'node:path'
 import { spawn } from 'node:child_process'
 import { cpus } from 'node:os'
-import { REPO_ROOT, getSelectedLibraries } from './resolve-deploy-config.mjs'
+import { getLocalLibraries } from './resolve-deploy-config.mjs'
 import { parseAgdaLibInclude } from './agda-lib-utils.mjs'
-
-const DEPLOY_ASSETS = join(REPO_ROOT, 'deploy-assets')
 
 // Every extension agda's own lexer recognizes (`.agda` plus every literate
 // variant) — confirmed empirically that `import` resolution searches all of
@@ -57,9 +59,6 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--library') args.library = argv[++i]
     else throw new Error(`unknown argument: ${argv[i]}`)
-  }
-  if (!args.library) {
-    throw new Error('--library <folderName> is required — pass the folderName of exactly one currently-selected library (deploy.config.json) to process.')
   }
   return args
 }
@@ -150,22 +149,14 @@ async function extractImports(absPath) {
   return [...found]
 }
 
-async function main() {
-  const args = parseArgs(process.argv.slice(2))
-
-  const lib = getSelectedLibraries().find(l => l.folderName === args.library)
-  if (!lib) {
-    const names = getSelectedLibraries().map(l => l.folderName).join(', ') || '(none)'
-    throw new Error(`"${args.library}" is not a currently-selected library — check deploy.config.json. Selected: ${names}`)
-  }
-
-  const libRoot = join(DEPLOY_ASSETS, 'library', lib.folderName)
-  const agdaLibPath = join(libRoot, lib.agdaLibFile)
-  const include = parseAgdaLibInclude(await readFile(agdaLibPath, 'utf8'))
+async function processLibrary(lib) {
+  const agdaLibSrc = await readFile(lib.agdaLibPath, 'utf8')
+  const include = parseAgdaLibInclude(agdaLibSrc)
+  const libRoot = dirname(lib.agdaLibPath)
   const includeDir = include ? join(libRoot, include) : libRoot
 
   const agdaFiles = (await findAgdaFiles(includeDir)).sort()
-  console.log(`[${lib.folderName}] extracting imports from ${agdaFiles.length} files (agda --interaction-json, ${cpus().length}-way parallel)...`)
+  console.log(`[${lib.name}] extracting imports from ${agdaFiles.length} files (agda --interaction-json, ${cpus().length}-way parallel)...`)
 
   const graph = {}
   await runPool(
@@ -178,11 +169,38 @@ async function main() {
     cpus().length,
   )
 
+  await mkdir(lib.cacheDir, { recursive: true })
   const json = JSON.stringify({ graph })
-  const manifestPath = join(libRoot, 'agdai-manifest.json')
+  const manifestPath = join(lib.cacheDir, 'agdai-manifest.json')
   await writeFile(manifestPath, json)
-  console.log(`[${lib.folderName}] wrote ${Object.keys(graph).length} modules, ${(json.length / 1024).toFixed(0)} KB to ${relative(REPO_ROOT, manifestPath)}`)
-  console.log('Run `npm run setup` to copy it into static/.')
+  console.log(`[${lib.name}] wrote ${Object.keys(graph).length} modules, ${(json.length / 1024).toFixed(0)} KB to .cache/${lib.cacheId}/agdai-manifest.json`)
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2))
+  let libs = getLocalLibraries()
+
+  if (args.library) {
+    const target = libs.find(l => l.name === args.library)
+    if (!target) {
+      const names = libs.map(l => l.name).join(', ') || '(none configured)'
+      throw new Error(`"${args.library}" not found in deploy.local.json. Available: ${names}`)
+    }
+    libs = [target]
+  } else {
+    libs = libs.filter(l => l.useAgdai)
+    if (libs.length === 0) {
+      console.log('No libraries have useAgdai: true in deploy.local.json — nothing to do.')
+      console.log('Set useAgdai: true for the libraries you want to generate manifests for,')
+      console.log('or use --library <name> to generate for a specific library regardless.')
+      return
+    }
+  }
+
+  for (const lib of libs) {
+    await processLibrary(lib)
+  }
+  console.log('Run `npm run setup` to copy manifests into static/.')
 }
 
 main().catch(err => { console.error(err); process.exit(1) })

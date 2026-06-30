@@ -33,18 +33,17 @@ export type DeployProfile = (typeof deployProfiles)[number]
  * deploy-assets/generate-library-info.mjs).
  */
 export interface ResolvedLibrary {
-  /** Directory name under deploy-assets/library/ — also this library's
-   *  identity for every internal purpose below (cache key, asset paths,
-   *  VFS folder name). */
-  folderName: string
-  /** Cosmetic only (e.g. shown in the UI) — not used to build any path or cache key. */
-  name?: string
-  /** Cosmetic only (e.g. shown in the UI) — not used to build any path or cache key. */
+  /** The .agda-lib `name:` value — this library's identity for every
+   *  internal purpose (cache key, static-asset paths, VFS folder name). */
+  name: string
+  /** Cosmetic only (shown in the UI). */
+  label?: string
+  /** Cosmetic only (shown in the UI). */
   version?: string
-  /** In-memory identifier for the prefetch manifest cache — just folderName. */
+  /** In-memory identifier for the prefetch manifest cache — equals name. */
   libKey: string
   sourceZipAsset: string
-  /** This library's own dependency-graph manifest (see deploy-assets/dot-to-manifest.mjs). */
+  /** This library's own dependency-graph manifest. */
   manifestAsset: string
   archiveRootPrefix: string
   includeSubpath: string
@@ -57,27 +56,27 @@ export function resolveProfileLibraries(profile: DeployProfile): ResolvedLibrary
   const seenRaw = new Map<string, DeployProfile['libraries'][number]>()
   const resolved: ResolvedLibrary[] = []
   for (const lib of profile.libraries) {
-    const prevRaw = seenRaw.get(lib.folderName)
+    const prevRaw = seenRaw.get(lib.name)
     if (prevRaw && JSON.stringify(prevRaw) !== JSON.stringify(lib)) {
-      throw new Error(`deploy.config.json profile "${profile.id}" references folderName "${lib.folderName}" with two different specs (${JSON.stringify(prevRaw)} vs ${JSON.stringify(lib)}) — every reference to the same folderName must describe the same library.`)
+      throw new Error(`deploy.config.json profile "${profile.id}" references library "${lib.name}" with two different specs (${JSON.stringify(prevRaw)} vs ${JSON.stringify(lib)}) — every reference to the same library name must describe the same library.`)
     }
     if (prevRaw) continue
-    seenRaw.set(lib.folderName, lib)
+    seenRaw.set(lib.name, lib)
 
-    const info = GENERATED_LIBRARY_INFO[lib.folderName as keyof typeof GENERATED_LIBRARY_INFO]
+    const info = GENERATED_LIBRARY_INFO[lib.name as keyof typeof GENERATED_LIBRARY_INFO]
     if (!info) {
-      throw new Error(`deploy.config.json profile "${profile.id}" references folderName "${lib.folderName}" with no matching entry in deploy-assets/generated-libraries.mjs — run \`npm run setup\` after placing deploy-assets/library/${lib.folderName}/.`)
+      throw new Error(`deploy.config.json profile "${profile.id}" references library "${lib.name}" with no matching entry in deploy-assets/generated-libraries.mjs — run \`npm run setup\` after configuring deploy.local.json.`)
     }
     resolved.push({
-      folderName: lib.folderName,
       name: lib.name,
+      label: lib.label,
       version: lib.version,
-      libKey: lib.folderName,
-      sourceZipAsset: asset(`/library/${lib.folderName}.zip`),
-      manifestAsset: asset(`/agdai/${lib.folderName}/agdai-manifest.json`),
-      archiveRootPrefix: lib.folderName,
+      libKey: lib.name,
+      sourceZipAsset: asset(`/library/${lib.name}.zip`),
+      manifestAsset: asset(`/agdai/${lib.name}/agdai-manifest.json`),
+      archiveRootPrefix: lib.name,
       includeSubpath: info.includeSubpath,
-      agdaLibFile: lib.agdaLibFile,
+      agdaLibFile: info.agdaLibFilename,
       libraryName: info.libraryName,
     })
   }

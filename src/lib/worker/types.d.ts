@@ -7,8 +7,8 @@ export type WASMSource =
  *  resolves a deploy.config.json profile's libraries into before fetching
  *  each one's zip and constructing this. */
 export interface LibraryToLoad {
-  /** folder to extract this library under in the VFS, e.g. "stdlib" */
-  folderName: string
+  /** VFS folder to extract this library into — the .agda-lib `name:` value. */
+  name: string
   zip: ArrayBuffer
   agdaiZip?: ArrayBuffer
   archiveRootPrefix: string

@@ -79,7 +79,7 @@ function runtimeSummary() {
   const profile = agdaController.activeProfile
   return [
     { label: 'Agda runtime', value: `v${profile.alsVersion}` },
-    ...profile.libraries.map(lib => ({ label: lib.name ?? lib.folderName, value: lib.version ? `v${lib.version}` : lib.folderName })),
+    ...profile.libraries.map(lib => ({ label: lib.label ?? lib.name, value: lib.version ? `v${lib.version}` : lib.name })),
   ]
 }
 

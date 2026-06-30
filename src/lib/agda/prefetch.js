@@ -51,7 +51,7 @@ function collectDeps(mod, graph, visited = new Set()) {
 function modToAgdaiPath(mod, lib, agdaVersion) {
   const rel = mod.replaceAll('.', '/')
   const sub = lib.includeSubpath ? `${lib.includeSubpath}/` : ''
-  return `${lib.folderName}/_build/${agdaVersion}/agda/${sub}${rel}.agdai`
+  return `${lib.name}/_build/${agdaVersion}/agda/${sub}${rel}.agdai`
 }
 
 /**

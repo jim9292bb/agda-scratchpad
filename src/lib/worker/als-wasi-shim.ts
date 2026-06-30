@@ -175,7 +175,7 @@ async function buildFilesystem(opts: {
   // All extractions are independent (different VFS dirs) — run in parallel
   const tasks: Promise<void>[] = []
   for (const lib of opts.libraries) {
-    tasks.push(extractZipFast(root, lib.zip, lib.folderName, path => {
+    tasks.push(extractZipFast(root, lib.zip, lib.name, path => {
       if (!path.startsWith(`${lib.archiveRootPrefix}/`)) return null
       const rel = path.slice(lib.archiveRootPrefix.length + 1)
       if (!lib.includeSubpath) return rel  // `include: .` — keep everything
@@ -183,7 +183,7 @@ async function buildFilesystem(opts: {
       return null
     }))
     if (lib.agdaiZip) {
-      tasks.push(extractZipFast(root, lib.agdaiZip, lib.folderName, path => path))
+      tasks.push(extractZipFast(root, lib.agdaiZip, lib.name, path => path))
     }
   }
   tasks.push(extractZipFast(root, opts.dataZip, '', path => path))
@@ -191,7 +191,7 @@ async function buildFilesystem(opts: {
 
   // library config files (for versions using --setup, these get overwritten by --setup)
   writeFileTo(root, 'home/root/.config/agda/libraries',
-    enc.encode(opts.libraries.map(lib => `${lib.folderName}/${lib.agdaLibFile}\n`).join('')))
+    enc.encode(opts.libraries.map(lib => `${lib.name}/${lib.agdaLibFile}\n`).join('')))
   writeFileTo(root, 'home/root/.config/agda/defaults',
     enc.encode(opts.libraries.map(lib => `${lib.libraryName}\n`).join('')))
 

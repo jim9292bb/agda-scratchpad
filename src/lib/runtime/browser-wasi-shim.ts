@@ -194,10 +194,10 @@ export class BrowserWasiShimRuntimeBackend implements RuntimeBackend {
     trace: ReturnType<typeof createPerformanceTrace>,
     trackLib: <T>(p: Promise<T>) => Promise<T>,
   ): Promise<LibraryToLoad> {
-    const zip = await trackLib(trace.measure(`Fetch ${lib.folderName} zip`, () =>
+    const zip = await trackLib(trace.measure(`Fetch ${lib.name} zip`, () =>
       fetch(lib.sourceZipAsset).then(x => x.arrayBuffer())))
     return {
-      folderName: lib.folderName,
+      name: lib.name,
       zip,
       archiveRootPrefix: lib.archiveRootPrefix,
       includeSubpath: lib.includeSubpath,
