@@ -121,7 +121,9 @@ agda --print-agda-dir
 The `_build/` cache inside is generated automatically the first time native
 `agda` type-checks anything that uses Agda's builtins. If you've already run
 native `agda` once (e.g. to produce a library's `.agdai` cache), it's already
-there — just copy the whole `lib/prim/` directory over.
+there — just copy the whole `lib/prim/` directory over. The resulting `_build/`
+may not cover every builtin (only those your library transitively imports); run
+`npm run build-agda-data` after copying to fill in the rest.
 
 **`deploy-assets/.cache/<id>/_build/`** — prebuilt `.agdai` files. Populate
 with one of:
@@ -327,6 +329,12 @@ entry point.
   `agda --interaction-json` with one `Cmd_load` per source vertex. Temporarily
   copies the library into `.cache/<id>/build-temp/`, runs Agda there, moves
   `_build/` to `.cache/<id>/_build/`, deletes `build-temp/` in `finally`.
+- **[`build-agda-data.mjs`](build-agda-data.mjs)** — compiles every `.agda` file under
+  `deploy-assets/als/<version>/agda-data/` with `agda --only-type-check` to
+  produce a complete `_build/` interface cache for Agda's builtins. Necessary
+  because running native `agda` on a library only compiles the builtins that
+  library transitively imports, leaving others without a precompiled `.agdai`.
+  Supports `--als-version <version>` and `--agda-bin <path>`.
 - **[`import-agdai-cache.mjs`](import-agdai-cache.mjs)** — copies `_build/` from each library's own
   source directory (at `dirname(agdaLibPath)`) into `.cache/<id>/_build/`. Use
   this when you've already type-checked the library with native Agda.

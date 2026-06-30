@@ -12,7 +12,8 @@
     "deploy-assets/auto-configure.mjs",
     "deploy-assets/print-required-files.mjs",
     "deploy-assets/generate-library-info.mjs",
-    "deploy-assets/run-als-version.mjs"
+    "deploy-assets/run-als-version.mjs",
+    "deploy-assets/build-agda-data.mjs"
   ],
   "ignore": [
     "experiments/**"
