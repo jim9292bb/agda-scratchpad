@@ -52,7 +52,7 @@ to each library's `.agda-lib` file:
 cp deploy.config.example.json deploy.config.json
 ```
 
-Edit `deploy.config.json` and set `agdaLibPath` for each library.
+Edit `deploy.config.json` and set `agdaLibPath` for each library — see [`deploy.config.json` schema](#deployconfigjson-schema) below.
 
 **4. (Optional) Generate or import prebuilt `.agdai` cache:**
 
