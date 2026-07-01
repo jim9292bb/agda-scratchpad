@@ -56,20 +56,20 @@ Edit `deploy.config.json` and set `agdaLibPath` for each library — see [`deplo
 
 **4. (Optional) Generate or import prebuilt `.agdai` cache:**
 
+Fastest option: copies `_build/` from each library's own source dir. Use this
+if you've already type-checked the library with native agda.
+
 ```sh
 npm run import-agdai
 ```
 
-Fastest option: copies `_build/` from each library's own source dir. Use this
-if you've already type-checked the library with native agda.
+Builds from scratch with native agda. `generate-manifest` is only required
+first if agda < 2.8.0; agda ≥ 2.8.0 uses `--build-library` directly.
 
 ```sh
 npm run generate-manifest
 npm run build-agdai
 ```
-
-Builds from scratch with native agda. `generate-manifest` is only required
-first if agda < 2.8.0; agda ≥ 2.8.0 uses `--build-library` directly.
 
 Check what's ready at any time:
 
