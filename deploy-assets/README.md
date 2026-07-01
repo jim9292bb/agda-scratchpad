@@ -160,27 +160,29 @@ combinations. There is deliberately no separate "pick an ALS version" +
 is valid by construction, so the UI only needs a single profile selector and
 can never present an incompatible pairing.
 
-- `id`, `label`: identify the profile in the UI / local storage.
-- `alsVersion`, `wasmFilename`: which ALS build this profile uses. If the same
-  `alsVersion` appears in more than one profile, every reference must agree on
-  `wasmFilename`.
-- `libraries`: a list of `{ name, label?, version? }`:
-  - `name` (required): the `.agda-lib` `name:` value — used as the
-    static-asset key (`static/library/<name>.zip`, `static/agdai/<name>/`),
-    the VFS folder name, and the identifier for looking up entries in
-    `libraries` below. Must be unique per profile; if the same `name` appears
-    in multiple profiles, every reference must agree on `label`/`version`.
-  - `label` (optional): UI display name (e.g. `"stdlib"`). If absent, `name` is used.
-  - `version` (optional): version string shown in the UI (e.g. `"2.3"`).
-    Cosmetic only — nothing reads it to build a path or cache key.
+| Field | Required | Description |
+|---|---|---|
+| `id` | yes | Identifies the profile in the UI and local storage |
+| `label` | yes | Display name shown in the profile selector |
+| `alsVersion` | yes | ALS build this profile uses. All profiles sharing the same `alsVersion` must agree on `wasmFilename` |
+| `wasmFilename` | yes | Filename of the ALS wasm binary under `deploy-assets/als/<alsVersion>/` |
+| `libraries` | yes | List of `{ name, label?, version? }` — see below |
+
+Each entry in `libraries`:
+
+| Field | Required | Description |
+|---|---|---|
+| `name` | yes | `.agda-lib` `name:` value — used as the static-asset key (`static/library/<name>.zip`, `static/agdai/<name>/`), the VFS folder name, and the lookup key in `libraries`. Must be unique per profile; if the same `name` appears in multiple profiles, every reference must agree on `label`/`version` |
+| `label` | no | UI display name (e.g. `"stdlib"`). Falls back to `name` if absent |
+| `version` | no | Version string shown in the UI (e.g. `"2.3"`). Cosmetic only — not used to build any path or cache key |
 
 **`libraries`** — per-library local configuration, a list of `{ name, agdaLibPath, useAgdai? }`:
-- `name`: must match a library `name` in a `profiles` entry.
-- `agdaLibPath`: absolute OS path to that library's `.agda-lib` file
-  (e.g. `/home/user/agda-stdlib/standard-library.agda-lib`).
-- `useAgdai` (optional, default `false`): whether to generate/serve the
-  `.agdai` cache for this library. Set to `true` after running
-  `npm run import-agdai` or `npm run build-agdai`.
+
+| Field | Required | Description |
+|---|---|---|
+| `name` | yes | Must match a library `name` in a `profiles` entry |
+| `agdaLibPath` | yes | Absolute OS path to the library's `.agda-lib` file (e.g. `/home/user/agda-stdlib/standard-library.agda-lib`) |
+| `useAgdai` | no (default `false`) | Whether to generate/serve the `.agdai` cache for this library. Set to `true` after running `npm run import-agdai` or `npm run build-agdai` |
 
 `npm run auto-configure` creates `deploy.config.json` automatically (with
 `useAgdai: true` for downloaded libraries) when it doesn't already exist.
