@@ -23,12 +23,15 @@ stdlib/cubical/agda-categories — plfa, agda-unimath, 1lab.
 git clone https://github.com/jim9292bb/agda-playground.git
 cd agda-playground/als-demo
 npm install
-npm run auto-configure   # download stdlib/cubical/agda-categories + ALS 2.8.0,
-                         # create deploy.config.json, fetch prebuilt .agdai + manifests
-npm run setup            # zip/copy everything into static/
+npm run auto-configure
+npm run setup
 npm run check
 npm run build
 ```
+
+`auto-configure` downloads stdlib/cubical/agda-categories + ALS 2.8.0, creates
+`deploy.config.json`, and fetches prebuilt `.agdai` + manifests. `setup` then
+zips/copies everything into `static/`.
 
 ### Manual setup (custom libraries or ALS versions)
 
@@ -47,24 +50,26 @@ to each library's `.agda-lib` file:
 
 ```sh
 cp deploy.config.example.json deploy.config.json
-# Edit deploy.config.json — set agdaLibPath for each library
 ```
+
+Edit `deploy.config.json` and set `agdaLibPath` for each library.
 
 **4. (Optional) Generate or import prebuilt `.agdai` cache:**
 
 ```sh
-npm run import-agdai     # copy _build/ from each library's own source dir
-                         # (fastest — if you've already type-checked with native agda)
+npm run import-agdai
 ```
 
-```sh
-npm run build-agdai      # build from scratch with native agda (slow, ~8 min for stdlib)
-                         # requires generate-manifest first if agda < 2.8.0
-```
+Fastest option: copies `_build/` from each library's own source dir. Use this
+if you've already type-checked the library with native agda.
 
 ```sh
-npm run generate-manifest   # generate dependency-graph manifests (requires native agda)
+npm run generate-manifest
+npm run build-agdai
 ```
+
+Builds from scratch with native agda. `generate-manifest` is only required
+first if agda < 2.8.0; agda ≥ 2.8.0 uses `--build-library` directly.
 
 Check what's ready at any time:
 
@@ -75,7 +80,7 @@ npm run check-agdai
 **5. Build and verify:**
 
 ```sh
-npm run setup            # verify everything is present, zip/copy into static/
+npm run setup
 npm run check
 npm run build
 ```
