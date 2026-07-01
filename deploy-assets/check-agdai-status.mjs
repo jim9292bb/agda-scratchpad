@@ -1,5 +1,5 @@
 /**
- * Shows which libraries in deploy.local.json have prebuilt .agdai cache
+ * Shows which libraries in deploy.config.json have prebuilt .agdai cache
  * and/or a manifest in deploy-assets/.cache/.
  *
  * Useful before running `npm run setup` to know what is ready.
@@ -19,7 +19,7 @@ async function main() {
   const libs = getLocalLibraries()
 
   if (libs.length === 0) {
-    console.log('No libraries configured — create deploy.local.json from deploy.local.example.json.')
+    console.log('No libraries configured in deploy.config.json.')
     return
   }
 
@@ -28,8 +28,8 @@ async function main() {
     const hasBuild = await exists(join(lib.cacheDir, '_build'))
     const useAgdai = lib.useAgdai ? '' : ' (useAgdai: false)'
 
-    const manifest = hasManifest ? '✓ manifest' : '✗ manifest (run `npm run generate-manifest`)'
-    const build = hasBuild ? '✓ _build' : '✗ _build (run `npm run build-agdai`)'
+    const manifest = hasManifest ? '✓ manifest' : '✗ manifest'
+    const build = hasBuild ? '✓ _build' : '✗ _build (run `npm run install-agdai`)'
     console.log(`${lib.name}${useAgdai}: ${manifest}  ${build}`)
     if (lib.useAgdai && (hasManifest || hasBuild)) {
       console.log(`  cache id: ${lib.cacheId}`)

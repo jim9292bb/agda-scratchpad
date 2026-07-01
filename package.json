@@ -8,9 +8,7 @@
   "scripts": {
     "setup": "scripts/setup-assets.sh",
     "auto-configure": "node deploy-assets/auto-configure.mjs",
-    "generate-manifest": "node deploy-assets/generate-manifest.mjs",
-    "build-agdai": "node deploy-assets/build-agdai-cache.mjs",
-    "import-agdai": "node deploy-assets/import-agdai-cache.mjs",
+    "install-agdai": "node deploy-assets/install-agdai-cache.mjs",
     "check-agdai": "node deploy-assets/check-agdai-status.mjs",
     "build-agda-data": "node deploy-assets/build-agda-data.mjs",
     "predev": "node deploy-assets/ensure-deploy-config.mjs && node deploy-assets/generate-library-info.mjs",

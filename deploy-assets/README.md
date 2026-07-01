@@ -56,18 +56,13 @@ Edit `deploy.config.json` and set `agdaLibPath` for each library — see [`deplo
 
 **4. (Optional) Generate or import prebuilt `.agdai` cache:**
 
-Fastest option: copies `_build/` from each library's own source dir. Use this
-if you've already type-checked the library with native agda.
-
 ```sh
-npm run import-agdai
+npm run install-agdai --from   # copy _build/ from each library's own source dir
+                               # (fastest — if you've already type-checked with native agda)
+npm run install-agdai          # build from scratch with native agda (slow, ~8 min for stdlib)
 ```
 
-Builds from scratch with native agda (slow, ~8 min for stdlib).
-
-```sh
-npm run build-agdai
-```
+Both modes generate the dependency-graph manifest afterwards.
 
 Check what's ready at any time:
 
@@ -132,10 +127,10 @@ may not cover every builtin (only those your library transitively imports); run
 with one of:
 
 ```sh
-npm run import-agdai             # copy from library's own _build/ (fastest)
-npm run build-agdai              # build from scratch (agda ≥ 2.8.0: --build-library;
-                                 # agda < 2.8.0: session-based Cmd_load fallback)
-npm run import-agdai -- --force  # overwrite existing cache
+npm run install-agdai -- --from   # copy from library's own _build/ (fastest)
+npm run install-agdai             # build from scratch (agda ≥ 2.8.0: --build-library;
+                                  # agda < 2.8.0: Cmd_load-per-vertex fallback)
+npm run install-agdai -- --force  # overwrite existing cache (add --from for import mode)
 ```
 
 If your native `agda` predates 2.8.0 (no `--build-library`), run
@@ -185,7 +180,7 @@ Each entry in `libraries`:
 |---|---|---|
 | `name` | yes | Must match a library `name` in a `profiles` entry |
 | `agdaLibPath` | yes | Absolute OS path to the library's `.agda-lib` file (e.g. `/home/user/agda-stdlib/standard-library.agda-lib`) |
-| `useAgdai` | no (default `false`) | Whether to generate/serve the `.agdai` cache for this library. Set to `true` after running `npm run import-agdai` or `npm run build-agdai` |
+| `useAgdai` | no (default `false`) | Whether to generate/serve the `.agdai` cache for this library. Set to `true` after running `npm run install-agdai` |
 
 `npm run auto-configure` creates `deploy.config.json` automatically (with
 `useAgdai: true` for downloaded libraries) when it doesn't already exist.
@@ -303,10 +298,8 @@ entry point.
 |---|---|
 | `auto-configure` | Downloads this project's default libraries and ALS wasm, creates `deploy.config.json`, fetches prebuilt `.agdai` and manifests. Hardcoded for the shipped defaults — run once on a fresh clone instead of manual setup |
 | `setup` | Verifies all required files are present, zips library sources into `static/library/`, copies `.agdai`/manifests from `.cache/` into `static/agdai/`, copies ALS wasm and zips `agda-data/` into `static/als/` |
-| `generate-manifest` | Generates a library's dependency-graph manifest via `Cmd_tokenHighlighting` — see ["Regenerating the dependency graph"](#regenerating-the-dependency-graph). Supports `--library <name>` and `--agda-bin <path>` |
-| `build-agdai` | Builds `.agdai` cache for a library: `--build-library` for agda ≥ 2.8.0, `Cmd_load`-per-vertex fallback for older versions. Supports `--library <name>` and `--agda-bin <path>` |
+| `install-agdai` | Installs `.agdai` cache and generates the dependency-graph manifest. `--from [<path>]`: copy `_build/` from `<path>` (default: `dirname(agdaLibPath)`); no `--from`: build with native agda (`--build-library` for agda ≥ 2.8.0, `Cmd_load`-per-vertex for older). Supports `--library <name>`, `--agda-bin <path>`, `--force` |
 | `build-agda-data` | Compiles every `.agda` in `agda-data/` with `--only-type-check` to produce a complete builtin `_build/` cache. Supports `--als-version <version>` and `--agda-bin <path>` |
-| `import-agdai` | Copies `_build/` from `dirname(agdaLibPath)` into `.cache/<id>/_build/`. Fastest option when the library has already been type-checked with native agda. Supports `--library <name>` and `--force` |
 | `check-agdai` | Prints per-library manifest and `_build` status in `deploy-assets/.cache/` |
 
 ## How the manifest is used at runtime

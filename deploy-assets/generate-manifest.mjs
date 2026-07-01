@@ -150,7 +150,8 @@ async function extractImports(absPath, agdaBin) {
   return [...found]
 }
 
-export async function processLibrary(lib, agdaBin = 'agda') {
+/** Extracts the dependency graph from a library's source tree. Does not write to disk. */
+export async function buildGraph(lib, agdaBin = 'agda') {
   const agdaLibSrc = await readFile(lib.agdaLibPath, 'utf8')
   const include = parseAgdaLibInclude(agdaLibSrc)
   const libRoot = dirname(lib.agdaLibPath)
@@ -169,7 +170,12 @@ export async function processLibrary(lib, agdaBin = 'agda') {
     }),
     cpus().length,
   )
+  return graph
+}
 
+/** Builds the dependency graph and writes it to .cache/<id>/agdai-manifest.json. */
+export async function processLibrary(lib, agdaBin = 'agda') {
+  const graph = await buildGraph(lib, agdaBin)
   await mkdir(lib.cacheDir, { recursive: true })
   const json = JSON.stringify({ graph })
   const manifestPath = join(lib.cacheDir, 'agdai-manifest.json')

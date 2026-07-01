@@ -144,7 +144,7 @@ async function main() {
     // 2. Create deploy.config.json if absent (points at the downloaded sources)
     await ensureDeployConfig(libsWithPaths)
 
-    // 3. Resolve cache dirs (getLocalLibraries re-reads deploy.local.json and assigns IDs)
+    // 3. Resolve cache dirs (getLocalLibraries re-reads deploy.config.json and assigns IDs)
     const resolvedLibs = getLocalLibraries()
     const libByName = new Map(resolvedLibs.map(l => [l.name, l]))
 
@@ -152,7 +152,7 @@ async function main() {
     for (const lib of libsWithPaths) {
       const resolved = libByName.get(lib.name)
       if (!resolved) {
-        console.warn(`  warning: "${lib.name}" not in deploy.local.json — skipping cache download`)
+        console.warn(`  warning: "${lib.name}" not in deploy.config.json — skipping cache download`)
         continue
       }
       await mkdir(resolved.cacheDir, { recursive: true })
