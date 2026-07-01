@@ -296,22 +296,15 @@ entry point.
 
 ### Scripts
 
-| Script | `npm run` | Description |
-|---|---|---|
-| [`resolve-deploy-config.mjs`](resolve-deploy-config.mjs) | — | Reads `deploy.config.json`, auto-assigns stable random IDs per `agdaLibPath` in `.cache/index.json`. Exports `getLocalLibraries()` and `getSelectedAlsVersions()` |
-| [`agda-lib-utils.mjs`](agda-lib-utils.mjs) | — | Shared parsers for `.agda-lib` `include:`/`name:` fields; no `agda` binary needed |
-| [`ensure-deploy-config.mjs`](ensure-deploy-config.mjs) | — | Copies `deploy.config.example.json` → `deploy.config.json` if absent. Runs as `predev`/`precheck`/`prebuild` |
-| [`run-als-version.mjs`](run-als-version.mjs) | — | Runs an ALS wasm with `--version` via Node WASI. Always invoked as a child process by [`print-required-files.mjs`](print-required-files.mjs), never imported directly |
-| [`zip-utils.mjs`](zip-utils.mjs) | — | Shared minimal ZIP extraction/creation helpers |
-| [`print-required-files.mjs`](print-required-files.mjs) | `setup` (pre) | Verifies all files required by `deploy.config.json` are present and each ALS wasm reports the correct `alsVersion`. Non-fatal warning for missing `.agdai` cache when `useAgdai: true` |
-| [`generate-library-info.mjs`](generate-library-info.mjs) | `setup` (pre) | Generates [`generated-libraries.mjs`](generated-libraries.mjs) from real `.agda-lib` files — see ["What `npm run setup` generates"](#what-npm-run-setup-generates). Also runs as `predev`/`precheck`/`prebuild` |
-| [`build-static-assets.mjs`](build-static-assets.mjs) | `setup` | Zips library sources into `static/library/`, copies `.agdai`/manifests from `.cache/` into `static/agdai/`, copies ALS wasm and zips `agda-data/` into `static/als/` |
-| [`generate-manifest.mjs`](generate-manifest.mjs) | `generate-manifest` | Generates a library's dependency-graph manifest via `Cmd_tokenHighlighting` — see ["Regenerating the dependency graph"](#regenerating-the-dependency-graph). Supports `--library` and `--agda-bin` |
-| [`build-agdai-cache.mjs`](build-agdai-cache.mjs) | `build-agdai` | Builds `.agdai` cache for a library: `--build-library` for agda ≥ 2.8.0, `Cmd_load`-per-vertex fallback for older. Temp-copies source into `.cache/<id>/build-temp/`, cleans up in `finally` |
-| [`build-agda-data.mjs`](build-agda-data.mjs) | `build-agda-data` | Compiles every `.agda` in `agda-data/` with `--only-type-check` to produce a complete builtin `_build/` cache. Supports `--als-version` and `--agda-bin` |
-| [`import-agdai-cache.mjs`](import-agdai-cache.mjs) | `import-agdai` | Copies `_build/` from `dirname(agdaLibPath)` into `.cache/<id>/_build/`. Use when the library has already been type-checked with native agda. Supports `--library` and `--force` |
-| [`check-agdai-status.mjs`](check-agdai-status.mjs) | `check-agdai` | Prints per-library manifest and `_build` status in `deploy-assets/.cache/` |
-| [`auto-configure.mjs`](auto-configure.mjs) | `auto-configure` | Downloads this project's default libraries and ALS wasm, creates `deploy.config.json`, fetches prebuilt `.agdai` and manifests. Hardcoded, not catalog-driven — see its own header comment |
+| `npm run` | Description |
+|---|---|
+| `auto-configure` | Downloads this project's default libraries and ALS wasm, creates `deploy.config.json`, fetches prebuilt `.agdai` and manifests. Hardcoded for the shipped defaults — run once on a fresh clone instead of manual setup |
+| `setup` | Verifies all required files are present, zips library sources into `static/library/`, copies `.agdai`/manifests from `.cache/` into `static/agdai/`, copies ALS wasm and zips `agda-data/` into `static/als/` |
+| `generate-manifest` | Generates a library's dependency-graph manifest via `Cmd_tokenHighlighting` — see ["Regenerating the dependency graph"](#regenerating-the-dependency-graph). Supports `--library <name>` and `--agda-bin <path>` |
+| `build-agdai` | Builds `.agdai` cache for a library: `--build-library` for agda ≥ 2.8.0, `Cmd_load`-per-vertex fallback for older versions. Supports `--library <name>` and `--agda-bin <path>` |
+| `build-agda-data` | Compiles every `.agda` in `agda-data/` with `--only-type-check` to produce a complete builtin `_build/` cache. Supports `--als-version <version>` and `--agda-bin <path>` |
+| `import-agdai` | Copies `_build/` from `dirname(agdaLibPath)` into `.cache/<id>/_build/`. Fastest option when the library has already been type-checked with native agda. Supports `--library <name>` and `--force` |
+| `check-agdai` | Prints per-library manifest and `_build` status in `deploy-assets/.cache/` |
 
 ## How the manifest is used at runtime
 
