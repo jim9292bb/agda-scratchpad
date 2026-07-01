@@ -43,7 +43,7 @@ cd als-demo
 npm install
 ```
 
-**2. Place library source and ALS files** — see ["What to place"](#what-to-place) below.
+**2. Place ALS files** — see ["What to place"](#what-to-place) below.
 
 **3. Create `deploy.config.json`** from the example, and fill in OS-absolute paths
 to each library's `.agda-lib` file:
