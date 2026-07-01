@@ -21,8 +21,9 @@
  *              This avoids the InfectiveImport/CoInfectiveImport issue
  *              a combined Everything.agda would hit.
  *
- * The library's `agdai-manifest.json` (in `.cache/<id>/agdai-manifest.json`)
- * must exist before calling this — run `npm run generate-manifest` first.
+ * For agda < 2.8.0, the dependency-graph manifest is needed to identify source
+ * vertices for Cmd_load. If it doesn't exist, it is generated automatically —
+ * no need to run `npm run generate-manifest` first.
  *
  * Usage:
  *   node deploy-assets/build-agdai-cache.mjs [--library <name>] [--agda-bin <path>]
@@ -36,6 +37,7 @@ import { dirname, join, basename, sep } from 'node:path'
 import { spawn, spawnSync } from 'node:child_process'
 import { getLocalLibraries } from './resolve-deploy-config.mjs'
 import { parseAgdaLibInclude } from './agda-lib-utils.mjs'
+import { processLibrary as generateManifest } from './generate-manifest.mjs'
 
 function parseArgs(argv) {
   const args = { library: null, agdaBin: 'agda' }
@@ -74,14 +76,6 @@ function findSourceVertices(graph) {
 }
 
 async function buildLibrary(lib, agdaBin) {
-  const manifestPath = join(lib.cacheDir, 'agdai-manifest.json')
-  let graph
-  try {
-    graph = JSON.parse(await readFile(manifestPath, 'utf8')).graph
-  } catch {
-    throw new Error(`${manifestPath} not found — run \`npm run generate-manifest -- --library ${lib.name}\` first.`)
-  }
-
   const versionStr = spawnSync(agdaBin, ['--numeric-version'], { encoding: 'utf8' }).stdout
   const agdaVersion = parseAgdaVersion(versionStr)
   if (!agdaVersion) throw new Error(`could not determine agda version from "${agdaBin} --numeric-version": ${versionStr}`)
@@ -113,6 +107,17 @@ async function buildLibrary(lib, agdaBin) {
     if (versionGte(agdaVersion, [2, 8, 0])) {
       await buildWithBuildLibrary(lib, agdaBin, tempAgdaLibPath, libraryFile)
     } else {
+      // agda < 2.8.0: need the dependency graph to find source vertices for Cmd_load.
+      // Auto-generate the manifest if it doesn't already exist.
+      const manifestPath = join(lib.cacheDir, 'agdai-manifest.json')
+      let graph
+      try {
+        graph = JSON.parse(await readFile(manifestPath, 'utf8')).graph
+      } catch {
+        console.log(`[${lib.name}] manifest not found — generating automatically...`)
+        await generateManifest(lib, agdaBin)
+        graph = JSON.parse(await readFile(manifestPath, 'utf8')).graph
+      }
       await buildWithCmdLoad(lib, agdaBin, graph, tempIncludeDir, libraryFile, agdaVersion)
     }
 

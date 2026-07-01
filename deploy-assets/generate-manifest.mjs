@@ -55,9 +55,10 @@ const AGDA_FILE_EXTENSIONS = [
 ]
 
 function parseArgs(argv) {
-  const args = { library: null }
+  const args = { library: null, agdaBin: 'agda' }
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--library') args.library = argv[++i]
+    else if (argv[i] === '--agda-bin') args.agdaBin = argv[++i]
     else throw new Error(`unknown argument: ${argv[i]}`)
   }
   return args
@@ -102,9 +103,9 @@ async function runPool(tasks, limit) {
 }
 
 /** @returns {Promise<{ atoms: string[], range: [number, number] }[]>} */
-function getHighlightingPayload(absPath) {
+function getHighlightingPayload(absPath, agdaBin) {
   return new Promise((resolve, reject) => {
-    const proc = spawn('agda', ['--interaction-json'])
+    const proc = spawn(agdaBin, ['--interaction-json'])
     let stdout = ''
     let stderr = ''
     proc.stdout.on('data', d => { stdout += d })
@@ -134,10 +135,10 @@ function getHighlightingPayload(absPath) {
 
 const IMPORT_RE = /\bimport\b\s*(\S+)\s/g
 
-async function extractImports(absPath) {
+async function extractImports(absPath, agdaBin) {
   const src = await readFile(absPath, 'utf8')
   const chars = [...src]
-  const payload = await getHighlightingPayload(absPath)
+  const payload = await getHighlightingPayload(absPath, agdaBin)
   for (const { atoms, range } of payload) {
     if (atoms.includes('keyword')) continue
     const [start, end] = range
@@ -149,21 +150,21 @@ async function extractImports(absPath) {
   return [...found]
 }
 
-async function processLibrary(lib) {
+export async function processLibrary(lib, agdaBin = 'agda') {
   const agdaLibSrc = await readFile(lib.agdaLibPath, 'utf8')
   const include = parseAgdaLibInclude(agdaLibSrc)
   const libRoot = dirname(lib.agdaLibPath)
   const includeDir = include ? join(libRoot, include) : libRoot
 
   const agdaFiles = (await findAgdaFiles(includeDir)).sort()
-  console.log(`[${lib.name}] extracting imports from ${agdaFiles.length} files (agda --interaction-json, ${cpus().length}-way parallel)...`)
+  console.log(`[${lib.name}] extracting imports from ${agdaFiles.length} files (${agdaBin} --interaction-json, ${cpus().length}-way parallel)...`)
 
   const graph = {}
   await runPool(
     agdaFiles.map(file => async () => {
       const ext = matchAgdaExtension(file)
       const mod = pathToModuleName(file, includeDir, ext)
-      const imports = await extractImports(file)
+      const imports = await extractImports(file, agdaBin)
       graph[mod] = imports.filter(d => !isExcluded(d))
     }),
     cpus().length,
@@ -198,7 +199,7 @@ async function main() {
   }
 
   for (const lib of libs) {
-    await processLibrary(lib)
+    await processLibrary(lib, args.agdaBin)
   }
   console.log('Run `npm run setup` to copy manifests into static/.')
 }

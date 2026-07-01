@@ -63,11 +63,9 @@ if you've already type-checked the library with native agda.
 npm run import-agdai
 ```
 
-Builds from scratch with native agda. `generate-manifest` is only required
-first if agda < 2.8.0; agda ≥ 2.8.0 uses `--build-library` directly.
+Builds from scratch with native agda (slow, ~8 min for stdlib).
 
 ```sh
-npm run generate-manifest
 npm run build-agdai
 ```
 
