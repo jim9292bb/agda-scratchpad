@@ -56,11 +56,11 @@ Edit `deploy.config.json` and set `agdaLibPath` for each library — see [`deplo
 
 **4. (Optional) Generate or import prebuilt `.agdai` cache:**
 
-Fastest option — copies `_build/` from each library's own source dir. Use this
+Fastest option — copies `_build/` from the given directory. Use this
 if you've already type-checked the library with native agda.
 
 ```sh
-npm run install-agdai -- --from
+npm run install-agdai -- --from /path/to/library
 ```
 
 Builds from scratch with native agda (slow, ~8 min for stdlib).
@@ -134,10 +134,9 @@ may not cover every builtin (only those your library transitively imports); run
 with one of:
 
 ```sh
-npm run install-agdai -- --from   # copy from library's own _build/ (fastest)
-npm run install-agdai             # build from scratch (agda ≥ 2.8.0: --build-library;
-                                  # agda < 2.8.0: Cmd_load-per-vertex fallback)
-npm run install-agdai -- --force  # overwrite existing cache (add --from for import mode)
+npm run install-agdai -- --from /path/to/library   # copy from given dir (fastest)
+npm run install-agdai                              # build from scratch with native agda
+npm run install-agdai -- --force                   # overwrite existing cache
 ```
 
 If your native `agda` predates 2.8.0 (no `--build-library`), run
@@ -305,7 +304,7 @@ entry point.
 |---|---|
 | `auto-configure` | Downloads this project's default libraries and ALS wasm, creates `deploy.config.json`, fetches prebuilt `.agdai` and manifests. Hardcoded for the shipped defaults — run once on a fresh clone instead of manual setup |
 | `setup` | Verifies all required files are present, zips library sources into `static/library/`, copies `.agdai`/manifests from `.cache/` into `static/agdai/`, copies ALS wasm and zips `agda-data/` into `static/als/` |
-| `install-agdai` | Installs `.agdai` cache and generates the dependency-graph manifest. `--from [<path>]`: copy `_build/` from `<path>` (default: `dirname(agdaLibPath)`); no `--from`: build with native agda (`--build-library` for agda ≥ 2.8.0, `Cmd_load`-per-vertex for older). Supports `--library <name>`, `--agda-bin <path>`, `--force` |
+| `install-agdai` | Installs `.agdai` cache and generates the dependency-graph manifest. `--from <path>`: copy `_build/` from the given directory; no `--from`: build with native agda (`--build-library` for agda ≥ 2.8.0, `Cmd_load`-per-vertex for older). Supports `--library <name>`, `--agda-bin <path>`, `--force` |
 | `build-agda-data` | Compiles every `.agda` in `agda-data/` with `--only-type-check` to produce a complete builtin `_build/` cache. Supports `--als-version <version>` and `--agda-bin <path>` |
 | `check-agdai` | Prints per-library manifest and `_build` status in `deploy-assets/.cache/` |
 

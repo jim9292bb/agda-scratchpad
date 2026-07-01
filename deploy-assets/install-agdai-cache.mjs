@@ -4,9 +4,7 @@
  *
  * Two modes:
  *
- *   --from [<path>]   Copy _build/ from a directory. If <path> is omitted,
- *                     defaults to dirname(agdaLibPath) — the library's own
- *                     source directory (where native Agda writes its cache).
+ *   --from <path>     Copy _build/ from the given directory.
  *
  *   (no --from)       Build from scratch with native agda:
  *                     agda ≥ 2.8.0 — agda --build-library (single command)
@@ -18,7 +16,7 @@
  * _build/ is in place — manifest and cache are always in sync.
  *
  * Usage:
- *   node deploy-assets/install-agdai-cache.mjs [--from [<path>]] [--library <name>] [--agda-bin <path>] [--force]
+ *   node deploy-assets/install-agdai-cache.mjs [--from <path>] [--library <name>] [--agda-bin <path>] [--force]
  *
  * Without --library, processes all libraries in deploy.config.json with useAgdai: true.
  * --agda-bin defaults to "agda" on PATH.
@@ -36,8 +34,10 @@ function parseArgs(argv) {
   const args = { importMode: false, fromPath: null, library: null, agdaBin: 'agda', force: false }
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--from') {
+      if (i + 1 >= argv.length || argv[i + 1].startsWith('-'))
+        throw new Error('--from requires a directory path')
       args.importMode = true
-      if (i + 1 < argv.length && !argv[i + 1].startsWith('-')) args.fromPath = argv[++i]
+      args.fromPath = argv[++i]
     } else if (argv[i] === '--library') {
       args.library = argv[++i]
     } else if (argv[i] === '--agda-bin') {
@@ -207,10 +207,8 @@ async function buildAgdai(lib, agdaBin) {
 // --- main ---
 
 async function installLibrary(lib, args) {
-  const fromPath = args.fromPath ?? dirname(lib.agdaLibPath)
-
   if (args.importMode) {
-    await importBuild(lib, fromPath, args.force)
+    await importBuild(lib, args.fromPath, args.force)
   } else {
     await buildAgdai(lib, args.agdaBin)
   }
