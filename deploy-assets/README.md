@@ -56,10 +56,17 @@ Edit `deploy.config.json` and set `agdaLibPath` for each library — see [`deplo
 
 **4. (Optional) Generate or import prebuilt `.agdai` cache:**
 
+Fastest option — copies `_build/` from each library's own source dir. Use this
+if you've already type-checked the library with native agda.
+
 ```sh
-npm run install-agdai --from   # copy _build/ from each library's own source dir
-                               # (fastest — if you've already type-checked with native agda)
-npm run install-agdai          # build from scratch with native agda (slow, ~8 min for stdlib)
+npm run install-agdai -- --from
+```
+
+Builds from scratch with native agda (slow, ~8 min for stdlib).
+
+```sh
+npm run install-agdai
 ```
 
 Both modes generate the dependency-graph manifest afterwards.
