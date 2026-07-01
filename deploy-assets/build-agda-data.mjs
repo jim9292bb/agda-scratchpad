@@ -1,12 +1,12 @@
 /**
- * Compiles all Agda builtin source files in deploy-assets/als/<version>/agda-data/
- * to produce a complete _build/ interface cache — every builtin module, not just
- * those transitively reachable from a library you've already type-checked.
+ * Compiles all Agda builtin source files to produce a complete _build/ interface
+ * cache in deploy-assets/als/<version>/agda-data/.
  *
  * Running native `agda` on a library only compiles the builtins that library
  * imports, leaving others without a precompiled .agdai. This script ensures
- * full coverage by compiling each .agda file in agda-data/ directly; agda
- * handles transitive dependencies automatically, so ordering doesn't matter.
+ * full coverage by compiling each .agda file in agda's own prim directory
+ * (so there is no include-path conflict), then syncing the resulting _build/
+ * into our agda-data copy.
  *
  * Usage:
  *   node deploy-assets/build-agda-data.mjs [--als-version <version>] [--agda-bin <path>]
@@ -15,7 +15,7 @@
  * --agda-bin defaults to "agda" on PATH.
  */
 
-import { readdir, access } from 'node:fs/promises'
+import { readdir, access, cp, rm } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
@@ -53,19 +53,49 @@ async function findAgdaFiles(dir) {
   return results
 }
 
+// Find where Agda/Primitive.agda lives inside agdaDataDir.
+// Handles two layouts:
+//   agda-data/Agda/Primitive.agda          (cp -r .../lib/prim/ agda-data/)
+//   agda-data/lib/prim/Agda/Primitive.agda (cp -r .../lib agda-data/)
+async function findPrimRoot(agdaDataDir) {
+  for (const candidate of [agdaDataDir, join(agdaDataDir, 'lib', 'prim')]) {
+    if (await exists(join(candidate, 'Agda', 'Primitive.agda'))) return candidate
+  }
+  return null
+}
+
 async function buildAgdaData(agdaDataDir, agdaBin) {
   if (!(await exists(agdaDataDir))) {
     console.log(`  skipping — not present: ${relative(REPO_ROOT, agdaDataDir)}`)
     return 0
   }
 
-  const files = await findAgdaFiles(agdaDataDir)
-  console.log(`  ${files.length} .agda files found`)
+  const ourPrimRoot = await findPrimRoot(agdaDataDir)
+  if (!ourPrimRoot) {
+    throw new Error(`cannot find Agda/Primitive.agda under ${agdaDataDir} — is agda-data set up correctly?`)
+  }
 
+  const printResult = spawnSync(agdaBin, ['--print-agda-dir'], { encoding: 'utf8' })
+  if (printResult.status !== 0 || !printResult.stdout.trim()) {
+    throw new Error(`"${agdaBin} --print-agda-dir" failed`)
+  }
+  const agdaPrimDir = join(printResult.stdout.trim(), 'lib', 'prim')
+
+  if (!(await exists(agdaPrimDir))) {
+    throw new Error(`agda prim dir not found: ${agdaPrimDir}`)
+  }
+
+  const files = await findAgdaFiles(agdaPrimDir)
+  console.log(`  ${files.length} .agda files in ${agdaPrimDir}`)
+
+  const t0 = performance.now()
   let failures = 0
   for (const file of files) {
-    const rel = relative(agdaDataDir, file)
-    const result = spawnSync(agdaBin, ['-i', agdaDataDir, '--only-type-check', file], {
+    const rel = relative(agdaPrimDir, file)
+    // Run agda with the file's absolute path and no -i flag. Agda resolves
+    // its own prim directory internally; adding -i would create a duplicate
+    // path and trigger AmbiguousTopLevelModuleName.
+    const result = spawnSync(agdaBin, [file], {
       encoding: 'utf8',
       timeout: 60_000,
     })
@@ -77,6 +107,22 @@ async function buildAgdaData(agdaDataDir, agdaBin) {
       console.log(`  ok: ${rel}`)
     }
   }
+
+  const elapsed = ((performance.now() - t0) / 1000).toFixed(1)
+  console.log(`  compiled ${files.length} files in ${elapsed}s, ${failures} failure(s)`)
+
+  if (failures === 0) {
+    const srcBuild = join(agdaPrimDir, '_build')
+    const dstBuild = join(ourPrimRoot, '_build')
+    if (await exists(srcBuild)) {
+      await rm(dstBuild, { recursive: true, force: true })
+      await cp(srcBuild, dstBuild, { recursive: true })
+      console.log(`  copied _build/ → ${relative(REPO_ROOT, dstBuild)}`)
+    } else {
+      console.warn(`  warning: no _build/ found in ${agdaPrimDir} after compilation`)
+    }
+  }
+
   return failures
 }
 

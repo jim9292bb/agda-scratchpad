@@ -10,6 +10,7 @@
     "auto-configure": "node deploy-assets/auto-configure.mjs",
     "install-agdai": "node deploy-assets/install-agdai-cache.mjs",
     "check-agdai": "node deploy-assets/check-agdai-status.mjs",
+    "install-als": "node deploy-assets/install-als.mjs",
     "build-agda-data": "node deploy-assets/build-agda-data.mjs",
     "predev": "node deploy-assets/ensure-deploy-config.mjs && node deploy-assets/generate-library-info.mjs",
     "dev": "vite dev",

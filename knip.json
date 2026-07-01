@@ -11,6 +11,7 @@
     "deploy-assets/print-required-files.mjs",
     "deploy-assets/generate-library-info.mjs",
     "deploy-assets/run-als-version.mjs",
+    "deploy-assets/install-als.mjs",
     "deploy-assets/build-agda-data.mjs"
   ],
   "ignore": [

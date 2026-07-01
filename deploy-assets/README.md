@@ -305,7 +305,8 @@ entry point.
 | `auto-configure` | Downloads this project's default libraries and ALS wasm, creates `deploy.config.json`, fetches prebuilt `.agdai` and manifests. Hardcoded for the shipped defaults — run once on a fresh clone instead of manual setup |
 | `setup` | Verifies all required files are present, zips library sources into `static/library/`, copies `.agdai`/manifests from `.cache/` into `static/agdai/`, copies ALS wasm and zips `agda-data/` into `static/als/` |
 | `install-agdai` | Installs `.agdai` cache and generates the dependency-graph manifest. `--from <path>`: copy `_build/` from the given directory; no `--from`: build with native agda (`--build-library` for agda ≥ 2.8.0, `Cmd_load`-per-vertex for older). Supports `--library <name>`, `--agda-bin <path>`, `--force` |
-| `build-agda-data` | Compiles every `.agda` in `agda-data/` with `--only-type-check` to produce a complete builtin `_build/` cache. Supports `--als-version <version>` and `--agda-bin <path>` |
+| `install-als` | Sets up an ALS WASM build from a single `.wasm` file — no native agda required. Extracts agda-data source via `als --setup`, compiles all builtins via ALS WASM LSP, installs into `deploy-assets/als/<version>/`. Supports `--force` |
+| `build-agda-data` | Compiles all `.agda` files in agda's own prim directory and copies the resulting `_build/` into `agda-data/`. Ensures every builtin has a precompiled `.agdai`, not just those your library happens to import. Supports `--als-version <version>` and `--agda-bin <path>` |
 | `check-agdai` | Prints per-library manifest and `_build` status in `deploy-assets/.cache/` |
 
 ## How the manifest is used at runtime
