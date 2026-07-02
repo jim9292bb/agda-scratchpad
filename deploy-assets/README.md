@@ -54,22 +54,18 @@ cp deploy.config.example.json deploy.config.json
 
 Edit `deploy.config.json` and set `agdaLibPath` for each library — see [`deploy.config.json` schema](#deployconfigjson-schema) below.
 
-**4. (Optional) Generate or import prebuilt `.agdai` cache:**
+**4. (Optional) Generate prebuilt `.agdai` cache:**
 
-Fastest option — copies `_build/` from the given directory. Use this
-if you've already type-checked the library with native agda.
-
-```sh
-npm run install-agdai -- --from /path/to/library
-```
-
-Builds from scratch with native agda (slow, ~8 min for stdlib).
+Builds with native agda directly in the library's source directory and copies
+the resulting `_build/` into the project cache. If the library was already
+compiled (e.g. a previous run), agda skips unchanged files and completes in
+milliseconds. First-time builds take ~8 min for stdlib.
 
 ```sh
 npm run install-agdai
 ```
 
-Both modes generate the dependency-graph manifest afterwards.
+Generates the dependency-graph manifest afterwards.
 
 Check what's ready at any time:
 
@@ -131,19 +127,17 @@ may not cover every builtin (only those your library transitively imports); run
 `npm run build-agda-data` after copying to fill in the rest.
 
 **`deploy-assets/.cache/<id>/_build/`** — prebuilt `.agdai` files. Populate
-with one of:
+with:
 
 ```sh
-npm run install-agdai -- --from /path/to/library   # copy from given dir (fastest)
-npm run install-agdai                              # build from scratch with native agda
-npm run install-agdai -- --force                   # overwrite existing cache
+npm run install-agdai
 ```
 
 If your native `agda` predates 2.8.0 (no `--build-library`), run
-`npm run generate-manifest` for that library first — `build-agdai` reads its
+`npm run generate-manifest` for that library first — `install-agdai` reads its
 `agdai-manifest.json` to find the source vertices to `Cmd_load`. The
-`--agda-bin` flag (for both scripts) defaults to `agda` on `PATH`; pass a
-full path if you have multiple versions installed.
+`--agda-bin` flag defaults to `agda` on `PATH`; pass a full path if you have
+multiple versions installed.
 
 ### `deploy.config.json` schema
 
