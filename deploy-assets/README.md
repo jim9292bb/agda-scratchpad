@@ -43,16 +43,25 @@ cd als-demo
 npm install
 ```
 
-**2. Place ALS files** — see ["What to place"](#what-to-place) below.
+**2. Install the ALS WASM build:**
 
-**3. Create `deploy.config.json`** from the example, and fill in OS-absolute paths
-to each library's `.agda-lib` file:
+```sh
+npm run install-als -- --wasm /path/to/als.wasm --name als-2.8ext
+```
+
+This installs the wasm binary and compiles all builtins into
+`deploy-assets/als/als-2.8ext/`. See ["What to place"](#what-to-place) for the
+expected directory layout if you prefer to place files manually.
+
+**3. Create `deploy.config.json`** from the example, and fill in the `als` name
+from step 2 and OS-absolute paths to each library's `.agda-lib` file:
 
 ```sh
 cp deploy.config.example.json deploy.config.json
 ```
 
-Edit `deploy.config.json` and set `agdaLibPath` for each library — see [`deploy.config.json` schema](#deployconfigjson-schema) below.
+Edit `deploy.config.json`: set `"als"` to the name used in step 2 and set
+`agdaLibPath` for each library — see [`deploy.config.json` schema](#deployconfigjson-schema) below.
 
 **4. (Optional) Generate prebuilt `.agdai` cache:**
 
