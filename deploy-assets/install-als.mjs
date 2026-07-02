@@ -1,10 +1,12 @@
 /**
  * Sets up an ALS WASM build for deployment — no native agda required.
  *
- * 1. Extracts agda-data source via `als --setup`
- * 2. Compiles all builtin .agda files via `als --raw` + LSP; reads Agda
- *    version from `Cmd_show_version` during the same session
- * 3. Installs agda-data/ and the .wasm file into deploy-assets/als/<version>/
+ * For Agda >= 2.8.0: uses `als --setup` to extract embedded agda-data source.
+ * For Agda <  2.8.0: `als --setup` is not available; falls back to downloading
+ *                    agda-data source from Hackage (version detected via `als --version`).
+ *
+ * In both cases a single ALS LSP session handles version detection
+ * (Cmd_show_version) and compilation (Cmd_load per file).
  *
  * Usage:
  *   node deploy-assets/install-als.mjs <path-to-als.wasm> [--force]
@@ -12,7 +14,7 @@
  * --force overwrites an existing deploy-assets/als/<version>/ directory.
  */
 
-import { readFile, writeFile, mkdir, cp, rm, mkdtemp, access, readdir } from 'node:fs/promises'
+import { writeFile, mkdir, cp, rm, mkdtemp, access, readdir } from 'node:fs/promises'
 import { dirname, join, basename, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync, spawn } from 'node:child_process'
@@ -39,25 +41,65 @@ async function exists(p) {
   try { await access(p); return true } catch { return false }
 }
 
-// Run als --setup in a child process with stdout suppressed (it prints
-// "Writing /..." for every file, which is too verbose for normal use).
-function runAlsSetup(wasmPath, workDir) {
+// Run a WASI child that executes als with the given args[], returning stdout.
+function runAlsWasi(wasmPath, alsArgs, opts = {}) {
   const code = `
 import { readFile } from 'node:fs/promises'
 import { WASI } from 'node:wasi'
-const wasi = new WASI({ version: 'preview1', args: ['als', '--setup'],
-  env: { HOME: '/home/root', Agda_datadir: '/' }, preopens: { '/': ${JSON.stringify(workDir)} } })
+const wasi = new WASI({ version: 'preview1', args: ${JSON.stringify(['als', ...alsArgs])},
+  env: { HOME: '/home/root', Agda_datadir: '/' },
+  preopens: ${JSON.stringify(opts.preopens ?? {})} })
 const buf = await readFile(${JSON.stringify(wasmPath)})
 const mod = await WebAssembly.compile(buf)
 const inst = await WebAssembly.instantiate(mod, wasi.getImportObject())
 try { wasi.start(inst) } catch {}
 `
-  const r = spawnSync(process.execPath, ['--input-type=module'], {
+  return spawnSync(process.execPath, ['--input-type=module'], {
     input: code, encoding: 'utf8', timeout: 30_000,
-    stdio: ['pipe', 'ignore', 'pipe'],
+    stdio: ['pipe', opts.captureStdout ? 'pipe' : 'ignore', 'pipe'],
   })
+}
+
+// Run als --setup, writing agda-data source into workDir.
+// Throws if --setup is not supported (Agda < 2.8.0).
+function runAlsSetup(wasmPath, workDir) {
+  const r = runAlsWasi(wasmPath, ['--setup'], { preopens: { '/': workDir } })
   if (r.error) throw r.error
   if (r.status !== 0) throw new Error(`als --setup failed: ${r.stderr.trim()}`)
+}
+
+// Detect Agda version via als --version (fallback for Agda < 2.8.0).
+// Returns e.g. "2.7.0.1".
+function detectAgdaVersionFromFlag(wasmPath) {
+  const r = runAlsWasi(wasmPath, ['--version'], { captureStdout: true })
+  if (r.error) throw r.error
+  const m = r.stdout.trim().match(/Agda v([\d.]+)/)
+  if (!m) throw new Error(`could not parse Agda version from ALS output: "${r.stdout.trim()}"`)
+  return m[1]
+}
+
+// Download agda-data source (lib/prim/) for the given Agda version from Hackage.
+// Hackage tarball contains: Agda-<version>/src/data/lib/prim/
+async function downloadAgdaDataFromHackage(agdaVersion, workDir) {
+  const url = `https://hackage.haskell.org/package/Agda-${agdaVersion}/Agda-${agdaVersion}.tar.gz`
+  console.log(`  fetching ${url}`)
+  const resp = await fetch(url)
+  if (!resp.ok) throw new Error(`Hackage download failed: ${resp.status} ${resp.statusText}`)
+
+  const tarPath = join(tmpdir(), `agda-${agdaVersion}-${process.pid}.tar.gz`)
+  try {
+    await writeFile(tarPath, Buffer.from(await resp.arrayBuffer()))
+    // --strip-components=3 removes Agda-<version>/src/data, leaving lib/prim/ in workDir
+    const r = spawnSync('tar', [
+      '-xzf', tarPath, '-C', workDir,
+      '--strip-components=3',
+      `Agda-${agdaVersion}/src/data/lib/prim`,
+    ], { encoding: 'utf8' })
+    if (r.error) throw r.error
+    if (r.status !== 0) throw new Error(`tar extraction failed: ${r.stderr.trim()}`)
+  } finally {
+    await rm(tarPath, { force: true })
+  }
 }
 
 async function findAgdaFiles(dir) {
@@ -73,20 +115,35 @@ async function findAgdaFiles(dir) {
   return results
 }
 
-// Compile all .agda files in workDir/lib/prim/ by running als --raw as a
-// child process and communicating via LSP JSON-RPC. Also queries Agda version
-// via Cmd_show_version before compilation and returns it.
+// Run a single ALS LSP session that:
+//   1. Populates workDir via als --setup (>= 2.8.0) or Hackage download (< 2.8.0)
+//   2. Reads Agda version from Cmd_show_version (works once workDir is populated)
+//   3. Compiles all .agda files via Cmd_load
+// Returns the Agda version string.
 //
-// ALS protocol details relevant here:
+// ALS protocol details:
 //   - Client sends:  { id, method: 'agda', params: { tag: 'CmdReq', contents: 'IOTCM ...' } }
 //   - ALS replies:   { id, result: { tag: 'CmdRes', contents: null } }  (accepted)
-//   - ALS then sends a series of notifications, then a REQUEST with:
+//   - ALS then sends notifications, then a REQUEST:
 //                    { id, method: 'agda', params: { tag: 'ResponseEnd' } }
-//   - Client must ACK that request with { id, result: null } to unblock ALS.
-//   - After the ACK, ALS is ready for the next command.
-//   - Cmd_show_version emits a ResponseJSONRaw notification before ResponseEnd
-//     with params.contents = { kind: 'DisplayInfo', info: { kind: 'Version', version: '...' } }
-async function compileBuiltins(wasmPath, workDir) {
+//   - Client must ACK: { id, result: null }
+//   - Cmd_show_version emits a ResponseJSONRaw notification before ResponseEnd:
+//     params.contents = { kind: 'DisplayInfo', info: { kind: 'Version', version: '...' } }
+async function runAlsSession(wasmPath, workDir) {
+  // Step 1: Populate workDir with agda-data source
+  try {
+    console.log('Extracting agda-data source (als --setup)...')
+    runAlsSetup(wasmPath, workDir)
+    console.log('  done')
+  } catch {
+    // als --setup not available (Agda < 2.8.0); detect version and use Hackage
+    const versionForUrl = detectAgdaVersionFromFlag(wasmPath)
+    console.log(`  als --setup not available (Agda ${versionForUrl}); downloading from Hackage...`)
+    await downloadAgdaDataFromHackage(versionForUrl, workDir)
+    console.log('  done')
+  }
+
+  // Step 2: Start LSP session with workDir now populated
   const workerPath = join(tmpdir(), `als-setup-worker-${process.pid}.mjs`)
   await writeFile(workerPath, `
 import { readFile } from 'node:fs/promises'
@@ -167,9 +224,13 @@ try { wasi.start(inst) } catch(e) { if (!String(e).includes('exit')) throw e }
   await initDone
   send({ method: 'initialized', params: {} })
 
+  // Step 3: Get canonical Agda version
   const agdaVersion = await sendCmd('IOTCM "/source.agda" NonInteractive Direct Cmd_show_version')
   if (!agdaVersion) throw new Error('Cmd_show_version did not return a version')
+  console.log(`  Agda ${agdaVersion}`)
 
+  // Step 4: Compile all builtins
+  console.log('Compiling builtins via ALS WASM...')
   const primDir = join(workDir, 'lib', 'prim')
   const files = await findAgdaFiles(primDir)
   const vfsFiles = files.map(f => f.replace(workDir, ''))
@@ -201,14 +262,7 @@ async function main() {
 
   const tempDir = await mkdtemp(join(tmpdir(), 'als-setup-'))
   try {
-    // 1. Extract agda-data source via als --setup (fast, synchronous)
-    console.log('Extracting agda-data source (als --setup)...')
-    runAlsSetup(args.wasmPath, tempDir)
-    console.log('  done')
-
-    // 2. Compile builtins + read Agda version via LSP
-    console.log('Compiling builtins via ALS WASM...')
-    agdaVersion = await compileBuiltins(args.wasmPath, tempDir)
+    agdaVersion = await runAlsSession(args.wasmPath, tempDir)
 
     const alsDir = join(DEPLOY_ASSETS, 'als', agdaVersion)
     const agdaDataDir = join(alsDir, 'agda-data')
@@ -220,7 +274,6 @@ async function main() {
       process.exit(1)
     }
 
-    // 3. Install
     console.log(`Installing to ${relative(REPO_ROOT, alsDir)}/...`)
     if (await exists(agdaDataDir)) await rm(agdaDataDir, { recursive: true })
     await mkdir(join(agdaDataDir, 'lib', 'prim'), { recursive: true })
