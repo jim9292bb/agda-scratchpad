@@ -178,11 +178,11 @@ async function main() {
     // 5. ALS wasm and data
     await fetchFile(
       'https://github.com/agda-web/agda-language-server/releases/download/nightly-20260407/als-2.8.0.wasm',
-      join(DEPLOY_ASSETS, 'als', '2.8.0', 'als-2.8ext.wasm'),
+      join(DEPLOY_ASSETS, 'als', 'als-2.8ext', 'als-2.8ext.wasm'),
     )
     await fetchFlatZip(
       `${RELEASE}/agda-data.zip`,
-      join(DEPLOY_ASSETS, 'als', '2.8.0', 'agda-data'),
+      join(DEPLOY_ASSETS, 'als', 'als-2.8ext', 'agda-data'),
       workDir,
     )
 
