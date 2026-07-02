@@ -4,12 +4,9 @@ import type { WASMLoadingProgress, PerformanceEntry, DriveProxyStats } from '$li
 import { asset } from '$app/paths'
 import DEPLOY_CONFIG from '../../../deploy.config.json'
 import { GENERATED_LIBRARY_INFO } from '../../../deploy-assets/generated-libraries.mjs'
+import { GENERATED_ALS_INFO } from '../../../deploy-assets/generated-als-info.mjs'
 
-// Always this — not a per-version field, since unlike wasmFilename (which
-// must stay distinct per version if ever bundled together), every
-// version's agda-data.zip already lives under its own static/als/<version>/,
-// so there's no collision to avoid naming around. Also referenced
-// (independently, must match) by deploy-assets/build-static-assets.mjs.
+// Also referenced (independently, must match) by deploy-assets/build-static-assets.mjs.
 const AGDA_DATA_ZIP_NAME = 'agda-data.zip'
 
 // ── Deployment profiles ───────────────────────────────────────────────────────
@@ -56,25 +53,25 @@ export function resolveProfileLibraries(profile: DeployProfile): ResolvedLibrary
   const seenRaw = new Map<string, DeployProfile['libraries'][number]>()
   const resolved: ResolvedLibrary[] = []
   for (const lib of profile.libraries) {
-    const prevRaw = seenRaw.get(lib.name)
+    const prevRaw = seenRaw.get(lib.agdaLibPath)
     if (prevRaw && JSON.stringify(prevRaw) !== JSON.stringify(lib)) {
-      throw new Error(`deploy.config.json profile "${profile.id}" references library "${lib.name}" with two different specs (${JSON.stringify(prevRaw)} vs ${JSON.stringify(lib)}) — every reference to the same library name must describe the same library.`)
+      throw new Error(`deploy.config.json profile "${profile.label}" references agdaLibPath "${lib.agdaLibPath}" with two different specs (${JSON.stringify(prevRaw)} vs ${JSON.stringify(lib)}) — every reference to the same library must describe the same library.`)
     }
     if (prevRaw) continue
-    seenRaw.set(lib.name, lib)
+    seenRaw.set(lib.agdaLibPath, lib)
 
-    const info = GENERATED_LIBRARY_INFO[lib.name as keyof typeof GENERATED_LIBRARY_INFO]
+    const info = GENERATED_LIBRARY_INFO[lib.agdaLibPath as keyof typeof GENERATED_LIBRARY_INFO]
     if (!info) {
-      throw new Error(`deploy.config.json profile "${profile.id}" references library "${lib.name}" with no matching entry in deploy-assets/generated-libraries.mjs — run \`npm run setup\` after configuring deploy.local.json.`)
+      throw new Error(`deploy.config.json profile "${profile.label}" references agdaLibPath "${lib.agdaLibPath}" with no matching entry in deploy-assets/generated-libraries.mjs — run \`npm run setup\` after configuring deploy.config.json.`)
     }
     resolved.push({
-      name: lib.name,
+      name: info.name,
       label: lib.label,
       version: lib.version,
-      libKey: lib.name,
-      sourceZipAsset: asset(`/library/${lib.name}.zip`),
-      manifestAsset: asset(`/agdai/${lib.name}/agdai-manifest.json`),
-      archiveRootPrefix: lib.name,
+      libKey: info.name,
+      sourceZipAsset: asset(`/library/${info.name}.zip`),
+      manifestAsset: asset(`/agdai/${info.name}/agdai-manifest.json`),
+      archiveRootPrefix: info.name,
       includeSubpath: info.includeSubpath,
       agdaLibFile: info.agdaLibFilename,
       libraryName: info.libraryName,
@@ -89,7 +86,7 @@ export function resolveProfileLibraries(profile: DeployProfile): ResolvedLibrary
   for (const lib of resolved) {
     const prevLibKey = seenBy.get(lib.libraryName)
     if (prevLibKey) {
-      throw new Error(`deploy.config.json profile "${profile.id}" selects two libraries with the same libraryName "${lib.libraryName}" (${prevLibKey} and ${lib.libKey}) — Agda's depend: resolution between them would be ambiguous`)
+      throw new Error(`deploy.config.json profile "${profile.label}" selects two libraries with the same libraryName "${lib.libraryName}" (${prevLibKey} and ${lib.libKey}) — Agda's depend: resolution between them would be ambiguous`)
     }
     seenBy.set(lib.libraryName, lib.libKey)
   }
@@ -100,18 +97,21 @@ export function resolveProfileLibraries(profile: DeployProfile): ResolvedLibrary
 // Validated eagerly for every configured profile (not just the active
 // one) so a conflict fails at build/dev time, matching agdaVersionMap's
 // construction below.
+const seenProfileLabels = new Set<string>()
 for (const profile of deployProfiles) {
+  if (seenProfileLabels.has(profile.label))
+    throw new Error(`deploy.config.json has two profiles with the same label "${profile.label}" — labels must be unique`)
+  seenProfileLabels.add(profile.label)
   resolveProfileLibraries(profile)
 }
 
 // ── Agda version types and WASM manifest ─────────────────────────────────────
 //
-// Derived from the set of alsVersion values used across deployProfiles. No
-// separate ALS catalog to cross-reference any more — each profile's own
-// alsVersion+wasmFilename are already everything needed.
+// Derived from the set of `als` names used across deployProfiles.
+// wasmFilename comes from generated-als-info.mjs (built by generate-als-info.mjs).
 
 export const supportedAgdaVersions: readonly string[] =
-  [...new Set(deployProfiles.map(p => p.alsVersion))]
+  [...new Set(deployProfiles.map(p => p.als))]
 export type SupportedAgdaVersion = string
 
 interface AgdaVersionSpec {
@@ -119,22 +119,16 @@ interface AgdaVersionSpec {
   dataPath: string
 }
 
-// Throws if the same alsVersion is referenced more than once with a
-// different wasmFilename — that would mean two different ALS builds are
-// trying to claim the same version number.
 export const agdaVersionMap: Record<SupportedAgdaVersion, AgdaVersionSpec> = Object.create(null)
-const seenWasmFilenameByVersion = new Map<string, string>()
 for (const profile of deployProfiles) {
-  const { alsVersion, wasmFilename } = profile
-  const prevWasmFilename = seenWasmFilenameByVersion.get(alsVersion)
-  if (prevWasmFilename && prevWasmFilename !== wasmFilename) {
-    throw new Error(`deploy.config.json: alsVersion "${alsVersion}" is referenced with two different wasmFilename values (${prevWasmFilename} vs ${wasmFilename}) — every reference to the same alsVersion must describe the same ALS build.`)
-  }
-  if (prevWasmFilename) continue
-  seenWasmFilenameByVersion.set(alsVersion, wasmFilename)
-  agdaVersionMap[alsVersion] = {
-    path: asset(`/als/${alsVersion}/${wasmFilename}`),
-    dataPath: asset(`/als/${alsVersion}/${AGDA_DATA_ZIP_NAME}`),
+  const { als } = profile
+  if (als in agdaVersionMap) continue
+  const alsInfo = GENERATED_ALS_INFO[als as keyof typeof GENERATED_ALS_INFO]
+  if (!alsInfo)
+    throw new Error(`deploy.config.json profile "${profile.label}" references als "${als}" with no entry in deploy-assets/generated-als-info.mjs — run \`npm run setup\`.`)
+  agdaVersionMap[als] = {
+    path: asset(`/als/${als}/${alsInfo.wasmFilename}`),
+    dataPath: asset(`/als/${als}/${AGDA_DATA_ZIP_NAME}`),
   }
 }
 

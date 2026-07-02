@@ -23,11 +23,11 @@
     // Outside src/, but imported by src/lib/runtime/interface.ts at build
     // time. The rest of deploy-assets/ is Node-only build tooling, not part
     // of the app bundle, and isn't covered by any tsconfig (same as scripts/).
-    // generated-libraries.mjs doesn't exist until `npm run setup` (or the
-    // predev/precheck/prebuild package.json hooks) generate it — gitignored,
-    // see deploy-assets/generate-library-info.mjs.
+    // Both generated-*.mjs files don't exist until `npm run setup` (or the
+    // predev/precheck/prebuild package.json hooks) generate them — gitignored.
     "../deploy.config.json",
-    "../deploy-assets/generated-libraries.mjs"
+    "../deploy-assets/generated-libraries.mjs",
+    "../deploy-assets/generated-als-info.mjs"
   ],
   "exclude": [
     // copied from .svelte-kit/tsconfig.json

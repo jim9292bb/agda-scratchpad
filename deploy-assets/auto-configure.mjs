@@ -114,16 +114,17 @@ async function ensureDeployConfig(libraries) {
     return
   }
   const example = JSON.parse(await readFile(join(REPO_ROOT, 'deploy.config.example.json'), 'utf8'))
-  const libByName = new Map(libraries.map(l => [l.name, l]))
-  const config = {
-    ...example,
-    libraries: (example.libraries ?? []).map(entry => {
-      const downloaded = libByName.get(entry.name)
-      return downloaded
-        ? { name: entry.name, agdaLibPath: downloaded.agdaLibPath, useAgdai: true }
-        : entry
+  // Match downloaded library by the .agda-lib filename at the end of the placeholder path
+  const { basename } = await import('node:path')
+  const libByFilename = new Map(libraries.map(l => [basename(l.agdaLibPath), l]))
+  const profiles = example.profiles.map(profile => ({
+    ...profile,
+    libraries: profile.libraries.map(lib => {
+      const downloaded = libByFilename.get(basename(lib.agdaLibPath ?? ''))
+      return downloaded ? { ...lib, agdaLibPath: downloaded.agdaLibPath, useAgdai: true } : lib
     }),
-  }
+  }))
+  const config = { ...example, profiles }
   await writeFile(configPath, JSON.stringify(config, null, 2) + '\n')
   console.log(`  created deploy.config.json`)
 }

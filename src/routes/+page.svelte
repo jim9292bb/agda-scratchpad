@@ -78,15 +78,15 @@ $effect(() => {
 function runtimeSummary() {
   const profile = agdaController.activeProfile
   return [
-    { label: 'Agda runtime', value: `v${profile.alsVersion}` },
-    ...profile.libraries.map(lib => ({ label: lib.label ?? lib.name, value: lib.version ? `v${lib.version}` : lib.name })),
+    { label: 'Agda runtime', value: profile.als },
+    ...resolveProfileLibraries(profile).map(lib => ({ label: lib.label ?? lib.name, value: lib.version ? `v${lib.version}` : lib.name })),
   ]
 }
 
-/** @param {string} profileId */
-async function onDeploymentProfileChange(profileId) {
+/** @param {string} profileLabel */
+async function onDeploymentProfileChange(profileLabel) {
   try {
-    await agdaController.switchProfile(profileId)
+    await agdaController.switchProfile(profileLabel)
   } catch (err) {
     textboxContent += `Failed to switch environment: ${err instanceof Error ? err.message : String(err)}\n`
   }
@@ -1398,11 +1398,11 @@ $effect(() => {
         <label for="control-card-profile-select">Environment</label>
         <select
           id="control-card-profile-select"
-          value={agdaController.selectedProfileId}
+          value={agdaController.selectedProfileLabel}
           disabled={agdaController.alsWorkerStatus === 'loading' || agdaController.alsWorkerStatus === 'deactivating'}
           onchange={(e) => onDeploymentProfileChange(e.currentTarget.value)}>
           {#each deployProfiles as profile}
-            <option value={profile.id}>{profile.label}</option>
+            <option value={profile.label}>{profile.label}</option>
           {/each}
         </select>
       </div>

@@ -110,10 +110,10 @@ export class AgdaController {
 
   /** Which deploy.config.json profile (ALS version + library set) is currently active.
    *  Switching requires a session restart — see switchProfile(). */
-  selectedProfileId = $state<string>(deployProfiles[0]?.id ?? '')
+  selectedProfileLabel = $state<string>(deployProfiles[0]?.label ?? '')
 
   get activeProfile(): DeployProfile {
-    return deployProfiles.find(p => p.id === this.selectedProfileId) ?? deployProfiles[0]
+    return deployProfiles.find(p => p.label === this.selectedProfileLabel) ?? deployProfiles[0]
   }
 
   appendQueryResult(label: string, content: string) {
@@ -135,7 +135,7 @@ export class AgdaController {
   private _ensureBackend(): RuntimeBackend {
     if (!this._backend) {
       this._backend = new BrowserWasiShimRuntimeBackend(
-        this.config.agdaBuffers, this.config.driveBuffers, this.activeProfile.alsVersion)
+        this.config.agdaBuffers, this.config.driveBuffers, this.activeProfile.als)
     }
     return this._backend
   }
@@ -214,7 +214,7 @@ export class AgdaController {
     this.performanceEntries = []
 
     const port1 = await backend.init({
-      agdaVersion: this.activeProfile.alsVersion,
+      agdaVersion: this.activeProfile.als,
       libraries: resolveProfileLibraries(this.activeProfile),
       agdaBuffers: this.config.agdaBuffers,
       driveBuffers: this.config.driveBuffers,
@@ -247,10 +247,10 @@ export class AgdaController {
 
   /** Switches to a different deploy.config.json profile (ALS version + library set).
    *  Always restarts: a new WASM instance and VFS are needed either way. */
-  async switchProfile(profileId: string) {
-    if (profileId === this.selectedProfileId) return
-    if (!deployProfiles.some(p => p.id === profileId)) {
-      throw new Error(`unknown environment id: ${profileId}`)
+  async switchProfile(profileLabel: string) {
+    if (profileLabel === this.selectedProfileLabel) return
+    if (!deployProfiles.some(p => p.label === profileLabel)) {
+      throw new Error(`unknown environment: ${profileLabel}`)
     }
 
     if (this.alsWorkerStatus === 'active') {
@@ -259,7 +259,7 @@ export class AgdaController {
     this.terminateALSWASM()
     this._backend = undefined
     this.alsWorkerStatus = 'initial'
-    this.selectedProfileId = profileId
+    this.selectedProfileLabel = profileLabel
 
     await new Promise(r => setTimeout(r))
     return this.startALSWASM()

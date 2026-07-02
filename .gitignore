@@ -33,6 +33,7 @@ vite.config.js.timestamp-*
 # Generated from the real .agda-lib files (see
 # deploy-assets/generate-library-info.mjs) — not committed.
 /deploy-assets/generated-libraries.mjs
+/deploy-assets/generated-als-info.mjs
 
 /experiments/build-library/results/*.zip
 

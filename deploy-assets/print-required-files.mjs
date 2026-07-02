@@ -1,9 +1,8 @@
 /**
  * Verifies that everything needed for `npm run setup` is present:
  *   - Each configured library's .agda-lib file (confirms the source is
- *     reachable at the agdaLibPath in deploy.local.json).
- *   - Each ALS version's wasm file (confirmed to report the expected version
- *     via --version) and agda-data/ directory.
+ *     reachable at the agdaLibPath in deploy.config.json).
+ *   - Each ALS version's wasm file and agda-data/ directory.
  *
  * Libraries with useAgdai: true that are missing their cache (.agdai files
  * or manifest) get a non-fatal warning — the library still works, just
@@ -15,12 +14,10 @@
  */
 
 import { access } from 'node:fs/promises'
-import { execFileSync } from 'node:child_process'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import { REPO_ROOT, getLocalLibraries, getSelectedAlsVersions } from './resolve-deploy-config.mjs'
 
 const DEPLOY_ASSETS = join(REPO_ROOT, 'deploy-assets')
-const RUN_ALS_VERSION_SCRIPT = join(DEPLOY_ASSETS, 'run-als-version.mjs')
 
 async function exists(path) {
   try {
@@ -31,29 +28,18 @@ async function exists(path) {
   }
 }
 
-function tryGetWasmVersionString(wasmPath) {
-  try {
-    return execFileSync(process.execPath, [RUN_ALS_VERSION_SCRIPT, wasmPath], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim()
-  } catch {
-    return null
-  }
-}
-
 async function main() {
   let missing = false
   const libs = getLocalLibraries()
 
   if (libs.length === 0) {
-    console.error('No libraries configured — create deploy.local.json from deploy.local.example.json and set agdaLibPath for each library.')
+    console.error('No libraries configured — set agdaLibPath in each profile\'s libraries in deploy.config.json.')
     process.exit(1)
   }
 
   for (const lib of libs) {
     if (!(await exists(lib.agdaLibPath))) {
-      console.error(`MISSING: ${lib.agdaLibPath}  (library "${lib.name}" — check agdaLibPath in deploy.local.json)`)
+      console.error(`MISSING: ${lib.agdaLibPath}  (library "${lib.name}" — check agdaLibPath in deploy.config.json)`)
       missing = true
     }
 
@@ -73,12 +59,6 @@ async function main() {
     if (!(await exists(wasmPath))) {
       console.error(`MISSING: deploy-assets/als/${als.version}/${als.wasmFilename}`)
       missing = true
-    } else {
-      const versionString = tryGetWasmVersionString(wasmPath)
-      if (!versionString || !versionString.includes(`Agda v${als.version}`)) {
-        console.error(`MISMATCH: deploy-assets/als/${als.version}/${als.wasmFilename} reports itself as "${versionString ?? '(could not run it)'}", but deploy.config.json's alsVersion for it is "${als.version}" — these must match.`)
-        missing = true
-      }
     }
     if (!(await exists(join(alsRoot, 'agda-data')))) {
       console.error(`MISSING: deploy-assets/als/${als.version}/agda-data/`)
@@ -90,7 +70,7 @@ async function main() {
     console.error('')
     console.error('Some required files are missing. Either:')
     console.error("  - run 'npm run auto-configure' to fetch this project's own shipped defaults, or")
-    console.error('  - configure deploy.local.json with paths to your installed libraries (see deploy.local.example.json)')
+    console.error('  - set agdaLibPath in deploy.config.json (see deploy.config.example.json) and run npm run install-als')
     process.exit(1)
   }
 }

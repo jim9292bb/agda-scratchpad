@@ -7,9 +7,11 @@
  * 4. Installs agda-data/ and the .wasm file into deploy-assets/als/<version>/
  *
  * Usage:
- *   node deploy-assets/install-als.mjs <path-to-als.wasm> [--force]
+ *   node deploy-assets/install-als.mjs <path-to-als.wasm> [--name <id>] [--force]
  *
- * --force overwrites an existing deploy-assets/als/<version>/ directory.
+ * --name sets the primary key used as the directory name under deploy-assets/als/
+ *        and as alsVersion in deploy.config.json. Defaults to the detected Agda version.
+ * --force overwrites an existing deploy-assets/als/<name>/ directory.
  */
 
 import { writeFile, mkdir, cp, rm, mkdtemp, access, readdir } from 'node:fs/promises'
@@ -22,14 +24,15 @@ import { REPO_ROOT } from './resolve-deploy-config.mjs'
 const DEPLOY_ASSETS = dirname(fileURLToPath(import.meta.url))
 
 function parseArgs(argv) {
-  const args = { wasmPath: null, force: false }
+  const args = { wasmPath: null, name: null, force: false }
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--force') args.force = true
+    else if (argv[i] === '--name') args.name = argv[++i]
     else if (!args.wasmPath) args.wasmPath = resolve(argv[i])
     else { console.error(`unknown argument: ${argv[i]}`); process.exit(1) }
   }
   if (!args.wasmPath) {
-    console.error('usage: node deploy-assets/install-als.mjs <path-to-als.wasm> [--force]')
+    console.error('usage: node deploy-assets/install-als.mjs <path-to-als.wasm> [--name <id>] [--force]')
     process.exit(1)
   }
   return args
@@ -220,9 +223,10 @@ async function main() {
 
   console.log('Detecting Agda version...')
   const agdaVersion = detectAgdaVersion(args.wasmPath)
-  console.log(`  Agda ${agdaVersion}`)
+  const alsName = args.name ?? agdaVersion
+  console.log(`  Agda ${agdaVersion}${alsName !== agdaVersion ? ` (name: ${alsName})` : ''}`)
 
-  const alsDir = join(DEPLOY_ASSETS, 'als', agdaVersion)
+  const alsDir = join(DEPLOY_ASSETS, 'als', alsName)
   const agdaDataDir = join(alsDir, 'agda-data')
   const destWasm = join(alsDir, wasmFilename)
 
@@ -255,8 +259,7 @@ async function main() {
 
   console.log('\nDone.')
   console.log(`\nAdd to each profile in deploy.config.json:`)
-  console.log(`  "alsVersion": ${JSON.stringify(agdaVersion)},`)
-  console.log(`  "wasmFilename": ${JSON.stringify(wasmFilename)}`)
+  console.log(`  "als": ${JSON.stringify(alsName)},`)
 }
 
 main().catch(err => { console.error(err.message ?? err); process.exit(1) })

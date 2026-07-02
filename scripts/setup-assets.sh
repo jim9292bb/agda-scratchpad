@@ -20,6 +20,9 @@ node "$DEPLOY_ASSETS/print-required-files.mjs"
 echo "Generating deploy-assets/generated-libraries.mjs from placed .agda-lib files..."
 node "$DEPLOY_ASSETS/generate-library-info.mjs"
 
+echo "Generating deploy-assets/generated-als-info.mjs from deploy-assets/als/ contents..."
+node "$DEPLOY_ASSETS/generate-als-info.mjs"
+
 echo "Building static/ from deploy-assets/{library,als}/..."
 node "$DEPLOY_ASSETS/build-static-assets.mjs"
 

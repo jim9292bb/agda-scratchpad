@@ -15,10 +15,11 @@
  *                     runs even if deploy.config.json is recreated.
  */
 
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs'
 import { randomBytes } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { parseAgdaLibName } from './agda-lib-utils.mjs'
 
 export const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -63,36 +64,39 @@ function ensureCacheId(agdaLibPath, index) {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
- * Deduplicated ALS versions referenced by any configured profile.
- * Throws if the same alsVersion is used with two different wasmFilenames.
+ * Deduplicated ALS names referenced by any configured profile.
+ * wasmFilename is discovered by scanning deploy-assets/als/<als>/ for a .wasm file.
+ * Returns { version: alsName, wasmFilename } pairs.
  */
 export function getSelectedAlsVersions() {
   const { profiles } = readDeployConfig()
-  const seenRaw = new Map()
-  const resolved = new Map()
+  const seen = new Set()
+  const result = []
   for (const profile of profiles) {
-    const { alsVersion, wasmFilename } = profile
-    const prev = seenRaw.get(alsVersion)
-    if (prev && prev !== wasmFilename) {
-      throw new Error(`deploy.config.json: alsVersion "${alsVersion}" is referenced with two different wasmFilename values (${prev} vs ${wasmFilename})`)
-    }
-    if (!prev) {
-      seenRaw.set(alsVersion, wasmFilename)
-      resolved.set(alsVersion, { version: alsVersion, wasmFilename })
-    }
+    const { als } = profile
+    if (!als || seen.has(als)) continue
+    seen.add(als)
+    const alsDir = join(REPO_ROOT, 'deploy-assets', 'als', als)
+    let wasmFilename
+    try {
+      wasmFilename = readdirSync(alsDir).find(f => f.endsWith('.wasm'))
+    } catch {}
+    result.push({ version: als, wasmFilename: wasmFilename ?? '' })
   }
-  return [...resolved.values()]
+  return result
 }
 
 /**
- * All libraries that appear in any profile AND have an entry in
- * deploy.config.json's `libraries` array with a non-empty agdaLibPath.
+ * All libraries that appear in any profile whose .agda-lib file is readable.
  * Each entry has:
  *   name        — the .agda-lib `name:` value (identifier + static-asset key)
- *   agdaLibPath — absolute OS path to the .agda-lib file
- *   useAgdai    — whether to generate/serve .agdai cache (default false)
+ *   agdaLibPath — absolute OS path to the .agda-lib file (primary key in profiles)
+ *   useAgdai    — true if any profile's library entry has useAgdai: true
  *   cacheId     — stable random ID for deploy-assets/.cache/<cacheId>/
  *   cacheDir    — absolute path to that cache directory
+ *
+ * `name` is read directly from the .agda-lib file at agdaLibPath.
+ * `useAgdai` is ORed across all profile entries that share the same agdaLibPath.
  *
  * Also prunes any index entry whose agdaLibPath is no longer in the
  * config, to keep the index tidy.
@@ -102,27 +106,36 @@ export function getLocalLibraries() {
   const index = readCacheIndex()
   let dirty = false
 
-  // All library names referenced in any profile
-  const profileNames = new Set()
+  // Collect agdaLibPath entries from all profiles; OR useAgdai across profiles
+  const profileLibsByPath = new Map()
   for (const profile of config.profiles) {
-    for (const lib of profile.libraries) profileNames.add(lib.name)
+    for (const lib of profile.libraries) {
+      if (!lib.agdaLibPath) continue
+      const existing = profileLibsByPath.get(lib.agdaLibPath)
+      if (existing) {
+        existing.useAgdai = existing.useAgdai || (lib.useAgdai ?? false)
+      } else {
+        profileLibsByPath.set(lib.agdaLibPath, { useAgdai: lib.useAgdai ?? false })
+      }
+    }
   }
 
-  const localByName = new Map((config.libraries ?? []).map(l => [l.name, l]))
   const activeAgdaLibPaths = new Set()
   const result = []
 
-  for (const name of profileNames) {
-    const entry = localByName.get(name)
-    if (!entry?.agdaLibPath) continue
-    activeAgdaLibPaths.add(entry.agdaLibPath)
-    if (ensureCacheId(entry.agdaLibPath, index)) dirty = true
+  for (const [agdaLibPath, libInfo] of profileLibsByPath) {
+    let src
+    try { src = readFileSync(agdaLibPath, 'utf8') } catch { continue }
+    const name = parseAgdaLibName(src)
+    if (!name) continue
+    activeAgdaLibPaths.add(agdaLibPath)
+    if (ensureCacheId(agdaLibPath, index)) dirty = true
     result.push({
       name,
-      agdaLibPath: entry.agdaLibPath,
-      useAgdai: entry.useAgdai ?? false,
-      cacheId: index[entry.agdaLibPath],
-      cacheDir: join(CACHE_DIR, index[entry.agdaLibPath]),
+      agdaLibPath,
+      useAgdai: libInfo.useAgdai,
+      cacheId: index[agdaLibPath],
+      cacheDir: join(CACHE_DIR, index[agdaLibPath]),
     })
   }
 
