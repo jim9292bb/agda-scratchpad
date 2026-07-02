@@ -137,6 +137,7 @@ try { wasi.start(inst) } catch(e) { if (!String(e).includes('exit')) throw e }
   }
 
   let inBuf = ''
+  let capturedVersion = null
   let pendingResolve = null
   let initResolve = null
   const initId = nextId++
@@ -158,28 +159,37 @@ try { wasi.start(inst) } catch(e) { if (!String(e).includes('exit')) throw e }
           initResolve(); initResolve = null
         }
         if (msg.id != null && msg.method === 'agda') {
+          const { tag, contents } = msg.params ?? {}
+          if (tag === 'ResponseJSONRaw' &&
+              contents?.kind === 'DisplayInfo' &&
+              contents?.info?.kind === 'Version') {
+            capturedVersion = contents.info.version
+          }
           send({ id: msg.id, result: null })
-          if (msg.params?.tag === 'ResponseEnd' && pendingResolve) {
-            pendingResolve(); pendingResolve = null
+          if (tag === 'ResponseEnd' && pendingResolve) {
+            const resolve = pendingResolve
+            const version = capturedVersion
+            pendingResolve = null
+            capturedVersion = null
+            resolve(version)
           }
         }
       } catch {}
     }
   })
 
-  const cmdLoad = file => new Promise((resolve, reject) => {
+  const sendCmd = contents => new Promise((resolve, reject) => {
     pendingResolve = resolve
-    const f = JSON.stringify(file)
-    send({ id: nextId++, method: 'agda', params: {
-      tag: 'CmdReq',
-      contents: `IOTCM ${f} NonInteractive Direct (Cmd_load ${f} [])`,
-    }})
-    setTimeout(() => reject(new Error(`timeout compiling ${file}`)), 120_000)
+    send({ id: nextId++, method: 'agda', params: { tag: 'CmdReq', contents } })
+    setTimeout(() => reject(new Error(`timeout: ${contents.slice(0, 60)}`)), 120_000)
   })
 
   send({ id: initId, method: 'initialize', params: { processId: null, rootUri: null, capabilities: {} } })
   await initDone
   send({ method: 'initialized', params: {} })
+
+  const lspVersion = await sendCmd('IOTCM "/source.agda" NonInteractive Direct Cmd_show_version')
+  if (!lspVersion) throw new Error('Cmd_show_version did not return a version')
 
   const primDir = join(workDir, 'lib', 'prim')
   const files = await findAgdaFiles(primDir)
@@ -187,7 +197,7 @@ try { wasi.start(inst) } catch(e) { if (!String(e).includes('exit')) throw e }
 
   const t0 = performance.now()
   for (let i = 0; i < vfsFiles.length; i++) {
-    await cmdLoad(vfsFiles[i])
+    await sendCmd(`IOTCM ${JSON.stringify(vfsFiles[i])} NonInteractive Direct (Cmd_load ${JSON.stringify(vfsFiles[i])} [])`)
     process.stdout.write(`\r  ${i + 1}/${vfsFiles.length}`)
   }
   const elapsed = ((performance.now() - t0) / 1000).toFixed(1)
@@ -195,6 +205,7 @@ try { wasi.start(inst) } catch(e) { if (!String(e).includes('exit')) throw e }
 
   child.kill()
   await rm(workerPath, { force: true })
+  return lspVersion
 }
 
 async function main() {
@@ -228,7 +239,9 @@ async function main() {
     console.log('  done')
 
     console.log('Compiling builtins via ALS WASM...')
-    await compileBuiltins(args.wasmPath, tempDir)
+    const lspVersion = await compileBuiltins(args.wasmPath, tempDir)
+    if (lspVersion !== agdaVersion)
+      throw new Error(`version mismatch: als --version reported "${agdaVersion}" but Cmd_show_version returned "${lspVersion}"`)
 
     console.log(`Installing to ${relative(REPO_ROOT, alsDir)}/...`)
     if (await exists(agdaDataDir)) await rm(agdaDataDir, { recursive: true })
